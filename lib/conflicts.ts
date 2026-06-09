@@ -67,5 +67,17 @@ export async function getMonthlyConflicts(year: number, month: number) {
     HAVING COUNT(DISTINCT site_id) > 1
   `
 
-  return { eqConflicts, staffConflicts }
+  // BigInt จาก COUNT(*) ไม่สามารถ JSON.stringify ได้ ต้อง convert เป็น Number ก่อน
+  return {
+    eqConflicts: eqConflicts.map((r) => ({
+      equipment_id:  r.equipment_id,
+      assigned_date: r.assigned_date,
+      cnt:           Number(r.cnt),
+    })),
+    staffConflicts: staffConflicts.map((r) => ({
+      employee_id:   r.employee_id,
+      assigned_date: r.assigned_date,
+      site_count:    Number(r.site_count),
+    })),
+  }
 }
