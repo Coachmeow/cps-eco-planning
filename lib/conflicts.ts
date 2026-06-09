@@ -45,39 +45,52 @@ export async function getMonthlyConflicts(year: number, month: number) {
   const startDate = new Date(year, month - 1, 1)
   const endDate   = new Date(year, month, 0)
 
-  const eqConflicts = await prisma.$queryRaw<
-    { equipment_id: number; assigned_date: Date; cnt: bigint }[]
-  >`
-    SELECT equipment_id, assigned_date, COUNT(*) as cnt
-    FROM equipment_assignments
-    WHERE assigned_date BETWEEN ${startDate} AND ${endDate}
-    GROUP BY equipment_id, assigned_date
-    HAVING COUNT(*) > 1
-  `
+  // ── Equipment conflicts: same equipment, same day, >1 assignment ──────────
+  const eqGroups = await prisma.equipmentAssignment.groupBy({
+    by:    ['equipmentId', 'assignedDate'],
+    where: { assignedDate: { gte: startDate, lte: endDate } },
+    _count: { id: true },
+  })
+  const eqConflicts = eqGroups
+    .filter((g) => g._count.id > 1)
+    .map((g) => ({
+      equipment_id:  g.equipmentId,
+      assigned_date: g.assignedDate,
+      cnt:           g._count.id,
+    }))
 
-  const staffConflicts = await prisma.$queryRaw<
-    { employee_id: number; assigned_date: Date; site_count: bigint }[]
-  >`
-    SELECT employee_id, assigned_date, COUNT(DISTINCT site_id) as site_count
-    FROM staff_assignments
-    WHERE assigned_date BETWEEN ${startDate} AND ${endDate}
-      AND status = 'FIELD'
-      AND site_id IS NOT NULL
-    GROUP BY employee_id, assigned_date
-    HAVING COUNT(DISTINCT site_id) > 1
-  `
+  // ── Staff conflicts: same employee, same day, different sites ─────────────
+  const staffAssignments = await prisma.staffAssignment.findMany({
+    where: {
+      assignedDate: { gte: startDate, lte: endDate },
+      status:       'FIELD',
+      siteId:       { not: null },
+    },
+    select: { employeeId: true, assignedDate: true, siteId: true },
+  })
 
-  // BigInt จาก COUNT(*) ไม่สามารถ JSON.stringify ได้ ต้อง convert เป็น Number ก่อน
-  return {
-    eqConflicts: eqConflicts.map((r) => ({
-      equipment_id:  r.equipment_id,
-      assigned_date: r.assigned_date,
-      cnt:           Number(r.cnt),
-    })),
-    staffConflicts: staffConflicts.map((r) => ({
-      employee_id:   r.employee_id,
-      assigned_date: r.assigned_date,
-      site_count:    Number(r.site_count),
-    })),
+  // group by employeeId+date และนับ distinct siteIds ใน JS
+  const siteMap = new Map<string, Set<number>>()
+  for (const a of staffAssignments) {
+    const dateKey = a.assignedDate instanceof Date
+      ? a.assignedDate.toISOString().slice(0, 10)
+      : String(a.assignedDate).slice(0, 10)
+    const key = `${a.employeeId}__${dateKey}`
+    if (!siteMap.has(key)) siteMap.set(key, new Set())
+    if (a.siteId != null) siteMap.get(key)!.add(a.siteId)
   }
+
+  const staffConflicts: { employee_id: number; assigned_date: string; site_count: number }[] = []
+  for (const [key, sites] of siteMap.entries()) {
+    if (sites.size > 1) {
+      const [empId, dateStr] = key.split('__')
+      staffConflicts.push({
+        employee_id:   Number(empId),
+        assigned_date: dateStr,
+        site_count:    sites.size,
+      })
+    }
+  }
+
+  return { eqConflicts, staffConflicts }
 }

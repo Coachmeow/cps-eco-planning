@@ -47,22 +47,32 @@ export async function GET(req: NextRequest) {
     _sum:  { estimatedDays: true },
   })
 
-  const ownCapRaw = await prisma.$queryRaw<
-    { service_type_id: number; days: number }[]
-  >`
-    SELECT sa.service_type_id, SUM(sa.estimated_days)::float AS days
-    FROM staff_assignments sa
-    JOIN employees e ON e.id = sa.employee_id
-    WHERE sa.assigned_date BETWEEN ${startDate} AND ${endDate}
-      AND sa.status = 'FIELD'
-      AND sa.parent_id IS NULL
-      AND sa.service_type_id = e.primary_team_id
-    GROUP BY sa.service_type_id
-  `
+  // own-cap: assignments ที่ employee ทำงานให้ทีมตัวเอง (serviceTypeId === primaryTeamId)
+  // ใช้ Prisma ORM แทน raw SQL เพื่อหลีกเลี่ยงปัญหา camelCase vs snake_case column name
+  const ownCapAssignments = await prisma.staffAssignment.findMany({
+    where: {
+      assignedDate:  { gte: startDate, lte: endDate },
+      status:        'FIELD',
+      parentId:      null,
+      serviceTypeId: { not: null },
+    },
+    select: {
+      serviceTypeId: true,
+      estimatedDays: true,
+      employee:      { select: { primaryTeamId: true } },
+    },
+  })
+
+  const ownCapMap = new Map<number, number>()
+  for (const sa of ownCapAssignments) {
+    if (sa.serviceTypeId != null && sa.serviceTypeId === sa.employee.primaryTeamId) {
+      ownCapMap.set(sa.serviceTypeId, (ownCapMap.get(sa.serviceTypeId) ?? 0) + Number(sa.estimatedDays))
+    }
+  }
 
   const teamWorkload = teams.map((t) => {
     const demand  = Number(demandRaw.find((d) => d.serviceTypeId === t.id)?._sum.estimatedDays ?? 0)
-    const ownCap  = Number(ownCapRaw.find((d) => d.service_type_id === t.id)?.days ?? 0)
+    const ownCap  = ownCapMap.get(t.id) ?? 0
     const crossIn = Math.max(0, demand - ownCap)
     return { teamId: t.id, teamCode: t.code, teamName: t.name, demand, ownCap, crossIn }
   }).filter((t) => t.demand > 0)
