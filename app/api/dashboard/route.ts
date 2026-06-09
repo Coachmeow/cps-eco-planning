@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { countWorkdays } from '@/lib/workdays'
+import { Prisma } from '@prisma/client'
+
+type EqTypeWithEquipment = Prisma.EquipmentTypeGetPayload<{
+  include: {
+    equipment: {
+      include: { assignments: true }
+    }
+  }
+}>
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -20,7 +29,7 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  const equipmentUtil = eqTypes.map((t) => {
+  const equipmentUtil = (eqTypes as EqTypeWithEquipment[]).map((t) => {
     const own    = t.equipment.filter((e) => !e.isRental)
     const rental = t.equipment.filter((e) => e.isRental)
     const ownAssigned    = own.reduce((s, e) => s + e.assignments.length, 0)
