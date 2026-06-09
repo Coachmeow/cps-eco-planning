@@ -48,7 +48,7 @@ export default function StaffCalendar() {
   const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
 
-  const { employees, calendarData, conflicts, sites, teams, loading, addAssignment, removeAssignment } =
+  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, removeAssignment } =
     useStaffCalendar(year, month)
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
@@ -88,6 +88,14 @@ export default function StaffCalendar() {
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
+      ) : error ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 max-w-xl w-full">
+            <p className="text-sm font-semibold text-red-700 mb-1">⚠ โหลดข้อมูลไม่สำเร็จ</p>
+            <p className="text-xs text-red-600 font-mono break-all">{error}</p>
+          </div>
+          <p className="text-xs text-slate-400">ตรวจสอบ Railway logs หรือรัน seed data แล้วลอง refresh</p>
+        </div>
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="border-collapse text-xs">

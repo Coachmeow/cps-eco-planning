@@ -27,34 +27,56 @@ export function useStaffCalendar(year: number, month: number) {
   const [sites,       setSites]       = useState<Site[]>([])
   const [teams,       setTeams]       = useState<ServiceTeam[]>([])
   const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
 
   const calendarData = buildCalendarData(assignments)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const qs = `year=${year}&month=${month}`
-    const [empRes, asgRes, cflRes, siteRes, teamRes] = await Promise.all([
-      fetch('/api/employees'),
-      fetch(`/api/staff-assignments?${qs}`),
-      fetch(`/api/conflicts?${qs}`),
-      fetch('/api/sites'),
-      fetch('/api/teams'),
-    ])
-    const [emp, asg, cfl, site, team] = await Promise.all([
-      empRes.json(), asgRes.json(), cflRes.json(), siteRes.json(), teamRes.json(),
-    ])
-    setEmployees(emp)
-    setAssignments(asg)
-    setConflicts({
-      staffConflicts: new Set(
-        (cfl.staffConflicts ?? []).map((c: { employee_id: number; assigned_date: string }) =>
-          `${c.employee_id}-${toDateKey(c.assigned_date)}`)
-      ),
-      equipmentConflicts: new Set(),
-    })
-    setSites(site)
-    setTeams(team)
-    setLoading(false)
+    setError(null)
+    try {
+      const qs = `year=${year}&month=${month}`
+      const [empRes, asgRes, cflRes, siteRes, teamRes] = await Promise.all([
+        fetch('/api/employees'),
+        fetch(`/api/staff-assignments?${qs}`),
+        fetch(`/api/conflicts?${qs}`),
+        fetch('/api/sites'),
+        fetch('/api/teams'),
+      ])
+
+      // ถ้า response ไม่ใช่ 2xx ให้ throw error พร้อม body
+      for (const [name, res] of [['employees', empRes], ['staff-assignments', asgRes], ['conflicts', cflRes], ['sites', siteRes], ['teams', teamRes]] as [string, Response][]) {
+        if (!res.ok) {
+          const text = await res.text()
+          throw new Error(`API /${name} failed (${res.status}): ${text.slice(0, 200)}`)
+        }
+      }
+
+      const [emp, asg, cfl, site, team] = await Promise.all([
+        empRes.json(), asgRes.json(), cflRes.json(), siteRes.json(), teamRes.json(),
+      ])
+      setEmployees(Array.isArray(emp) ? emp : [])
+      setAssignments(Array.isArray(asg) ? asg : [])
+      setConflicts({
+        staffConflicts: new Set(
+          (cfl.staffConflicts ?? []).map((c: { employee_id: number; assigned_date: string }) =>
+            `${c.employee_id}-${toDateKey(c.assigned_date)}`)
+        ),
+        equipmentConflicts: new Set(),
+      })
+      setSites(Array.isArray(site) ? site : [])
+      setTeams(Array.isArray(team) ? team : [])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[useStaffCalendar] fetchAll error:', msg)
+      setError(msg)
+      setEmployees([])
+      setAssignments([])
+      setSites([])
+      setTeams([])
+    } finally {
+      setLoading(false)
+    }
   }, [year, month])
 
   useEffect(() => { fetchAll() }, [fetchAll])
@@ -74,5 +96,5 @@ export function useStaffCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
-  return { employees, calendarData, conflicts, sites, teams, loading, addAssignment, removeAssignment }
+  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, removeAssignment }
 }
