@@ -1,0 +1,34 @@
+'use client'
+
+import type { EquipmentAssignment } from '@/lib/types'
+
+function cellStyle(assignments: EquipmentAssignment[], isConflict: boolean): string {
+  if (isConflict) return 'bg-red-50 border border-red-300'
+  if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
+  return 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+}
+
+interface Props {
+  assignments: EquipmentAssignment[]
+  isConflict:  boolean
+  isWeekend:   boolean
+  onClick:     () => void
+}
+
+export default function EquipmentCell({ assignments, isConflict, isWeekend, onClick }: Props) {
+  const base  = cellStyle(assignments, isConflict)
+  const extra = isWeekend && assignments.length === 0 ? 'bg-slate-50' : ''
+  return (
+    <td onClick={onClick} className={`relative h-10 min-w-[56px] max-w-[80px] cursor-pointer border-r border-b border-slate-200 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra}`}>
+      {assignments.length > 0 && (
+        <div className="flex flex-col items-center gap-px leading-tight">
+          {assignments.map((a, i) => (
+            <span key={a.id} className={`truncate max-w-[72px] font-medium ${isConflict && i > 0 ? 'text-red-500' : ''}`}>{a.site?.code ?? '—'}</span>
+          ))}
+          {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
+          {assignments.some((a) => a.isLocked) && <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>}
+        </div>
+      )}
+    </td>
+  )
+}

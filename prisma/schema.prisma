@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ServiceTeam {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
+  equipmentTypes   EquipmentType[]
+  employees        Employee[]
+  staffAssignments StaffAssignment[]
+
+  @@map("service_teams")
+}
+
+model EquipmentType {
+  id            Int         @id @default(autoincrement())
+  code          String      @unique
+  name          String
+  primaryTeamId Int
+  primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
+
+  equipment Equipment[]
+
+  @@map("equipment_types")
+}
+
+model Equipment {
+  id           Int             @id @default(autoincrement())
+  typeId       Int
+  type         EquipmentType   @relation(fields: [typeId], references: [id])
+  serialNo     String?
+  internalNo   String?
+  isRental     Boolean         @default(false)
+  rentalVendor String?
+  status       EquipmentStatus @default(ACTIVE)
+  notes        String?
+
+  assignments EquipmentAssignment[]
+
+  @@map("equipment")
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  CALIBRATING
+  BROKEN
+  RETIRED
+}
+
+model Employee {
+  id            Int         @id @default(autoincrement())
+  employeeNo    String?     @unique
+  fullName      String
+  nickname      String?
+  primaryTeamId Int
+  primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
+  isActive      Boolean     @default(true)
+
+  siteAccess  EmployeeSiteAccess[]
+  assignments StaffAssignment[]
+
+  @@map("employees")
+}
+
+model EmployeeSiteAccess {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  siteCode   String
+  expiryDate DateTime
+
+  @@unique([employeeId, siteCode])
+  @@map("employee_site_access")
+}
+
+model Site {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique
+  name           String
+  clientName     String?
+  region         String?
+  requiresAccess String[]
+
+  staffAssignments     StaffAssignment[]
+  equipmentAssignments EquipmentAssignment[]
+
+  @@map("sites")
+}
+
+model StaffAssignment {
+  id            Int              @id @default(autoincrement())
+  employeeId    Int
+  employee      Employee         @relation(fields: [employeeId], references: [id])
+  assignedDate  DateTime         @db.Date
+  siteId        Int?
+  site          Site?            @relation(fields: [siteId], references: [id])
+  serviceTypeId Int?
+  serviceType   ServiceTeam?     @relation(fields: [serviceTypeId], references: [id])
+  isCrossTeam   Boolean          @default(false)
+  estimatedDays Decimal          @default(1) @db.Decimal(4, 1)
+  status        AssignmentStatus @default(FIELD)
+  notes         String?
+  isLocked      Boolean          @default(false)
+  parentId      Int?
+  parent        StaffAssignment?  @relation("MultiDay", fields: [parentId], references: [id])
+  children      StaffAssignment[] @relation("MultiDay")
+
+  equipmentAssignments EquipmentAssignment[]
+
+  @@index([employeeId, assignedDate])
+  @@index([assignedDate])
+  @@map("staff_assignments")
+}
+
+enum AssignmentStatus {
+  FIELD
+  OFFICE
+  LEAVE
+  HOLIDAY
+  CAL
+  TRAINING
+}
+
+model EquipmentAssignment {
+  id                Int              @id @default(autoincrement())
+  equipmentId       Int
+  equipment         Equipment        @relation(fields: [equipmentId], references: [id])
+  assignedDate      DateTime         @db.Date
+  siteId            Int?
+  site              Site?            @relation(fields: [siteId], references: [id])
+  staffAssignmentId Int?
+  staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
+  notes             String?
+  isLocked          Boolean          @default(false)
+
+  @@index([equipmentId, assignedDate])
+  @@index([assignedDate])
+  @@map("equipment_assignments")
+}
