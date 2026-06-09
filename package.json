@@ -13,11 +13,11 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
+    "@prisma/client": "6.9.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "next": "16.2.7",
-    "prisma": "^7.8.0",
+    "prisma": "6.9.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "xlsx": "^0.18.5"
