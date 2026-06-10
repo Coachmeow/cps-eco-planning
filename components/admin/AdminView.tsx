@@ -342,7 +342,7 @@ function EquipmentSection() {
   return (
     <div>
       <div className="mb-3 flex items-center gap-3 flex-wrap">
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none">
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none">
           <option value="">ทุกประเภท</option>
           {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
         </select>
@@ -388,7 +388,7 @@ function EquipmentSection() {
                   </td>
                   <td className="px-4 py-2">
                     <select value={eq.status} onChange={e => changeStatus(eq, e.target.value)}
-                      className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600 focus:outline-none">
+                      className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
                       {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
