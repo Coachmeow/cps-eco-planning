@@ -11,15 +11,30 @@ const TEAM_BADGE_COLOR: Record<string, string> = {
   LOG:  'bg-gray-100  text-gray-600',
 }
 
+// Full Tailwind class strings — must be static to avoid purge
+const SITE_COLOR_CLASS: Record<string, string> = {
+  emerald: 'bg-emerald-50 border border-emerald-200 text-emerald-800',
+  sky:     'bg-sky-50     border border-sky-200     text-sky-800',
+  violet:  'bg-violet-50  border border-violet-200  text-violet-800',
+  rose:    'bg-rose-50    border border-rose-200    text-rose-800',
+  amber:   'bg-amber-50   border border-amber-200   text-amber-800',
+  orange:  'bg-orange-50  border border-orange-200  text-orange-800',
+  cyan:    'bg-cyan-50    border border-cyan-200    text-cyan-800',
+  indigo:  'bg-indigo-50  border border-indigo-200  text-indigo-800',
+  pink:    'bg-pink-50    border border-pink-200    text-pink-800',
+  teal:    'bg-teal-50    border border-teal-200    text-teal-800',
+  lime:    'bg-lime-50    border border-lime-200    text-lime-800',
+  red:     'bg-red-50     border border-red-200     text-red-800',
+}
+
 function cellStyle(assignments: StaffAssignment[], isConflict: boolean): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
   const first = assignments[0]
   switch (first.status) {
     case 'FIELD':
-      return first.isCrossTeam
-        ? 'bg-sky-50 border border-sky-200 text-sky-800'
-        : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+      if (first.isCrossTeam) return 'bg-sky-50 border border-sky-200 text-sky-800'
+      return SITE_COLOR_CLASS[first.site?.color ?? 'emerald'] ?? SITE_COLOR_CLASS.emerald
     case 'OFFICE':   return 'bg-slate-50 text-slate-500'
     case 'LEAVE':    return 'bg-slate-100 text-slate-400'
     case 'HOLIDAY':  return 'bg-white text-slate-300'

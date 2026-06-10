@@ -372,9 +372,9 @@ async function main() {
   // ── 5. Sites ──────────────────────────────────────────────────────────────
   console.log('🌱 Sites...')
   await prisma.site.createMany({ data: [
-    { code: 'NS-SUS',  name: 'นิวซัสเทนนาบิลิตี้',           requiresAccess: ['NS-SUS']  },
-    { code: 'SCGP',    name: 'SCGP',                            requiresAccess: ['SCGP']    },
-    { code: 'PHOENIX', name: 'ฟินิคซ พัลพ์ แอนด์ เปเปอร์',   requiresAccess: ['PHOENIX'] },
+    { code: 'NS-SUS',  name: 'นิวซัสเทนนาบิลิตี้',           color: 'violet', requiresAccess: ['NS-SUS']  },
+    { code: 'SCGP',    name: 'SCGP',                            color: 'sky',    requiresAccess: ['SCGP']    },
+    { code: 'PHOENIX', name: 'ฟินิคซ พัลพ์ แอนด์ เปเปอร์',   color: 'rose',   requiresAccess: ['PHOENIX'] },
   ] })
 
   // ── 6. Employee Site Access (จาก Sheet1 คอลัมน์ access expiry) ───────────

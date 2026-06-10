@@ -12,6 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         name:           body.name,
         clientName:     body.clientName   || null,
         region:         body.region       || null,
+        color:          body.color        || 'emerald',
         requiresAccess: body.requiresAccess ?? [],
       },
     })

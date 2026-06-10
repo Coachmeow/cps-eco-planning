@@ -25,6 +25,7 @@ export interface Site {
   id: number
   code: string
   name: string
+  color: string | null
 }
 
 export type AssignmentStatus = 'FIELD' | 'OFFICE' | 'LEAVE' | 'HOLIDAY' | 'CAL' | 'TRAINING'

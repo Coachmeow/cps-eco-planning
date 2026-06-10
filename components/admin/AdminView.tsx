@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 interface Team     { id: number; code: string; name: string }
 interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
 interface Employee { id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean }
-interface Site     { id: number; code: string; name: string; clientName: string | null; region: string | null; requiresAccess: string[] }
+interface Site     { id: number; code: string; name: string; clientName: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
   id: number; typeId: number; type: EqType; internalNo: string | null; serialNo: string | null
   isRental: boolean; rentalVendor: string | null; rentalStartDate: string | null; rentalEndDate: string | null
@@ -14,6 +14,22 @@ interface Equipment {
 }
 
 const STATUS_OPTS = ['ACTIVE', 'CALIBRATING', 'BROKEN', 'RETIRED'] as const
+
+// Site color palette — full Tailwind class strings (must be static to avoid purge)
+const SITE_COLOR_OPTIONS = [
+  { value: 'emerald', label: 'เขียว',     dot: 'bg-emerald-400', preview: 'bg-emerald-50 border-emerald-300 text-emerald-800' },
+  { value: 'sky',     label: 'ฟ้า',       dot: 'bg-sky-400',     preview: 'bg-sky-50 border-sky-300 text-sky-800' },
+  { value: 'violet',  label: 'ม่วง',      dot: 'bg-violet-400',  preview: 'bg-violet-50 border-violet-300 text-violet-800' },
+  { value: 'rose',    label: 'ชมพูเข้ม',  dot: 'bg-rose-400',    preview: 'bg-rose-50 border-rose-300 text-rose-800' },
+  { value: 'amber',   label: 'เหลือง',    dot: 'bg-amber-400',   preview: 'bg-amber-50 border-amber-300 text-amber-800' },
+  { value: 'orange',  label: 'ส้ม',       dot: 'bg-orange-400',  preview: 'bg-orange-50 border-orange-300 text-orange-800' },
+  { value: 'cyan',    label: 'ฟ้าอ่อน',   dot: 'bg-cyan-400',    preview: 'bg-cyan-50 border-cyan-300 text-cyan-800' },
+  { value: 'indigo',  label: 'คราม',      dot: 'bg-indigo-400',  preview: 'bg-indigo-50 border-indigo-300 text-indigo-800' },
+  { value: 'pink',    label: 'ชมพู',      dot: 'bg-pink-400',    preview: 'bg-pink-50 border-pink-300 text-pink-800' },
+  { value: 'teal',    label: 'เขียวน้ำ',  dot: 'bg-teal-400',    preview: 'bg-teal-50 border-teal-300 text-teal-800' },
+  { value: 'lime',    label: 'เขียวสด',   dot: 'bg-lime-400',    preview: 'bg-lime-50 border-lime-300 text-lime-800' },
+  { value: 'red',     label: 'แดง',       dot: 'bg-red-400',     preview: 'bg-red-50 border-red-300 text-red-800' },
+]
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',
@@ -112,7 +128,7 @@ function SitesSection() {
   const [sites, setSites]   = useState<Site[]>([])
   const [modal, setModal]   = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Site | null>(null)
-  const [form, setForm]     = useState({ code: '', name: '', clientName: '', region: '', requiresAccess: '' })
+  const [form, setForm]     = useState({ code: '', name: '', clientName: '', region: '', color: 'emerald', requiresAccess: '' })
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -121,11 +137,11 @@ function SitesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ code: '', name: '', clientName: '', region: '', requiresAccess: '' })
+    setForm({ code: '', name: '', clientName: '', region: '', color: 'emerald', requiresAccess: '' })
     setEditing(null); setModal('add')
   }
   function openEdit(s: Site) {
-    setForm({ code: s.code, name: s.name, clientName: s.clientName ?? '', region: s.region ?? '', requiresAccess: s.requiresAccess.join(', ') })
+    setForm({ code: s.code, name: s.name, clientName: s.clientName ?? '', region: s.region ?? '', color: s.color ?? 'emerald', requiresAccess: s.requiresAccess.join(', ') })
     setEditing(s); setModal('edit')
   }
 
@@ -157,27 +173,42 @@ function SitesSection() {
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500">
-            <tr><th className="px-4 py-2 text-left font-medium">Code</th><th className="px-4 py-2 text-left font-medium">ชื่อ</th><th className="px-4 py-2 text-left font-medium">บริษัท</th><th className="px-4 py-2 text-left font-medium">ต้องการ Access</th><th className="px-4 py-2" /></tr>
+            <tr>
+              <th className="px-4 py-2 text-left font-medium">สี</th>
+              <th className="px-4 py-2 text-left font-medium">Code</th>
+              <th className="px-4 py-2 text-left font-medium">ชื่อ</th>
+              <th className="px-4 py-2 text-left font-medium">บริษัท</th>
+              <th className="px-4 py-2 text-left font-medium">ต้องการ Access</th>
+              <th className="px-4 py-2" />
+            </tr>
           </thead>
           <tbody>
-            {sites.map(s => (
-              <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2 font-mono font-semibold text-slate-700">{s.code}</td>
-                <td className="px-4 py-2 text-slate-700">{s.name}</td>
-                <td className="px-4 py-2 text-slate-400">{s.clientName ?? '—'}</td>
-                <td className="px-4 py-2">
-                  {s.requiresAccess.length > 0
-                    ? <div className="flex flex-wrap gap-1">{s.requiresAccess.map(a => <span key={a} className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{a}</span>)}</div>
-                    : <span className="text-slate-300 text-xs">—</span>}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <div className="flex justify-end gap-1.5">
-                    <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
-                    <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {sites.map(s => {
+              const colorOpt = SITE_COLOR_OPTIONS.find(c => c.value === (s.color ?? 'emerald')) ?? SITE_COLOR_OPTIONS[0]
+              return (
+                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-2">
+                    <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold ${colorOpt.preview}`}>
+                      {s.code}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-700">{s.code}</td>
+                  <td className="px-4 py-2 text-slate-700">{s.name}</td>
+                  <td className="px-4 py-2 text-slate-400">{s.clientName ?? '—'}</td>
+                  <td className="px-4 py-2">
+                    {s.requiresAccess.length > 0
+                      ? <div className="flex flex-wrap gap-1">{s.requiresAccess.map(a => <span key={a} className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{a}</span>)}</div>
+                      : <span className="text-slate-300 text-xs">—</span>}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
+                      <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -190,6 +221,29 @@ function SitesSection() {
             <Input label="บริษัท / Client" value={form.clientName} onChange={f('clientName')} placeholder="ชื่อบริษัท" />
             <Input label="ภูมิภาค" value={form.region} onChange={f('region')} placeholder="เช่น ภาคกลาง" />
             <Input label="Access ที่ต้องการ (คั่นด้วย , )" value={form.requiresAccess} onChange={f('requiresAccess')} placeholder="เช่น NS-SUS, SCGP" />
+            {/* Color picker */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-slate-600">สีในปฏิทิน</label>
+              <div className="flex flex-wrap gap-2">
+                {SITE_COLOR_OPTIONS.map(c => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    title={c.label}
+                    onClick={() => f('color')(c.value)}
+                    className={`h-7 w-7 rounded-full ${c.dot} transition-all hover:scale-110 ${
+                      form.color === c.value
+                        ? 'ring-2 ring-offset-2 ring-slate-700 scale-110'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Preview */}
+              <div className={`mt-1 inline-flex w-fit rounded border px-2.5 py-1 text-xs font-semibold ${SITE_COLOR_OPTIONS.find(c => c.value === form.color)?.preview ?? ''}`}>
+                {form.code || 'CODE'} — {SITE_COLOR_OPTIONS.find(c => c.value === form.color)?.label}
+              </div>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>

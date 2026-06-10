@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         name:           body.name,
         clientName:     body.clientName   || null,
         region:         body.region       || null,
+        color:          body.color        || 'emerald',
         requiresAccess: body.requiresAccess ?? [],
       },
     })
