@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { equipmentId, assignedDate, siteId, staffAssignmentId, notes } = body
+  const { equipmentId, assignedDate, siteId, staffAssignmentId, notes, estimatedDays = 1 } = body
 
   if (!equipmentId || !assignedDate) {
     return NextResponse.json({ error: 'equipmentId และ assignedDate จำเป็น' }, { status: 400 })
@@ -44,5 +44,23 @@ export async function POST(req: NextRequest) {
     include: { equipment: { include: { type: true } }, site: true },
   })
 
-  return NextResponse.json({ created, conflict: { hasConflict } }, { status: 201 })
+  // create extra day records for multi-day assignments
+  const extraDays = []
+  const days = Math.min(Math.floor(Number(estimatedDays)), 20)
+  for (let i = 1; i < days; i++) {
+    const nextDate = new Date(date)
+    nextDate.setDate(nextDate.getDate() + i)
+    const extra = await prisma.equipmentAssignment.create({
+      data: {
+        equipmentId, assignedDate: nextDate,
+        siteId: siteId ?? null,
+        staffAssignmentId: staffAssignmentId ?? null,
+        notes,
+      },
+      include: { equipment: { include: { type: true } }, site: true },
+    })
+    extraDays.push(extra)
+  }
+
+  return NextResponse.json({ created, extraDays, conflict: { hasConflict } }, { status: 201 })
 }

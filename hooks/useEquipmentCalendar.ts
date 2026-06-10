@@ -72,10 +72,23 @@ export function useEquipmentCalendar(year: number, month: number, typeId: number
     await fetchAll()
   }, [fetchAll])
 
+  const addAssignments = useCallback(async (payloads: Record<string, unknown>[]) => {
+    await Promise.allSettled(
+      payloads.map(payload =>
+        fetch('/api/equipment-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      )
+    )
+    await fetchAll()
+  }, [fetchAll])
+
   const removeAssignment = useCallback(async (id: number) => {
     await fetch(`/api/equipment-assignments/${id}`, { method: 'DELETE' })
     await fetchAll()
   }, [fetchAll])
 
-  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, removeAssignment }
+  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, addAssignments, removeAssignment }
 }

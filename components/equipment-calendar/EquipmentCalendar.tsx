@@ -33,7 +33,7 @@ export default function EquipmentCalendar() {
   const [showRental, setShowRental] = useState(true)
   const [popup, setPopup] = useState<{ equipment: Equipment; dateKey: string } | null>(null)
 
-  const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, removeAssignment } =
+  const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignments, removeAssignment } =
     useEquipmentCalendar(year, month, selectedTypeId)
 
   const days     = useMemo(() => getDaysInMonth(year, month), [year, month])
@@ -143,9 +143,13 @@ export default function EquipmentCalendar() {
       )}
 
       {popup && (
-        <EquipmentPopup equipment={popup.equipment} date={popup.dateKey}
+        <EquipmentPopup
+          equipment={popup.equipment} date={popup.dateKey}
           assignments={calendarData.get(popup.equipment.id)?.get(popup.dateKey) ?? []}
-          sites={sites} onSave={addAssignment} onDelete={removeAssignment} onClose={() => setPopup(null)} />
+          sites={sites}
+          allEquipment={equipment}
+          onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
+        />
       )}
     </div>
   )

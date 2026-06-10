@@ -177,7 +177,9 @@ export default function AssignmentPopup({
                 <label className="block text-xs text-slate-500 mb-1">จำนวนวัน</label>
                 <select value={estimatedDays} onChange={(e) => setEstimatedDays(e.target.value)}
                   className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
-                  {['0.5','1','2','3','4','5'].map((v) => <option key={v} value={v}>{v} วัน</option>)}
+                  {['0.5', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((v) => (
+                    <option key={v} value={v}>{v} วัน</option>
+                  ))}
                 </select>
               </div>
             </>
