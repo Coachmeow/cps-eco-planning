@@ -158,25 +158,27 @@ export default function EquipmentPopup({
 
           {/* ── Form ── */}
           <div className="px-4 py-3 space-y-3 border-b border-slate-100">
-            {/* Site buttons */}
+            {/* Site dropdown */}
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">ไซต์งาน <span className="text-red-400">*</span></label>
-              <div className="flex flex-col gap-1">
-                {sites.map(s => {
-                  const dotCls = SITE_DOT[s.color ?? 'emerald'] ?? 'bg-slate-400'
-                  const sel = siteId === String(s.id)
-                  return (
-                    <button key={s.id} type="button" onClick={() => setSiteId(String(s.id))}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all ${
-                        sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                      }`}>
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${sel ? 'bg-white' : dotCls}`} />
-                      <span className="font-medium">{s.code}</span>
-                      <span className={`text-xs ${sel ? 'text-white/70' : 'text-slate-400'}`}>{s.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
+              <label className="block text-xs text-slate-500 mb-1">ไซต์งาน <span className="text-red-400">*</span></label>
+              <select value={siteId} onChange={e => setSiteId(e.target.value)}
+                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                <option value="">— เลือกไซต์ —</option>
+                {sites.map(s => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
+              </select>
+              {/* selected site color preview */}
+              {siteId && (() => {
+                const s = sites.find(x => String(x.id) === siteId)
+                if (!s) return null
+                const dotCls = SITE_DOT[s.color ?? 'emerald'] ?? 'bg-slate-400'
+                return (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
+                    <span className={`h-2.5 w-2.5 rounded-full ${dotCls}`} />
+                    <span className="font-medium text-slate-700">{s.code}</span>
+                    {s.province && <span className="text-slate-400">· {s.province}</span>}
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Days + Notes */}
