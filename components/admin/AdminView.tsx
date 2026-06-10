@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
@@ -15,21 +16,6 @@ interface Equipment {
 
 const STATUS_OPTS = ['ACTIVE', 'CALIBRATING', 'BROKEN', 'RETIRED'] as const
 
-// Site color palette — full Tailwind class strings (must be static to avoid purge)
-const SITE_COLOR_OPTIONS = [
-  { value: 'emerald', label: 'เขียว',     dot: 'bg-emerald-400', preview: 'bg-emerald-50 border-emerald-300 text-emerald-800' },
-  { value: 'sky',     label: 'ฟ้า',       dot: 'bg-sky-400',     preview: 'bg-sky-50 border-sky-300 text-sky-800' },
-  { value: 'violet',  label: 'ม่วง',      dot: 'bg-violet-400',  preview: 'bg-violet-50 border-violet-300 text-violet-800' },
-  { value: 'rose',    label: 'ชมพูเข้ม',  dot: 'bg-rose-400',    preview: 'bg-rose-50 border-rose-300 text-rose-800' },
-  { value: 'amber',   label: 'เหลือง',    dot: 'bg-amber-400',   preview: 'bg-amber-50 border-amber-300 text-amber-800' },
-  { value: 'orange',  label: 'ส้ม',       dot: 'bg-orange-400',  preview: 'bg-orange-50 border-orange-300 text-orange-800' },
-  { value: 'cyan',    label: 'ฟ้าอ่อน',   dot: 'bg-cyan-400',    preview: 'bg-cyan-50 border-cyan-300 text-cyan-800' },
-  { value: 'indigo',  label: 'คราม',      dot: 'bg-indigo-400',  preview: 'bg-indigo-50 border-indigo-300 text-indigo-800' },
-  { value: 'pink',    label: 'ชมพู',      dot: 'bg-pink-400',    preview: 'bg-pink-50 border-pink-300 text-pink-800' },
-  { value: 'teal',    label: 'เขียวน้ำ',  dot: 'bg-teal-400',    preview: 'bg-teal-50 border-teal-300 text-teal-800' },
-  { value: 'lime',    label: 'เขียวสด',   dot: 'bg-lime-400',    preview: 'bg-lime-50 border-lime-300 text-lime-800' },
-  { value: 'red',     label: 'แดง',       dot: 'bg-red-400',     preview: 'bg-red-50 border-red-300 text-red-800' },
-]
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',
