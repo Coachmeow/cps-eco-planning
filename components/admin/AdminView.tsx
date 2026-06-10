@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
@@ -52,6 +52,57 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         </div>
         <div className="p-5">{children}</div>
       </div>
+    </div>
+  )
+}
+
+// ── Custom Select (styled dropdown) ───────────────────────────
+function CustomSelect({ value, onChange, options, placeholder, className }: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  placeholder?: string
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = options.find(o => o.value === value)
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  return (
+    <div ref={ref} className={`relative ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none"
+      >
+        <span className={selected ? 'text-slate-800' : 'text-slate-400'}>
+          {selected ? selected.label : (placeholder ?? 'เลือก...')}
+        </span>
+        <span className="ml-2 shrink-0 text-slate-400 text-xs">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+          {options.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50
+                ${value === o.value ? 'bg-sky-50 font-semibold text-sky-700' : 'text-slate-800'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -247,10 +298,11 @@ function EmployeesSection() {
             <Input label="ชื่อเล่น" value={form.nickname} onChange={f('nickname')} placeholder="ชาย" />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">ทีม<span className="ml-0.5 text-red-500">*</span></label>
-              <select value={form.primaryTeamId} onChange={e => f('primaryTeamId')(e.target.value)}
-                className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none">
-                {teams.map(t => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
-              </select>
+              <CustomSelect
+                value={form.primaryTeamId}
+                onChange={f('primaryTeamId')}
+                options={teams.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))}
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
@@ -342,10 +394,13 @@ function EquipmentSection() {
   return (
     <div>
       <div className="mb-3 flex items-center gap-3 flex-wrap">
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none">
-          <option value="">ทุกประเภท</option>
-          {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
-        </select>
+        <CustomSelect
+          value={filterType}
+          onChange={setFilterType}
+          placeholder="ทุกประเภท"
+          options={[{ value: '', label: 'ทุกประเภท' }, ...eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))]}
+          className="w-64"
+        />
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
         <div className="ml-auto flex gap-2">
           <Btn onClick={() => { setEditing(null); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
@@ -411,17 +466,21 @@ function EquipmentSection() {
           <div className="space-y-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">ประเภทเครื่องมือ<span className="ml-0.5 text-red-500">*</span></label>
-              <select value={ownedForm.typeId} onChange={e => of('typeId')(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none">
-                {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
-              </select>
+              <CustomSelect
+                value={ownedForm.typeId}
+                onChange={of('typeId')}
+                options={eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))}
+              />
             </div>
             <Input label="หมายเลขภายใน" value={ownedForm.internalNo} onChange={of('internalNo')} placeholder="TSP SP49" required />
             <Input label="Serial Number" value={ownedForm.serialNo} onChange={of('serialNo')} placeholder="SP49" />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">สถานะ</label>
-              <select value={ownedForm.status} onChange={e => of('status')(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none">
-                {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <CustomSelect
+                value={ownedForm.status}
+                onChange={of('status')}
+                options={STATUS_OPTS.map(s => ({ value: s, label: s }))}
+              />
             </div>
             <Input label="หมายเหตุ" value={ownedForm.notes} onChange={of('notes')} placeholder="..." />
             <div className="flex justify-end gap-2 pt-2">
@@ -438,9 +497,11 @@ function EquipmentSection() {
           <div className="space-y-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">ประเภทเครื่องมือ<span className="ml-0.5 text-red-500">*</span></label>
-              <select value={rentalForm.typeId} onChange={e => rf('typeId')(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none">
-                {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
-              </select>
+              <CustomSelect
+                value={rentalForm.typeId}
+                onChange={rf('typeId')}
+                options={eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))}
+              />
             </div>
             <Input label="หมายเลข (ชั่วคราว)" value={rentalForm.internalNo} onChange={rf('internalNo')} placeholder="TSP เช่า No.9" required />
             <Input label="Vendor / ผู้ให้เช่า" value={rentalForm.rentalVendor} onChange={rf('rentalVendor')} placeholder="บ. ABC" />
