@@ -11,6 +11,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         code:           body.code.toUpperCase().trim(),
         name:           body.name,
         clientName:     body.clientName   || null,
+        province:       body.province     || null,
         region:         body.region       || null,
         color:          body.color        || 'emerald',
         requiresAccess: body.requiresAccess ?? [],

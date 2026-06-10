@@ -7,7 +7,7 @@ import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 interface Team     { id: number; code: string; name: string }
 interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
 interface Employee { id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean }
-interface Site     { id: number; code: string; name: string; clientName: string | null; region: string | null; color: string | null; requiresAccess: string[] }
+interface Site     { id: number; code: string; name: string; clientName: string | null; province: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
   id: number; typeId: number; type: EqType; internalNo: string | null; serialNo: string | null
   isRental: boolean; rentalVendor: string | null; rentalStartDate: string | null; rentalEndDate: string | null
@@ -114,7 +114,7 @@ function SitesSection() {
   const [sites, setSites]   = useState<Site[]>([])
   const [modal, setModal]   = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Site | null>(null)
-  const [form, setForm]     = useState({ code: '', name: '', clientName: '', region: '', color: 'emerald', requiresAccess: '' })
+  const [form, setForm]     = useState({ code: '', name: '', clientName: '', province: '', region: '', color: 'emerald', requiresAccess: '' })
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -123,11 +123,11 @@ function SitesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ code: '', name: '', clientName: '', region: '', color: 'emerald', requiresAccess: '' })
+    setForm({ code: '', name: '', clientName: '', province: '', region: '', color: 'emerald', requiresAccess: '' })
     setEditing(null); setModal('add')
   }
   function openEdit(s: Site) {
-    setForm({ code: s.code, name: s.name, clientName: s.clientName ?? '', region: s.region ?? '', color: s.color ?? 'emerald', requiresAccess: s.requiresAccess.join(', ') })
+    setForm({ code: s.code, name: s.name, clientName: s.clientName ?? '', province: s.province ?? '', region: s.region ?? '', color: s.color ?? 'emerald', requiresAccess: s.requiresAccess.join(', ') })
     setEditing(s); setModal('edit')
   }
 
@@ -164,6 +164,7 @@ function SitesSection() {
               <th className="px-4 py-2 text-left font-medium">Code</th>
               <th className="px-4 py-2 text-left font-medium">ชื่อ</th>
               <th className="px-4 py-2 text-left font-medium">บริษัท</th>
+              <th className="px-4 py-2 text-left font-medium">จังหวัด</th>
               <th className="px-4 py-2 text-left font-medium">ต้องการ Access</th>
               <th className="px-4 py-2" />
             </tr>
@@ -181,6 +182,7 @@ function SitesSection() {
                   <td className="px-4 py-2 font-mono font-semibold text-slate-700">{s.code}</td>
                   <td className="px-4 py-2 text-slate-700">{s.name}</td>
                   <td className="px-4 py-2 text-slate-400">{s.clientName ?? '—'}</td>
+                  <td className="px-4 py-2 text-slate-500">{s.province ?? '—'}</td>
                   <td className="px-4 py-2">
                     {s.requiresAccess.length > 0
                       ? <div className="flex flex-wrap gap-1">{s.requiresAccess.map(a => <span key={a} className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{a}</span>)}</div>
@@ -203,9 +205,12 @@ function SitesSection() {
         <Modal title={modal === 'add' ? 'เพิ่มไซต์งาน' : 'แก้ไขไซต์'} onClose={() => setModal(null)}>
           <div className="space-y-3">
             <Input label="Site Code" value={form.code} onChange={f('code')} placeholder="เช่น SKK" required />
-            <Input label="ชื่อเต็ม" value={form.name} onChange={f('name')} placeholder="ชื่อโรงงาน" required />
-            <Input label="บริษัท / Client" value={form.clientName} onChange={f('clientName')} placeholder="ชื่อบริษัท" />
-            <Input label="ภูมิภาค" value={form.region} onChange={f('region')} placeholder="เช่น ภาคกลาง" />
+            <Input label="ชื่อไซต์" value={form.name} onChange={f('name')} placeholder="ชื่อโรงงาน / พื้นที่" required />
+            <Input label="บริษัท (จดทะเบียน)" value={form.clientName} onChange={f('clientName')} placeholder="ชื่อบริษัทตามกฎหมาย" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="จังหวัด" value={form.province} onChange={f('province')} placeholder="เช่น ขอนแก่น" />
+              <Input label="ภูมิภาค" value={form.region} onChange={f('region')} placeholder="เช่น ภาคกลาง" />
+            </div>
             <Input label="Access ที่ต้องการ (คั่นด้วย , )" value={form.requiresAccess} onChange={f('requiresAccess')} placeholder="เช่น NS-SUS, SCGP" />
             {/* Color picker */}
             <div className="flex flex-col gap-1.5">

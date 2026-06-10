@@ -374,7 +374,7 @@ async function main() {
   await prisma.site.createMany({ data: [
     { code: 'NS-SUS',  name: 'นิวซัสเทนนาบิลิตี้',           color: 'violet', requiresAccess: ['NS-SUS']  },
     { code: 'SCGP',    name: 'SCGP',                            color: 'sky',    requiresAccess: ['SCGP']    },
-    { code: 'PHOENIX', name: 'ฟินิคซ พัลพ์ แอนด์ เปเปอร์',   color: 'rose',   requiresAccess: ['PHOENIX'] },
+    { code: 'PHOENIX', name: 'ฟินิคซ พัลพ์ แอนด์ เปเปอร์',   color: 'rose',   province: 'ขอนแก่น', requiresAccess: ['PHOENIX'] },
   ] })
 
   // ── 6. Employee Site Access (จาก Sheet1 คอลัมน์ access expiry) ───────────

@@ -87,6 +87,7 @@ model Site {
   code           String   @unique
   name           String
   clientName     String?
+  province       String?
   region         String?
   color          String?  @default("emerald")
   requiresAccess String[]
