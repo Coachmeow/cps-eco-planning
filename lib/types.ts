@@ -70,6 +70,8 @@ export interface Equipment {
   internalNo: string | null
   isRental: boolean
   rentalVendor: string | null
+  rentalStartDate: string | null
+  rentalEndDate: string | null
   status: EquipmentStatus
   notes: string | null
 }
@@ -117,10 +119,20 @@ export interface CrossContribRow {
   crossTeamDays: number
 }
 
+export interface PersonUtilRow {
+  employeeId: number
+  fullName: string
+  nickname: string
+  primaryTeam: string
+  fieldDays: number
+  utilPct: number
+}
+
 export interface DashboardData {
   equipmentUtil: EquipmentUtilRow[]
   teamWorkload: TeamWorkloadRow[]
   crossContrib: CrossContribRow[]
+  personUtil: PersonUtilRow[]
   workdays: number
   year: number
   month: number

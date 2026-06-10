@@ -88,9 +88,10 @@ export default function EquipmentCalendar() {
               <tr>
                 <th className="sticky left-0 z-20 min-w-[140px] border-b border-r border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-600">เครื่องมือ</th>
                 {days.map((day) => {
-                  const dow = day.getDay(); const isWeekend = dow === 0 || dow === 6; const isToday = toDateKey(day) === toDateKey(today)
+                  const dow = day.getDay(); const isToday = toDateKey(day) === toDateKey(today)
+                  const weekendCls = dow === 0 ? 'bg-red-50 text-red-400' : dow === 6 ? 'bg-orange-50 text-orange-400' : 'text-slate-600'
                   return (
-                    <th key={toDateKey(day)} className={`min-w-[56px] border-b border-r border-slate-200 px-1 py-1 text-center font-medium ${isWeekend ? 'bg-slate-50 text-slate-400' : 'text-slate-600'} ${isToday ? 'bg-sky-50 text-sky-600' : ''}`}>
+                    <th key={toDateKey(day)} className={`min-w-[56px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${weekendCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
                       <div className="text-[10px] font-normal opacity-70">{thaiDays[dow]}</div>
                     </th>
@@ -128,8 +129,7 @@ export default function EquipmentCalendar() {
                           const dateKey = toDateKey(day)
                           const dayAssign = dayMap.get(dateKey) ?? []
                           const isConflict = conflicts.equipmentConflicts.has(`${eq.id}-${dateKey}`)
-                          const isWeekend  = day.getDay() === 0 || day.getDay() === 6
-                          return <EquipmentCell key={dateKey} assignments={dayAssign} isConflict={isConflict} isWeekend={isWeekend} onClick={() => setPopup({ equipment: eq, dateKey })} />
+                          return <EquipmentCell key={dateKey} assignments={dayAssign} isConflict={isConflict} dayOfWeek={day.getDay()} onClick={() => setPopup({ equipment: eq, dateKey })} />
                         })}
                         <td className={`border-b border-slate-200 px-2 text-center ${utilColor(util)}`}>{assignedDays > 0 ? `${util}%` : '—'}</td>
                       </tr>

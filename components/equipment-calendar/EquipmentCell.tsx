@@ -11,15 +11,18 @@ function cellStyle(assignments: EquipmentAssignment[], isConflict: boolean): str
 interface Props {
   assignments: EquipmentAssignment[]
   isConflict:  boolean
-  isWeekend:   boolean
+  dayOfWeek:   number
   onClick:     () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, isWeekend, onClick }: Props) {
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
-  const extra = isWeekend && assignments.length === 0 ? 'bg-slate-50' : ''
+  const isSun = dayOfWeek === 0
+  const isSat = dayOfWeek === 6
+  const extra = assignments.length === 0
+    ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : '' : ''
   return (
-    <td onClick={onClick} className={`relative h-10 min-w-[56px] max-w-[80px] cursor-pointer border-r border-b border-slate-200 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra}`}>
+    <td onClick={onClick} className={`relative h-10 min-w-[56px] max-w-[80px] cursor-pointer border-r border-b border-slate-300 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra}`}>
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">
           {assignments.map((a, i) => (

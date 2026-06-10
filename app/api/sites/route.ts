@@ -1,7 +1,25 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   const sites = await prisma.site.findMany({ orderBy: { code: 'asc' } })
   return NextResponse.json(sites)
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const site = await prisma.site.create({
+      data: {
+        code:           body.code.toUpperCase().trim(),
+        name:           body.name,
+        clientName:     body.clientName   || null,
+        region:         body.region       || null,
+        requiresAccess: body.requiresAccess ?? [],
+      },
+    })
+    return NextResponse.json(site, { status: 201 })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 400 })
+  }
 }

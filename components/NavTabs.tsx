@@ -26,10 +26,11 @@ export default function NavTabs() {
   }, [])
 
   const tabs = [
+    { href: '/dashboard', label: 'Dashboard',   badge: 0      },
     { href: '/staff',     label: 'แผนพนักงาน', badge: 0      },
     { href: '/equipment', label: 'เครื่องมือ',  badge: 0      },
-    { href: '/dashboard', label: 'Dashboard',   badge: 0      },
     { href: '/access',    label: 'Access',       badge: alerts },
+    { href: '/admin',     label: '⚙ จัดการ',    badge: 0      },
   ]
 
   return (

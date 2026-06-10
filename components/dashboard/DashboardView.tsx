@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import BarRow from './BarRow'
 import ExportButton from '@/components/ExportButton'
-import type { DashboardData } from '@/lib/types'
+import type { DashboardData, PersonUtilRow } from '@/lib/types'
 
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
@@ -106,16 +106,45 @@ export default function DashboardView() {
             )}
           </Card>
 
-          <Card title="Cross-team Contribution (Top 10)">
-            {data.crossContrib.length === 0 ? <p className="text-center text-sm text-slate-300 py-8">ไม่มีงาน cross-team</p> : (
-              <div className="space-y-2.5">
-                {data.crossContrib.map(c=>{
-                  const max = Math.max(...data.crossContrib.map(x=>x.crossTeamDays),1)
-                  return <BarRow key={c.employeeId} label={c.nickname||c.fullName.split(' ')[0]} value={c.crossTeamDays} maxValue={max} displayText={`${c.crossTeamDays} วัน`} color={TEAM_COLOR[c.primaryTeam]??'bg-slate-400'} />
+          {/* Per-person Utilization — scrollable, sorted desc */}
+          <Card title="Utilization รายคน (%)">
+            {data.personUtil.length === 0
+              ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
+              : (
+              <div className="h-64 overflow-y-auto space-y-1.5 pr-1">
+                {data.personUtil.map((p: PersonUtilRow, i: number) => {
+                  const barColor = p.utilPct >= 80 ? 'bg-red-400' : p.utilPct >= 50 ? 'bg-amber-400' : 'bg-emerald-400'
+                  return (
+                    <div key={p.employeeId} className="flex items-center gap-2">
+                      <span className="w-4 text-right text-[10px] text-slate-300">{i+1}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[p.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{p.primaryTeam}</span>
+                      <span className="w-20 truncate text-xs text-slate-600">{p.nickname||p.fullName.split(' ')[1]||p.fullName}</span>
+                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{width:`${Math.min(p.utilPct,100)}%`}} />
+                      </div>
+                      <span className={`w-10 text-right text-xs font-semibold ${p.utilPct>=80?'text-red-500':p.utilPct>=50?'text-amber-500':'text-emerald-600'}`}>{p.utilPct}%</span>
+                    </div>
+                  )
                 })}
               </div>
             )}
           </Card>
+
+          {/* Cross-team compact */}
+          {data.crossContrib.length > 0 && (
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
+              <h3 className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cross-team Contribution</h3>
+              <div className="flex flex-wrap gap-2">
+                {data.crossContrib.map(c => (
+                  <div key={c.employeeId} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
+                    <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[c.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{c.primaryTeam}</span>
+                    <span className="text-slate-600">{c.nickname||c.fullName.split(' ')[1]||c.fullName}</span>
+                    <span className="font-semibold text-sky-600">{c.crossTeamDays}d</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="col-span-full">
             <Card title="Own vs Rental">

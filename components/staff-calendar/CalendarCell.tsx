@@ -35,14 +35,18 @@ const STATUS_LABEL: Record<string, string> = {
 interface Props {
   assignments: StaffAssignment[]
   isConflict:  boolean
-  isWeekend:   boolean
+  dayOfWeek:   number   // 0=อา, 6=ส
   employee:    Employee
   onClick:     () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, isWeekend, onClick }: Props) {
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
-  const extra = isWeekend && assignments.length === 0 ? 'bg-slate-50' : ''
+  const isSun = dayOfWeek === 0
+  const isSat = dayOfWeek === 6
+  const extra = assignments.length === 0
+    ? isSun ? 'bg-red-50'    : isSat ? 'bg-orange-50' : ''
+    : isSun ? 'opacity-90'   : ''
   const primary   = assignments.find((a) => !a.isCrossTeam)
   const crossTeam = assignments.filter((a) => a.isCrossTeam)
 
@@ -50,7 +54,7 @@ export default function CalendarCell({ assignments, isConflict, isWeekend, onCli
     <td
       onClick={onClick}
       className={`relative h-10 min-w-[52px] max-w-[80px] cursor-pointer border-r border-b
-        border-slate-200 px-1 py-0.5 text-center text-xs align-middle
+        border-slate-300 px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra}`}
     >
       {assignments.length > 0 && (

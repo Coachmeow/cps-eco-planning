@@ -37,10 +37,12 @@ model Equipment {
   type         EquipmentType   @relation(fields: [typeId], references: [id])
   serialNo     String?
   internalNo   String?
-  isRental     Boolean         @default(false)
-  rentalVendor String?
-  status       EquipmentStatus @default(ACTIVE)
-  notes        String?
+  isRental        Boolean         @default(false)
+  rentalVendor    String?
+  rentalStartDate DateTime?       @db.Date
+  rentalEndDate   DateTime?       @db.Date
+  status          EquipmentStatus @default(ACTIVE)
+  notes           String?
 
   assignments EquipmentAssignment[]
 

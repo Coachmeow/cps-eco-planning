@@ -105,10 +105,11 @@ export default function StaffCalendar() {
                 <th className="sticky left-[120px] z-20 min-w-[48px] border-b border-r border-slate-200 bg-white px-2 py-2 text-center text-xs font-semibold text-slate-600">ทีม</th>
                 {days.map((day) => {
                   const dow = day.getDay()
-                  const isWeekend = dow === 0 || dow === 6
                   const isToday   = toDateKey(day) === toDateKey(today)
+                  const weekendCls = dow === 0 ? 'bg-red-50 text-red-400'
+                                   : dow === 6 ? 'bg-orange-50 text-orange-400' : 'text-slate-600'
                   return (
-                    <th key={toDateKey(day)} className={`min-w-[52px] border-b border-r border-slate-200 px-1 py-1 text-center font-medium ${isWeekend ? 'bg-slate-50 text-slate-400' : 'text-slate-600'} ${isToday ? 'bg-sky-50 text-sky-600' : ''}`}>
+                    <th key={toDateKey(day)} className={`min-w-[52px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${weekendCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
                       <div className="text-[10px] font-normal opacity-70">{thaiDays[dow]}</div>
                     </th>
@@ -134,8 +135,7 @@ export default function StaffCalendar() {
                       const dateKey   = toDateKey(day)
                       const dayAssign = calendarData.get(emp.id)?.get(dateKey) ?? []
                       const isConflict = conflicts.staffConflicts.has(`${emp.id}-${dateKey}`)
-                      const isWeekend  = day.getDay() === 0 || day.getDay() === 6
-                      return <CalendarCell key={dateKey} assignments={dayAssign} isConflict={isConflict} isWeekend={isWeekend} employee={emp} onClick={() => setPopup({ employee: emp, dateKey })} />
+                      return <CalendarCell key={dateKey} assignments={dayAssign} isConflict={isConflict} dayOfWeek={day.getDay()} employee={emp} onClick={() => setPopup({ employee: emp, dateKey })} />
                     })}
                     <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
                     <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>

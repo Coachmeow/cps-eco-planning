@@ -101,5 +101,30 @@ export async function GET(req: NextRequest) {
     })
   )
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, workdays, year, month })
+  // ── Per-person Utilization ─────────────────────────────────
+  const personGroups = await prisma.staffAssignment.groupBy({
+    by:    ['employeeId'],
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null },
+    _sum:  { estimatedDays: true },
+  })
+
+  const personUtil = (await Promise.all(
+    personGroups.map(async (g) => {
+      const emp = await prisma.employee.findUnique({
+        where: { id: g.employeeId }, include: { primaryTeam: true },
+      })
+      const fieldDays = Number(g._sum.estimatedDays ?? 0)
+      const utilPct   = workdays > 0 ? Math.round((fieldDays / workdays) * 100) : 0
+      return {
+        employeeId:  g.employeeId,
+        fullName:    emp?.fullName ?? '',
+        nickname:    emp?.nickname ?? '',
+        primaryTeam: emp?.primaryTeam.code ?? '',
+        fieldDays,
+        utilPct,
+      }
+    })
+  )).sort((a, b) => b.utilPct - a.utilPct)
+
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, workdays, year, month })
 }
