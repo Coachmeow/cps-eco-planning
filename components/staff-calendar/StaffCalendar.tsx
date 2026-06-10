@@ -48,7 +48,7 @@ export default function StaffCalendar() {
   const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
 
-  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, removeAssignment } =
+  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment } =
     useStaffCalendar(year, month)
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
@@ -152,7 +152,8 @@ export default function StaffCalendar() {
           employee={popup.employee} date={popup.dateKey}
           assignments={calendarData.get(popup.employee.id)?.get(popup.dateKey) ?? []}
           sites={sites} teams={teams}
-          onSave={addAssignment} onDelete={removeAssignment} onClose={() => setPopup(null)}
+          allEmployees={employees}
+          onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
         />
       )}
     </div>

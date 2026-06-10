@@ -91,10 +91,26 @@ export function useStaffCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
+  // bulk: save multiple employees at once, then refresh once
+  const addAssignments = useCallback(async (payloads: Record<string, unknown>[]) => {
+    const results = await Promise.allSettled(
+      payloads.map(payload =>
+        fetch('/api/staff-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+      )
+    )
+    await fetchAll()
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) throw new Error(`บันทึกล้มเหลว ${failed} รายการ`)
+  }, [fetchAll])
+
   const removeAssignment = useCallback(async (id: number) => {
     await fetch(`/api/staff-assignments/${id}`, { method: 'DELETE' })
     await fetchAll()
   }, [fetchAll])
 
-  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, removeAssignment }
+  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment }
 }
