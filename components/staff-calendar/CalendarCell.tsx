@@ -2,15 +2,6 @@
 
 import type { StaffAssignment, Employee } from '@/lib/types'
 
-const TEAM_BADGE_COLOR: Record<string, string> = {
-  ST:   'bg-slate-200 text-slate-700',
-  AMB:  'bg-teal-100  text-teal-700',
-  WP:   'bg-purple-100 text-purple-700',
-  CEMS: 'bg-orange-100 text-orange-700',
-  WT:   'bg-blue-100  text-blue-700',
-  LOG:  'bg-gray-100  text-gray-600',
-}
-
 // Full Tailwind class strings — must be static to avoid purge
 const SITE_COLOR_CLASS: Record<string, string> = {
   emerald: 'bg-emerald-50 border border-emerald-200 text-emerald-800',
@@ -27,14 +18,28 @@ const SITE_COLOR_CLASS: Record<string, string> = {
   red:     'bg-red-50     border border-red-200     text-red-800',
 }
 
+// Cross-team badge ring color to complement the site color (subtle ring inside cell)
+const TEAM_RING: Record<string, string> = {
+  ST:   'border-slate-400 text-slate-600',
+  AMB:  'border-teal-400  text-teal-700',
+  WP:   'border-purple-400 text-purple-700',
+  CEMS: 'border-orange-400 text-orange-700',
+  WT:   'border-blue-400  text-blue-700',
+  LOG:  'border-gray-400  text-gray-600',
+}
+
+function getSiteColor(assignments: StaffAssignment[]): string {
+  // Pick the first FIELD assignment's site color (cross-team or not)
+  const fieldAssign = assignments.find(a => a.status === 'FIELD')
+  return SITE_COLOR_CLASS[fieldAssign?.site?.color ?? 'emerald'] ?? SITE_COLOR_CLASS.emerald
+}
+
 function cellStyle(assignments: StaffAssignment[], isConflict: boolean): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
   const first = assignments[0]
   switch (first.status) {
-    case 'FIELD':
-      if (first.isCrossTeam) return 'bg-sky-50 border border-sky-200 text-sky-800'
-      return SITE_COLOR_CLASS[first.site?.color ?? 'emerald'] ?? SITE_COLOR_CLASS.emerald
+    case 'FIELD':    return getSiteColor(assignments)
     case 'OFFICE':   return 'bg-slate-50 text-slate-500'
     case 'LEAVE':    return 'bg-slate-100 text-slate-400'
     case 'HOLIDAY':  return 'bg-white text-slate-300'
@@ -50,7 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
 interface Props {
   assignments: StaffAssignment[]
   isConflict:  boolean
-  dayOfWeek:   number   // 0=อา, 6=ส
+  dayOfWeek:   number
   employee:    Employee
   onClick:     () => void
 }
@@ -60,10 +65,15 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, onCli
   const isSun = dayOfWeek === 0
   const isSat = dayOfWeek === 6
   const extra = assignments.length === 0
-    ? isSun ? 'bg-red-50'    : isSat ? 'bg-orange-50' : ''
-    : isSun ? 'opacity-90'   : ''
-  const primary   = assignments.find((a) => !a.isCrossTeam)
-  const crossTeam = assignments.filter((a) => a.isCrossTeam)
+    ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : ''
+    : isSun ? 'opacity-90' : ''
+
+  // Split primary (own-team) vs cross-team FIELD assignments
+  const primary   = assignments.find(a => !a.isCrossTeam)
+  const crossTeam = assignments.filter(a => a.isCrossTeam)
+
+  // The "display" assignment: prefer primary, fall back to first cross-team
+  const displayAssign = primary ?? crossTeam[0]
 
   return (
     <td
@@ -74,18 +84,44 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, onCli
     >
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">
-          {primary && (
-            <span className="truncate font-medium max-w-[72px]">
-              {primary.status !== 'FIELD' ? (STATUS_LABEL[primary.status] ?? primary.status) : (primary.site?.code ?? '—')}
+
+          {/* ── Main label: site code or status ── */}
+          {displayAssign && (
+            <span className="truncate font-semibold max-w-[72px]">
+              {displayAssign.status !== 'FIELD'
+                ? (STATUS_LABEL[displayAssign.status] ?? displayAssign.status)
+                : (displayAssign.site?.code ?? '—')}
             </span>
           )}
-          {crossTeam.map((a) => (
-            <span key={a.id} className={`rounded px-0.5 text-[10px] font-semibold leading-tight ${TEAM_BADGE_COLOR[a.serviceType?.code ?? ''] ?? 'bg-gray-100'}`}>
-              [{a.serviceType?.code}]
-            </span>
-          ))}
-          {assignments.some((a) => a.isLocked) && <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>}
-          {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
+
+          {/* ── Cross-team badges ─────────────────
+               Show when the displayed assignment is cross-team,
+               OR when there are additional cross-team on top of a primary. ── */}
+          {crossTeam.map(a => {
+            const teamCode = a.serviceType?.code ?? '?'
+            const ringCls  = TEAM_RING[teamCode] ?? 'border-slate-400 text-slate-500'
+            // If this cross-team assignment is the main display, only show team badge (no site – it's already above)
+            // If primary exists and this is additional, show site code too
+            const showSite = !!primary && a.site?.code !== primary.site?.code
+            return (
+              <span
+                key={a.id}
+                className={`inline-flex items-center gap-0.5 rounded border px-1 text-[9px] font-semibold leading-tight bg-white/60 ${ringCls}`}
+              >
+                <span className="opacity-60">×</span>
+                {showSite && <span>{a.site?.code}</span>}
+                <span>{teamCode}</span>
+              </span>
+            )
+          })}
+
+          {/* ── Decorators ── */}
+          {assignments.some(a => a.isLocked) && (
+            <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>
+          )}
+          {isConflict && (
+            <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+          )}
         </div>
       )}
     </td>
