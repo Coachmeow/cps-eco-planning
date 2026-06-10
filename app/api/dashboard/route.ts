@@ -127,5 +127,25 @@ export async function GET(req: NextRequest) {
     })
   )).sort((a, b) => b.utilPct - a.utilPct)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, workdays, year, month })
+  // ── Man-days per Site ──────────────────────────────────────
+  const siteGroups = await prisma.staffAssignment.groupBy({
+    by:    ['siteId'],
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
+    _sum:  { estimatedDays: true },
+  })
+
+  const siteMandays = (await Promise.all(
+    siteGroups.map(async (g) => {
+      const site = await prisma.site.findUnique({ where: { id: g.siteId! } })
+      return {
+        siteId:   g.siteId!,
+        siteCode: site?.code ?? '?',
+        siteName: site?.name ?? '',
+        color:    site?.color ?? 'emerald',
+        manDays:  Number(g._sum.estimatedDays ?? 0),
+      }
+    })
+  )).sort((a, b) => b.manDays - a.manDays)
+
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, workdays, year, month })
 }

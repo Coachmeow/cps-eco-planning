@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import BarRow from './BarRow'
 import ExportButton from '@/components/ExportButton'
-import type { DashboardData, PersonUtilRow } from '@/lib/types'
+import type { DashboardData, PersonUtilRow, SiteMandayRow } from '@/lib/types'
+import { siteDotClass } from '@/lib/siteColors'
 
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
@@ -123,6 +124,29 @@ export default function DashboardView() {
                         <div className={`h-full ${barColor} rounded-full transition-all`} style={{width:`${Math.min(p.utilPct,100)}%`}} />
                       </div>
                       <span className={`w-10 text-right text-xs font-semibold ${p.utilPct>=80?'text-red-500':p.utilPct>=50?'text-amber-500':'text-emerald-600'}`}>{p.utilPct}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Man-days per site — scrollable, sorted desc */}
+          <Card title="Man-days รายไซต์ (วัน-คน)">
+            {(!data.siteMandays || data.siteMandays.length === 0)
+              ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
+              : (
+              <div className="h-64 overflow-y-auto space-y-1.5 pr-1">
+                {data.siteMandays.map((s: SiteMandayRow, i: number) => {
+                  const max = Math.max(...data.siteMandays.map(x => x.manDays), 1)
+                  return (
+                    <div key={s.siteId} className="flex items-center gap-2">
+                      <span className="w-4 text-right text-[10px] text-slate-300">{i+1}</span>
+                      <span className="w-20 truncate text-xs font-medium text-slate-700" title={s.siteName}>{s.siteCode}</span>
+                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${siteDotClass(s.color)} rounded-full transition-all`} style={{width:`${(s.manDays/max)*100}%`}} />
+                      </div>
+                      <span className="w-12 text-right text-xs font-semibold text-slate-700">{s.manDays} วัน</span>
                     </div>
                   )
                 })}

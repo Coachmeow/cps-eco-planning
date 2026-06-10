@@ -130,11 +130,20 @@ export interface PersonUtilRow {
   utilPct: number
 }
 
+export interface SiteMandayRow {
+  siteId: number
+  siteCode: string
+  siteName: string
+  color: string
+  manDays: number
+}
+
 export interface DashboardData {
   equipmentUtil: EquipmentUtilRow[]
   teamWorkload: TeamWorkloadRow[]
   crossContrib: CrossContribRow[]
   personUtil: PersonUtilRow[]
+  siteMandays: SiteMandayRow[]
   workdays: number
   year: number
   month: number

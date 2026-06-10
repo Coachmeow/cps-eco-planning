@@ -22,6 +22,18 @@ export function siteColorClass(color: string | null | undefined): string {
   return SITE_COLOR_CLASS[color ?? 'emerald'] ?? SITE_COLOR_CLASS.emerald
 }
 
+// Solid dot/bar color per site color key (e.g. for dashboard bars and selector dots)
+export const SITE_DOT: Record<string, string> = {
+  emerald: 'bg-emerald-400', sky: 'bg-sky-400', violet: 'bg-violet-400',
+  rose: 'bg-rose-400', amber: 'bg-amber-400', orange: 'bg-orange-400',
+  cyan: 'bg-cyan-400', indigo: 'bg-indigo-400', pink: 'bg-pink-400',
+  teal: 'bg-teal-400', lime: 'bg-lime-400', red: 'bg-red-400',
+}
+
+export function siteDotClass(color: string | null | undefined): string {
+  return SITE_DOT[color ?? 'emerald'] ?? SITE_DOT.emerald
+}
+
 // Color palette options for Admin color picker (used in AdminView.tsx)
 export const SITE_COLOR_OPTIONS = [
   { value: 'emerald', label: 'เขียว',    dot: 'bg-emerald-400', preview: 'bg-emerald-50 border-emerald-300 text-emerald-800' },
