@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   const eqTypesRaw = await prisma.equipmentType.findMany({
     include: {
       equipment: {
-        where:   { status: { not: 'RETIRED' } },
+        // BROKEN/RETIRED ใช้งานไม่ได้ — ไม่นับเป็นฐานคำนวณ utilization
+        where:   { status: { notIn: ['RETIRED', 'BROKEN'] } },
         include: { assignments: { where: { assignedDate: { gte: startDate, lte: endDate } } } },
       },
     },

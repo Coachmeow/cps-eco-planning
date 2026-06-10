@@ -122,6 +122,7 @@ export default function EquipmentCalendar() {
                             <span className="font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                             {eq.isRental && <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-600">เช่า</span>}
                             {eq.status === 'CALIBRATING' && <span className="rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-500">Cal</span>}
+                            {eq.status === 'BROKEN' && <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-medium text-red-600">เสีย</span>}
                           </div>
                           {eq.serialNo && eq.internalNo && <div className="text-[10px] text-slate-400">{eq.serialNo}</div>}
                         </td>
