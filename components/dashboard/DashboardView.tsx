@@ -128,12 +128,6 @@ export default function DashboardView() {
             ))}
           </div>
 
-          <div className="col-span-full">
-            <Card title="แนวโน้ม 6 เดือน">
-              <TrendChart trend={data.trend} />
-            </Card>
-          </div>
-
           <Card title="Equipment Utilization % (ของบริษัท)">
             <div className="space-y-2.5">
               {data.equipmentUtil.filter(r=>r.ownCount>0).sort((a,b)=>b.ownUtil-a.ownUtil).map(r=>(
@@ -238,6 +232,11 @@ export default function DashboardView() {
             )}
           </Card>
 
+          {/* แนวโน้ม 6 เดือน — card ปกติ อยู่กลุ่ม util/man-day */}
+          <Card title="แนวโน้ม 6 เดือน">
+            <TrendChart trend={data.trend} />
+          </Card>
+
           {/* Cross-team compact */}
           {data.crossContrib.length > 0 && (
             <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
@@ -254,11 +253,10 @@ export default function DashboardView() {
             </div>
           )}
 
-          <div className="col-span-full">
-            <Card title="Own vs Rental">
-              <div className="overflow-x-auto">
+          <Card title="Own vs Rental">
+            <div className="max-h-64 overflow-auto">
                 <table className="w-full text-xs">
-                  <thead><tr className="border-b border-slate-100 text-left text-slate-400">
+                  <thead className="sticky top-0 bg-white"><tr className="border-b border-slate-100 text-left text-slate-400">
                     <th className="py-2 pr-4 font-medium">ประเภท</th>
                     <th className="py-2 pr-4 text-right font-medium">Own</th>
                     <th className="py-2 pr-4 text-right font-medium">Util (Own)</th>
@@ -277,9 +275,8 @@ export default function DashboardView() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </div>
       )}
     </div>
