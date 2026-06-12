@@ -1,21 +1,12 @@
+// Server-only auth helpers (node:crypto password hashing + cookie session read).
+// Re-exports the Edge-safe pieces so existing `@/lib/auth` imports keep working.
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import { COOKIE_NAME, verifySession, type SessionPayload } from './auth-edge'
 
-// ── Roles ──────────────────────────────────────────────────────
-export type UserRole = 'ADMIN' | 'MANAGER' | 'MAINTENANCE' | 'GENERAL'
+export * from './auth-edge'
 
-export const ROLE_LABEL: Record<UserRole, string> = {
-  ADMIN:       'ผู้ดูแลระบบ',
-  MANAGER:     'ผู้จัดการแผนงาน',
-  MAINTENANCE: 'ช่างเครื่องมือ',
-  GENERAL:     'พนักงานทั่วไป',
-}
-
-export const COOKIE_NAME = 'cps_session'
-
-// ── Password hashing (scrypt, no external dep) ─────────────────
-// format: scrypt$<saltHex>$<hashHex>
+// ── Password hashing (scrypt) — format: scrypt$<saltHex>$<hashHex> ──
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16)
   const hash = scryptSync(pw, salt, 64)
@@ -31,51 +22,10 @@ export function verifyPassword(pw: string, stored: string): boolean {
   return hash.length === test.length && timingSafeEqual(hash, test)
 }
 
-// ── Session token (JWT via jose, Edge-compatible) ──────────────
-export interface SessionPayload {
-  uid:      number
-  role:     UserRole
-  username: string
-  name:     string
-}
-
-function secretKey() {
-  const s = process.env.AUTH_SECRET ?? 'dev-insecure-secret-change-me-in-production'
-  return new TextEncoder().encode(s)
-}
-
-export async function signSession(p: SessionPayload): Promise<string> {
-  return new SignJWT({ role: p.role, username: p.username, name: p.name })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(String(p.uid))
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(secretKey())
-}
-
-export async function verifySession(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secretKey())
-    return {
-      uid:      Number(payload.sub),
-      role:     payload.role as UserRole,
-      username: payload.username as string,
-      name:     payload.name as string,
-    }
-  } catch {
-    return null
-  }
-}
-
-// ── Read session in server components / route handlers ─────────
+// ── Read session in server components / route handlers ──────────
 export async function getSession(): Promise<SessionPayload | null> {
   const jar = await cookies()
   const token = jar.get(COOKIE_NAME)?.value
   if (!token) return null
   return verifySession(token)
-}
-
-// ── Permission helpers ─────────────────────────────────────────
-export function hasRole(session: SessionPayload | null, ...allowed: UserRole[]): boolean {
-  return !!session && allowed.includes(session.role)
 }
