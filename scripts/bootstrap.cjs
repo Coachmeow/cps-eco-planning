@@ -1,0 +1,68 @@
+/**
+ * Bootstrap accounts — รันอัตโนมัติตอน start บน Railway (idempotent, plain JS)
+ * ใช้แค่ @prisma/client + node:crypto (ไม่ต้องพึ่ง ts-node)
+ *
+ *   1) upsert admin "anuwat" (รหัส @Dew28)
+ *   2) สร้างบัญชี GENERAL ให้พนักงานที่ยังไม่มี user (ข้ามที่มีอยู่แล้ว)
+ *
+ * ไม่ลบข้อมูลใดๆ — รันซ้ำทุก deploy ได้
+ */
+const { PrismaClient } = require('@prisma/client')
+const { randomBytes, scryptSync } = require('node:crypto')
+const prisma = new PrismaClient()
+
+function hashPassword(pw) {
+  const salt = randomBytes(16)
+  const hash = scryptSync(pw, salt, 64)
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`
+}
+
+// ลำดับตรงกับ prisma/seed.ts (employee id asc)
+const USERNAMES = [
+  'kaewkanok', 'anirut', 'sompong', 'surasak', 'kit', 'navin',
+  'montri', 'nirun', 'jirayu', 'thawatchai', 'niphon', 'wanchai',
+  'nattapong', 'prawit', 'thanasin', 'sutat', 'anuchet', 'nattawut',
+  'thanapon', 'athikom', 'phaiboon',
+  'thitipong', 'thanapon2', 'amornthep', 'nopadol', 'kritsanapol', 'supanat', 'narongrit',
+  'manorom', 'nattawut2', 'anapat', 'wuttisak', 'wararat',
+  'pramote', 'woramet', 'krittapop', 'rittichai',
+  'chattarika', 'wiparat', 'danuchit', 'sasiyapat',
+]
+
+async function main() {
+  // 1) admin anuwat
+  await prisma.user.upsert({
+    where:  { username: 'anuwat' },
+    update: { passwordHash: hashPassword('@Dew28'), role: 'ADMIN', isActive: true },
+    create: { username: 'anuwat', passwordHash: hashPassword('@Dew28'), role: 'ADMIN', isActive: true },
+  })
+  console.log('✅ admin "anuwat" พร้อมใช้งาน')
+
+  // 2) backfill บัญชีพนักงาน (GENERAL) สำหรับคนที่ยังไม่มี user
+  const employees     = await prisma.employee.findMany({ orderBy: { id: 'asc' } })
+  const existingUsers = await prisma.user.findMany({ select: { employeeId: true, username: true } })
+  const takenEmp  = new Set(existingUsers.map((u) => u.employeeId))
+  const takenName = new Set(existingUsers.map((u) => u.username))
+  const defaultHash = hashPassword('4321')
+
+  let created = 0
+  for (let i = 0; i < employees.length; i++) {
+    const emp = employees[i]
+    if (takenEmp.has(emp.id)) continue
+
+    let username = USERNAMES[i] || `user${emp.id}`
+    let n = 2
+    while (takenName.has(username)) username = `${USERNAMES[i] || `user${emp.id}`}${n++}`
+    takenName.add(username)
+
+    await prisma.user.create({
+      data: { username, passwordHash: defaultHash, role: 'GENERAL', employeeId: emp.id },
+    })
+    created++
+  }
+  console.log(`✅ สร้างบัญชีพนักงานใหม่ ${created} ราย (ข้ามที่มีอยู่แล้ว ${takenEmp.size} ราย)`)
+}
+
+main()
+  .catch((e) => { console.error('bootstrap error:', e); process.exit(0) }) // ไม่ block การ start แอป
+  .finally(() => prisma.$disconnect())
