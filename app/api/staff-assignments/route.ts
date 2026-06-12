@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStaffConflict } from '@/lib/conflicts'
+import { requireRole, forbidden } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   const body = await req.json()
   const {
     employeeId, assignedDate, siteId, serviceTypeId,

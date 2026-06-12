@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireRole, forbidden } from '@/lib/auth'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   try {
     const { id } = await params
     const body = await req.json()
@@ -22,6 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   try {
     const { id } = await params
     const empId = parseInt(id)

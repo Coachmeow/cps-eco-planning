@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireRole, forbidden } from '@/lib/auth'
 
 export async function GET() {
   const sites = await prisma.site.findMany({ orderBy: { code: 'asc' } })
@@ -7,6 +8,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   try {
     const body = await req.json()
     const site = await prisma.site.create({

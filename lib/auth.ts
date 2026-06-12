@@ -2,9 +2,21 @@
 // Re-exports the Edge-safe pieces so existing `@/lib/auth` imports keep working.
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
-import { COOKIE_NAME, verifySession, type SessionPayload } from './auth-edge'
+import { NextResponse } from 'next/server'
+import { COOKIE_NAME, verifySession, hasRole, type SessionPayload, type UserRole } from './auth-edge'
 
 export * from './auth-edge'
+
+// 403 response helper for API routes
+export function forbidden() {
+  return NextResponse.json({ error: 'ไม่มีสิทธิ์ดำเนินการ' }, { status: 403 })
+}
+
+// คืน session ถ้ามีสิทธิ์ตาม role ที่อนุญาต — ไม่งั้นคืน null (ให้ route ตอบ forbidden())
+export async function requireRole(...roles: UserRole[]): Promise<SessionPayload | null> {
+  const session = await getSession()
+  return hasRole(session, ...roles) ? session : null
+}
 
 // ── Password hashing (scrypt) — format: scrypt$<saltHex>$<hashHex> ──
 export function hashPassword(pw: string): string {
