@@ -67,8 +67,29 @@ model Employee {
 
   siteAccess  EmployeeSiteAccess[]
   assignments StaffAssignment[]
+  user        User?
 
   @@map("employees")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  MAINTENANCE
+  GENERAL
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  role         UserRole  @default(GENERAL)
+  isActive     Boolean   @default(true)
+  employeeId   Int?      @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@map("users")
 }
 
 model EmployeeSiteAccess {

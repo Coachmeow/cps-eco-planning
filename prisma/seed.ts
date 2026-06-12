@@ -1,11 +1,20 @@
 import { PrismaClient } from '@prisma/client'
+import { randomBytes, scryptSync } from 'node:crypto'
 const prisma = new PrismaClient()
+
+// same scrypt format as lib/auth.ts: scrypt$<saltHex>$<hashHex>
+function hashPassword(pw: string): string {
+  const salt = randomBytes(16)
+  const hash = scryptSync(pw, salt, 64)
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`
+}
 
 async function main() {
   console.log('🗑  Clearing existing data...')
   await prisma.equipmentAssignment.deleteMany()
   await prisma.staffAssignment.deleteMany()
   await prisma.employeeSiteAccess.deleteMany()
+  await prisma.user.deleteMany()
   await prisma.equipment.deleteMany()
   await prisma.employee.deleteMany()
   await prisma.site.deleteMany()
@@ -368,6 +377,38 @@ async function main() {
     { fullName: 'นายดนุชิต เกวียนสูงเนิน',     nickname: 'ดนุชิต',      primaryTeamId: LOG.id  },
     { fullName: 'นางสาวศศิยาพัชร์ ไตรยสุทธิ์', nickname: 'ศศิยาพัชร์', primaryTeamId: LOG.id  },
   ] })
+
+  // ── 4b. User accounts (1 บัญชี/พนักงาน, รหัสเริ่มต้น 4321) ────────────────
+  // username = ชื่ออังกฤษ (romanize best-effort, Admin แก้ได้ในหน้าจัดการ User)
+  // ลำดับตรงกับ employee.createMany ด้านบน (41 คน)
+  console.log('🌱 User accounts...')
+  const USERNAMES = [
+    // ST (12)
+    'kaewkanok', 'anirut', 'sompong', 'surasak', 'kit', 'navin',
+    'montri', 'nirun', 'jirayu', 'thawatchai', 'niphon', 'wanchai',
+    // AMB (9)
+    'nattapong', 'prawit', 'thanasin', 'sutat', 'anuchet', 'nattawut',
+    'thanapon', 'athikom', 'phaiboon',
+    // WP (7)
+    'thitipong', 'thanapon2', 'amornthep', 'nopadol', 'kritsanapol', 'supanat', 'narongrit',
+    // WT (5)
+    'manorom', 'nattawut2', 'anapat', 'wuttisak', 'wararat',
+    // CEMS (4)
+    'pramote', 'woramet', 'krittapop', 'rittichai',
+    // LOG (4)
+    'chattarika', 'wiparat', 'danuchit', 'sasiyapat',
+  ]
+  const seededEmps = await prisma.employee.findMany({ orderBy: { id: 'asc' } })
+  const defaultHash = hashPassword('4321')
+  await prisma.user.createMany({
+    data: seededEmps.map((emp, i) => ({
+      username:     USERNAMES[i] ?? `user${i + 1}`,
+      passwordHash: defaultHash,
+      // bootstrap: คนแรก (แก้วกนก, หัวหน้าทีม ST) เป็น ADMIN — ที่เหลือ GENERAL ให้ Admin ปรับ
+      role:         i === 0 ? 'ADMIN' as const : 'GENERAL' as const,
+      employeeId:   emp.id,
+    })),
+  })
 
   // ── 5. Sites ──────────────────────────────────────────────────────────────
   console.log('🌱 Sites...')
