@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
+import { useMe } from '@/hooks/useMe'
+import { canPlan } from '@/lib/roles'
 import CalendarCell from './CalendarCell'
 import AssignmentPopup from './AssignmentPopup'
 import ExportButton from '@/components/ExportButton'
@@ -50,6 +52,8 @@ export default function StaffCalendar() {
 
   const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment } =
     useStaffCalendar(year, month)
+  const { role } = useMe()
+  const canEdit = canPlan(role)
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const filteredEmployees = teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter)
@@ -153,6 +157,7 @@ export default function StaffCalendar() {
           assignments={calendarData.get(popup.employee.id)?.get(popup.dateKey) ?? []}
           sites={sites} teams={teams}
           allEmployees={employees}
+          canEdit={canEdit}
           onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
         />
       )}

@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
+import { useMe } from '@/hooks/useMe'
+import { canPlan } from '@/lib/roles'
 import { countWorkdays, calcUtil } from '@/lib/workdays'
 import EquipmentCell from './EquipmentCell'
 import EquipmentPopup from './EquipmentPopup'
@@ -35,6 +37,8 @@ export default function EquipmentCalendar() {
 
   const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignments, removeAssignment } =
     useEquipmentCalendar(year, month, selectedTypeId)
+  const { role } = useMe()
+  const canEdit = canPlan(role)
 
   const days     = useMemo(() => getDaysInMonth(year, month), [year, month])
   const workdays = useMemo(() => countWorkdays(year, month), [year, month])
@@ -149,6 +153,7 @@ export default function EquipmentCalendar() {
           assignments={calendarData.get(popup.equipment.id)?.get(popup.dateKey) ?? []}
           sites={sites}
           allEquipment={equipment}
+          canEdit={canEdit}
           onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
         />
       )}

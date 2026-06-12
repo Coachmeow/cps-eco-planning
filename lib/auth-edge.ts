@@ -1,15 +1,10 @@
 // Edge-safe auth helpers (jose only — no node:crypto / next/headers).
 // Imported by middleware.ts (Edge runtime) and re-exported from lib/auth.ts.
 import { SignJWT, jwtVerify } from 'jose'
+import type { UserRole } from './roles'
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'MAINTENANCE' | 'GENERAL'
-
-export const ROLE_LABEL: Record<UserRole, string> = {
-  ADMIN:       'ผู้ดูแลระบบ',
-  MANAGER:     'ผู้จัดการแผนงาน',
-  MAINTENANCE: 'ช่างเครื่องมือ',
-  GENERAL:     'พนักงานทั่วไป',
-}
+export type { UserRole } from './roles'
+export { ROLE_LABEL } from './roles'
 
 export const COOKIE_NAME = 'cps_session'
 

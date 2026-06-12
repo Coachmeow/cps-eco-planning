@@ -10,6 +10,7 @@ interface Props {
   sites:        Site[]
   teams:        ServiceTeam[]
   allEmployees: Employee[]
+  canEdit?:     boolean
   onSave:       (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:     (id: number) => Promise<void>
   onClose:      () => void
@@ -26,6 +27,7 @@ const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
 
 export default function AssignmentPopup({
   employee, date, assignments, sites, teams, allEmployees,
+  canEdit = true,
   onSave, onDelete, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -123,15 +125,21 @@ export default function AssignmentPopup({
                     <span className="ml-1 text-slate-400">({a.estimatedDays} วัน)</span>
                   )}
                 </span>
-                {!a.isLocked
+                {canEdit && !a.isLocked
                   ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                  : <span className="text-slate-300 text-[10px]">🔒 ล็อก</span>}
+                  : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
               </div>
             ))}
           </div>
         )}
 
-        {/* ── Form ── */}
+        {/* read-only note for viewers */}
+        {!canEdit && (
+          <div className="px-4 py-3 text-xs text-slate-400">👁 โหมดดูอย่างเดียว — ไม่มีสิทธิ์แก้ไขแผนงาน</div>
+        )}
+
+        {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน) ── */}
+        {canEdit && (
         <div className="px-4 py-3 space-y-3">
           <p className="text-xs font-medium text-slate-500">เพิ่มรายการใหม่</p>
 
@@ -193,9 +201,10 @@ export default function AssignmentPopup({
               className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
           </div>
         </div>
+        )}
 
         {/* ── Companion section ── */}
-        {displayed.length > 0 && (
+        {canEdit && displayed.length > 0 && (
           <div className="border-t border-slate-100 px-4 pb-3 pt-2">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium text-slate-500">👥 คนร่วมงาน</p>
@@ -257,6 +266,7 @@ export default function AssignmentPopup({
         )}
 
         {/* ── Save button ── */}
+        {canEdit && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
           <button
             onClick={handleSave}
@@ -270,6 +280,7 @@ export default function AssignmentPopup({
                 : 'บันทึก'}
           </button>
         </div>
+        )}
       </div>
     </div>
   )

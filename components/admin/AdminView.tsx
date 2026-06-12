@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
+import { useMe } from '@/hooks/useMe'
+import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
@@ -361,7 +363,8 @@ function EmployeesSection() {
 }
 
 // ── Section: Equipment ────────────────────────────────────────
-function EquipmentSection() {
+function EquipmentSection({ role }: { role?: UserRole }) {
+  const canManage = role === 'ADMIN' || role === 'MANAGER'   // เพิ่ม/แก้ไขครบ
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [eqTypes,   setEqTypes]   = useState<EqType[]>([])
   const [modal,     setModal]     = useState<'add-owned' | 'add-rental' | 'edit' | null>(null)
@@ -447,10 +450,15 @@ function EquipmentSection() {
           className="w-64"
         />
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
-        <div className="ml-auto flex gap-2">
-          <Btn onClick={() => { setEditing(null); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
-          <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
-        </div>
+        {role === 'MAINTENANCE' && (
+          <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] text-sky-600">เปลี่ยนได้เฉพาะสถานะเครื่องมือ</span>
+        )}
+        {canManage && (
+          <div className="ml-auto flex gap-2">
+            <Btn onClick={() => { setEditing(null); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
+            <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
@@ -494,8 +502,11 @@ function EquipmentSection() {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-1.5">
-                      <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>
-                      <Btn small variant="danger" onClick={() => del(eq)}>ลบ</Btn>
+                      {canManage && <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>}
+                      {/* ลบเครื่องซื้อ = ADMIN เท่านั้น · เครื่องเช่า = ADMIN/MANAGER */}
+                      {(role === 'ADMIN' || (role === 'MANAGER' && eq.isRental)) && (
+                        <Btn small variant="danger" onClick={() => del(eq)}>ลบ</Btn>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -569,36 +580,123 @@ function EquipmentSection() {
   )
 }
 
+// ── Section: Users (ADMIN เท่านั้น) ───────────────────────────
+interface UserRow {
+  id: number; username: string; role: UserRole; isActive: boolean
+  employeeId: number | null; employeeName: string | null; fullName: string | null; team: string | null
+}
+
+function UsersSection({ myUid }: { myUid?: number }) {
+  const [users, setUsers]   = useState<UserRow[]>([])
+  const [search, setSearch] = useState('')
+
+  const load = useCallback(async () => {
+    const r = await fetch('/api/users')
+    if (r.ok) setUsers(await r.json())
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function patch(u: UserRow, body: Record<string, unknown>) {
+    const r = await fetch(`/api/users/${u.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error ?? 'ทำรายการไม่สำเร็จ'); return }
+    load()
+  }
+
+  async function resetPw(u: UserRow) {
+    const pw = prompt(`ตั้งรหัสผ่านใหม่ของ "${u.username}"`, '4321')
+    if (!pw) return
+    await patch(u, { resetPassword: pw })
+    alert(`รีเซ็ตรหัสผ่าน ${u.username} แล้ว`)
+  }
+
+  const filtered = users.filter(u =>
+    !search || u.username.includes(search) || (u.employeeName ?? '').includes(search) || (u.fullName ?? '').includes(search))
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-3">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหา username / ชื่อ..."
+          className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
+        <p className="text-sm text-slate-400">{filtered.length} บัญชี</p>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500">
+            <tr>
+              <th className="px-4 py-2 text-left font-medium">Username</th>
+              <th className="px-4 py-2 text-left font-medium">ชื่อ</th>
+              <th className="px-4 py-2 text-left font-medium">ทีม</th>
+              <th className="px-4 py-2 text-left font-medium">สิทธิ์</th>
+              <th className="px-4 py-2 text-left font-medium">สถานะ</th>
+              <th className="px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(u => (
+              <tr key={u.id} className={`border-t border-slate-100 hover:bg-slate-50 ${!u.isActive ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-2 font-mono font-medium text-slate-700">
+                  {u.username}{u.id === myUid && <span className="ml-1 text-[10px] text-sky-500">(คุณ)</span>}
+                </td>
+                <td className="px-4 py-2 text-slate-600">{u.employeeName ?? '—'}</td>
+                <td className="px-4 py-2 text-xs text-slate-500">{u.team ?? '—'}</td>
+                <td className="px-4 py-2 w-44">
+                  <CustomSelect value={u.role} onChange={(v) => patch(u, { role: v })}
+                    options={ROLE_ORDER.map(r => ({ value: r, label: ROLE_LABEL[r] }))} />
+                </td>
+                <td className="px-4 py-2">
+                  <button onClick={() => patch(u, { isActive: !u.isActive })}
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${u.isActive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                    {u.isActive ? 'ใช้งาน' : 'ปิด'}
+                  </button>
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <Btn small variant="ghost" onClick={() => resetPw(u)}>รีเซ็ตรหัส</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'users'
 
 export default function AdminView() {
+  const { me, role } = useMe()
   const [tab, setTab] = useState<AdminTab>('sites')
 
-  const tabs: { key: AdminTab; label: string }[] = [
-    { key: 'sites',     label: '🏭 ไซต์งาน'  },
-    { key: 'employees', label: '👤 พนักงาน'   },
-    { key: 'equipment', label: '🔧 เครื่องมือ' },
+  const allTabs: { key: AdminTab; label: string; roles: UserRole[] }[] = [
+    { key: 'sites',     label: '🏭 ไซต์งาน',  roles: ['ADMIN', 'MANAGER'] },
+    { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
+    { key: 'equipment', label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'users',     label: '🔑 ผู้ใช้งาน',  roles: ['ADMIN'] },
   ]
+  const tabs   = allTabs.filter(t => !role || t.roles.includes(role))
+  const active = tabs.find(t => t.key === tab)?.key ?? tabs[0]?.key
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
       <h1 className="mb-5 text-base font-semibold text-slate-800">⚙ จัดการข้อมูล</h1>
 
-      {/* Tab selector */}
       <div className="mb-5 flex gap-1 rounded-xl bg-slate-200 p-1 w-fit">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`rounded-lg px-5 py-2 text-sm font-medium transition-colors ${tab === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            className={`rounded-lg px-5 py-2 text-sm font-medium transition-colors ${active === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
             {t.label}
           </button>
         ))}
       </div>
 
       <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
-        {tab === 'sites'     && <SitesSection />}
-        {tab === 'employees' && <EmployeesSection />}
-        {tab === 'equipment' && <EquipmentSection />}
+        {active === 'sites'     && <SitesSection />}
+        {active === 'employees' && <EmployeesSection />}
+        {active === 'equipment' && <EquipmentSection role={role} />}
+        {active === 'users'     && <UsersSection myUid={me?.uid} />}
       </div>
     </div>
   )

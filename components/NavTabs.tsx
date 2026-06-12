@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { ROLE_LABEL, type UserRole } from '@/lib/auth-edge'
+import { ROLE_LABEL, type UserRole } from '@/lib/roles'
 
 interface Me { uid: number; role: UserRole; username: string; name: string }
 

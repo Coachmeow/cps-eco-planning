@@ -9,6 +9,7 @@ interface Props {
   assignments:  EquipmentAssignment[]
   sites:        Site[]
   allEquipment: Equipment[]
+  canEdit?:     boolean
   onSave:       (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:     (id: number) => Promise<void>
   onClose:      () => void
@@ -26,6 +27,7 @@ const SITE_DOT: Record<string, string> = {
 
 export default function EquipmentPopup({
   equipment, date, assignments, sites, allEquipment,
+  canEdit = true,
   onSave, onDelete, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -148,15 +150,20 @@ export default function EquipmentPopup({
               {assignments.map((a) => (
                 <div key={a.id} className="flex items-center justify-between text-xs">
                   <span className="text-slate-700">{a.site?.code ?? '—'}</span>
-                  {!a.isLocked
+                  {canEdit && !a.isLocked
                     ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                    : <span className="text-slate-300 text-[10px]">🔒 ล็อก</span>}
+                    : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
                 </div>
               ))}
             </div>
           )}
 
-          {/* ── Form ── */}
+          {!canEdit && (
+            <div className="px-4 py-3 text-xs text-slate-400">👁 โหมดดูอย่างเดียว — ไม่มีสิทธิ์จองเครื่องมือ</div>
+          )}
+
+          {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน) ── */}
+          {canEdit && (
           <div className="px-4 py-3 space-y-3 border-b border-slate-100">
             {/* Site dropdown */}
             <div>
@@ -198,8 +205,10 @@ export default function EquipmentPopup({
               </div>
             </div>
           </div>
+          )}
 
           {/* ── Companion section ── */}
+          {canEdit && (
           <div className="px-4 py-3">
             {/* Section header */}
             <div className="mb-2 flex items-center justify-between">
@@ -289,9 +298,11 @@ export default function EquipmentPopup({
               })}
             </div>
           </div>
+          )}
         </div>
 
         {/* ── Save button (fixed at bottom) ── */}
+        {canEdit && (
         <div className="shrink-0 border-t border-slate-100 px-4 pb-4 pt-3">
           <button onClick={handleSave} disabled={saving || !siteId}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">
@@ -304,6 +315,7 @@ export default function EquipmentPopup({
                   : 'บันทึก'}
           </button>
         </div>
+        )}
       </div>
     </div>
   )
