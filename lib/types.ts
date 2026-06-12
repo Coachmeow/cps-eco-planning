@@ -138,12 +138,31 @@ export interface SiteMandayRow {
   manDays: number
 }
 
+export interface TeamCapacityRow {
+  teamId: number
+  teamCode: string
+  headcount: number
+  capacity: number
+  booked: number
+  remaining: number
+  usedPct: number
+}
+
+export interface TrendPoint {
+  year: number
+  month: number
+  manDays: number
+  eqUtil: number
+}
+
 export interface DashboardData {
   equipmentUtil: EquipmentUtilRow[]
   teamWorkload: TeamWorkloadRow[]
   crossContrib: CrossContribRow[]
   personUtil: PersonUtilRow[]
   siteMandays: SiteMandayRow[]
+  teamCapacity: TeamCapacityRow[]
+  trend: TrendPoint[]
   workdays: number
   year: number
   month: number

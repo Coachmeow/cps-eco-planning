@@ -127,6 +127,68 @@ export async function GET(req: NextRequest) {
     })
   )).sort((a, b) => b.utilPct - a.utilPct)
 
+  // ── Team Capacity คงเหลือ (เดือนที่เลือก) ───────────────────
+  // capacity = จำนวนพนักงาน active ในทีม × วันทำงาน
+  // booked   = วัน FIELD ที่คนในทีมถูกจองไปแล้ว (ไม่ว่าจะทำให้ทีมไหน — คนไม่ว่างคือไม่ว่าง)
+  const activeEmployees = await prisma.employee.findMany({
+    where:  { isActive: true },
+    select: { id: true, primaryTeamId: true },
+  })
+  const bookedRaw = await prisma.staffAssignment.groupBy({
+    by:    ['employeeId'],
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null },
+    _sum:  { estimatedDays: true },
+  })
+  const bookedByEmp = new Map<number, number>(
+    bookedRaw.map((b) => [b.employeeId, Number(b._sum.estimatedDays ?? 0)] as [number, number])
+  )
+
+  const capMap = new Map<number, { count: number; booked: number }>()
+  for (const e of activeEmployees) {
+    const cur = capMap.get(e.primaryTeamId) ?? { count: 0, booked: 0 }
+    cur.count  += 1
+    cur.booked += bookedByEmp.get(e.id) ?? 0
+    capMap.set(e.primaryTeamId, cur)
+  }
+  const teamCapacity = teams.map((t) => {
+    const c         = capMap.get(t.id) ?? { count: 0, booked: 0 }
+    const capacity  = c.count * workdays
+    const remaining = capacity - c.booked
+    const usedPct   = capacity > 0 ? Math.round((c.booked / capacity) * 100) : 0
+    return {
+      teamId: t.id, teamCode: t.code, headcount: c.count,
+      capacity, booked: Math.round(c.booked * 10) / 10,
+      remaining: Math.round(remaining * 10) / 10, usedPct,
+    }
+  }).filter((t) => t.headcount > 0).sort((a, b) => b.remaining - a.remaining)
+
+  // ── แนวโน้มย้อนหลัง 6 เดือน ──────────────────────────────────
+  // util เครื่องมือใช้จำนวนเครื่อง active ปัจจุบันเป็นตัวหาร (ประมาณการสำหรับ trend สั้น)
+  const activeEqCount = await prisma.equipment.count({
+    where: { status: { notIn: ['RETIRED', 'BROKEN'] } },
+  })
+  const trend: { year: number; month: number; manDays: number; eqUtil: number }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d  = new Date(year, month - 1 - i, 1)
+    const ty = d.getFullYear()
+    const tm = d.getMonth() + 1
+    const s  = new Date(ty, tm - 1, 1)
+    const e  = new Date(ty, tm, 0)
+    const wd = countWorkdays(ty, tm)
+    const md = await prisma.staffAssignment.aggregate({
+      where: { assignedDate: { gte: s, lte: e }, status: 'FIELD', parentId: null },
+      _sum:  { estimatedDays: true },
+    })
+    const eqAsg = await prisma.equipmentAssignment.count({
+      where: { assignedDate: { gte: s, lte: e } },
+    })
+    trend.push({
+      year: ty, month: tm,
+      manDays: Number(md._sum.estimatedDays ?? 0),
+      eqUtil:  activeEqCount > 0 && wd > 0 ? Math.round((eqAsg / (activeEqCount * wd)) * 100) : 0,
+    })
+  }
+
   // ── Man-days per Site ──────────────────────────────────────
   const siteGroups = await prisma.staffAssignment.groupBy({
     by:    ['siteId'],
@@ -147,5 +209,5 @@ export async function GET(req: NextRequest) {
     })
   )).sort((a, b) => b.manDays - a.manDays)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, workdays, year, month })
 }
