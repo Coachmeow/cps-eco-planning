@@ -74,7 +74,15 @@ export default function StaffCalendar() {
       const dayAssign: StaffAssignment[] = dayMap?.get(dateKey) ?? []
 
       const parent = dayAssign.find(a => a.parentId == null && a.status === 'FIELD' && Number(a.estimatedDays) >= 2)
-      const span   = parent ? Math.min(Math.round(Number(parent.estimatedDays)), days.length - i) : 1
+      // span = นับวันต่อเนื่องจริงที่ยังมี record ของงานเดียวกัน (รองรับกรณีเล็มวันกลางออก)
+      let span = 1
+      if (parent) {
+        while (i + span < days.length) {
+          const next = dayMap?.get(toDateKey(days[i + span])) ?? []
+          if (!next.some(a => a.parentId === parent.id)) break
+          span++
+        }
+      }
 
       // conflict = วันใดวันหนึ่งในช่วงที่ merge มี conflict
       let isConflict = false
@@ -181,6 +189,7 @@ export default function StaffCalendar() {
         <AssignmentPopup
           employee={popup.employee} date={popup.dateKey}
           assignments={calendarData.get(popup.employee.id)?.get(popup.dateKey) ?? []}
+          employeeAssignments={Array.from(calendarData.get(popup.employee.id)?.values() ?? []).flat()}
           sites={sites} teams={teams}
           allEmployees={employees}
           canEdit={canEdit}

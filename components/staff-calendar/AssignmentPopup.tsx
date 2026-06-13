@@ -9,12 +9,16 @@ interface Props {
   assignments:  StaffAssignment[]
   sites:        Site[]
   teams:        ServiceTeam[]
-  allEmployees: Employee[]
-  canEdit?:     boolean
-  onSave:       (payloads: Record<string, unknown>[]) => Promise<void>
-  onDelete:     (id: number) => Promise<void>
-  onClose:      () => void
+  allEmployees:        Employee[]
+  employeeAssignments?: StaffAssignment[]   // ทั้งเดือนของพนักงานคนนี้ (ใช้หาวันลูกของงานหลายวัน)
+  canEdit?:            boolean
+  onSave:              (payloads: Record<string, unknown>[]) => Promise<void>
+  onDelete:            (id: number) => Promise<void>
+  onClose:             () => void
 }
+
+const fmtDay = (d: string) =>
+  new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
 const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
   { value: 'FIELD',    label: 'ภาคสนาม (Field)' },
@@ -27,6 +31,7 @@ const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
 
 export default function AssignmentPopup({
   employee, date, assignments, sites, teams, allEmployees,
+  employeeAssignments = [],
   canEdit = true,
   onSave, onDelete, onClose,
 }: Props) {
@@ -112,24 +117,57 @@ export default function AssignmentPopup({
 
         {/* ── Existing assignments ── */}
         {assignments.length > 0 && (
-          <div className="border-b border-slate-100 px-4 py-2 space-y-1">
+          <div className="border-b border-slate-100 px-4 py-2 space-y-2">
             <p className="text-xs text-slate-400 mb-1">รายการที่มีอยู่</p>
-            {assignments.map((a) => (
-              <div key={a.id} className="flex items-center justify-between text-xs">
-                <span className="text-slate-700">
-                  {a.site?.code ?? a.status}
-                  {a.isCrossTeam && (
-                    <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>
-                  )}
-                  {Number(a.estimatedDays) > 1 && (
-                    <span className="ml-1 text-slate-400">({a.estimatedDays} วัน)</span>
-                  )}
-                </span>
-                {canEdit && !a.isLocked
-                  ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                  : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
-              </div>
-            ))}
+            {assignments.map((a) => {
+              // งานหลายวัน → รวมตัวแม่ + ตัวลูก เรียงตามวัน
+              const group = a.parentId == null
+                ? [a, ...employeeAssignments.filter((x) => x.parentId === a.id)]
+                    .sort((x, y) => x.assignedDate.localeCompare(y.assignedDate))
+                : [a]
+
+              // งานวันเดียว
+              if (group.length <= 1) {
+                return (
+                  <div key={a.id} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-700">
+                      {a.site?.code ?? a.status}
+                      {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
+                    </span>
+                    {canEdit && !a.isLocked
+                      ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                      : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                  </div>
+                )
+              }
+
+              // งานหลายวัน → แตกรายวัน
+              return (
+                <div key={a.id} className="rounded-lg border border-slate-100 p-2">
+                  <div className="mb-1 text-xs font-semibold text-slate-700">
+                    {a.site?.code ?? a.status}
+                    {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
+                    <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.map((g) => {
+                      const isParent = g.parentId == null
+                      return (
+                        <div key={g.id} className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">{isParent ? '●' : '○'} {fmtDay(g.assignedDate)}</span>
+                          {canEdit && !g.isLocked
+                            ? <button onClick={() => onDelete(g.id)}
+                                className={isParent ? 'font-medium text-red-500 hover:text-red-700' : 'text-red-400 hover:text-red-600'}>
+                                {isParent ? 'ลบทั้งงาน' : 'ลบวันนี้'}
+                              </button>
+                            : g.isLocked ? <span className="text-slate-300 text-[10px]">🔒</span> : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 

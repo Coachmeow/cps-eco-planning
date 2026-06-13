@@ -8,8 +8,24 @@ export async function DELETE(
 ) {
   if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   const { id } = await params
-  await prisma.staffAssignment.deleteMany({ where: { parentId: parseInt(id) } })
-  await prisma.staffAssignment.delete({ where: { id: parseInt(id) } })
+  const targetId = parseInt(id)
+
+  const target = await prisma.staffAssignment.findUnique({ where: { id: targetId } })
+  if (!target) return NextResponse.json({ error: 'ไม่พบรายการ' }, { status: 404 })
+
+  if (target.parentId == null) {
+    // วันแม่ → ลบทั้งงาน (ลูกหายตาม)
+    await prisma.staffAssignment.deleteMany({ where: { parentId: targetId } })
+    await prisma.staffAssignment.delete({ where: { id: targetId } })
+  } else {
+    // วันลูก → ลบเฉพาะวันนั้น แล้วลดจำนวนวันที่ตัวแม่ให้ตรง (utilization ถูกต้อง)
+    await prisma.staffAssignment.delete({ where: { id: targetId } })
+    const remaining = await prisma.staffAssignment.count({ where: { parentId: target.parentId } })
+    await prisma.staffAssignment.update({
+      where: { id: target.parentId },
+      data:  { estimatedDays: 1 + remaining },
+    })
+  }
   return NextResponse.json({ success: true })
 }
 
