@@ -261,7 +261,7 @@ function EmployeesSection() {
 
   const load = useCallback(async () => {
     const [eRes, tRes] = await Promise.all([
-      fetch('/api/employees').then(r => r.json()),
+      fetch('/api/employees?all=true').then(r => r.json()),
       fetch('/api/teams').then(r => r.json()),
     ])
     setEmployees(eRes); setTeams(tRes)

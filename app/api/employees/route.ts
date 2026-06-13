@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole, forbidden } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const all = req.nextUrl.searchParams.get('all') === 'true' // admin: รวมคนที่ปิดการใช้งานด้วย
   const employees = await prisma.employee.findMany({
-    where:   { isActive: true },
+    where:   all ? {} : { isActive: true },
     include: { primaryTeam: true, siteAccess: true },
     orderBy: [{ primaryTeamId: 'asc' }, { fullName: 'asc' }],
   })
