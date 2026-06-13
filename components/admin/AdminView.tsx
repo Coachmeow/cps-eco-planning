@@ -289,6 +289,8 @@ function EmployeesSection() {
   }
 
   async function toggleActive(e: Employee) {
+    // ยืนยันก่อนปิดการใช้งาน (กันพลาด — คนที่ปิดจะหายจากแผนงาน)
+    if (e.isActive && !confirm(`ปิดการใช้งาน "${e.fullName}" ?\nพนักงานจะถูกนำออกจากแผนงาน (เปิดกลับได้ภายหลัง)`)) return
     await fetch(`/api/employees/${e.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName: e.fullName, nickname: e.nickname, primaryTeamId: e.primaryTeamId, isActive: !e.isActive }) })
     load()
