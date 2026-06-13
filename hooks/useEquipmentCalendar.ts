@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { Equipment, EquipmentAssignment, EquipmentType, Site, EquipmentCalendarData, ConflictSet } from '@/lib/types'
-
-function toDateKey(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toISOString().slice(0, 10)
-}
+import { toDateKey } from '@/lib/dateKey'
 
 function buildCalendarData(assignments: EquipmentAssignment[]): EquipmentCalendarData {
   const map: EquipmentCalendarData = new Map()

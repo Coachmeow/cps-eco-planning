@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { Employee, StaffAssignment, Site, ServiceTeam, CalendarData, ConflictSet } from '@/lib/types'
-
-function toDateKey(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toISOString().slice(0, 10)
-}
+import { toDateKey } from '@/lib/dateKey'
 
 function buildCalendarData(assignments: StaffAssignment[]): CalendarData {
   const map: CalendarData = new Map()

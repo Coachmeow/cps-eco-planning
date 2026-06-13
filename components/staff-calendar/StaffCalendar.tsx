@@ -4,6 +4,7 @@ import { useState, useMemo, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { canPlan } from '@/lib/roles'
+import { toDateKey } from '@/lib/dateKey'
 import CalendarCell from './CalendarCell'
 import AssignmentPopup from './AssignmentPopup'
 import ExportButton from '@/components/ExportButton'
@@ -22,8 +23,6 @@ function getDaysInMonth(year: number, month: number): Date[] {
   for (let d = 1; d <= total; d++) days.push(new Date(year, month - 1, d))
   return days
 }
-
-function toDateKey(date: Date): string { return date.toISOString().slice(0, 10) }
 
 function rowSummary(employeeId: number, calendarData: ReturnType<typeof useStaffCalendar>['calendarData']) {
   const dayMap = calendarData.get(employeeId)

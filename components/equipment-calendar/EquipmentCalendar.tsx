@@ -5,12 +5,12 @@ import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
 import { canPlan } from '@/lib/roles'
 import { countWorkdays, calcUtil } from '@/lib/workdays'
+import { toDateKey } from '@/lib/dateKey'
 import EquipmentCell from './EquipmentCell'
 import EquipmentPopup from './EquipmentPopup'
 import ExportButton from '@/components/ExportButton'
 import type { Equipment, EquipmentType } from '@/lib/types'
 
-function toDateKey(date: Date): string { return date.toISOString().slice(0, 10) }
 function getDaysInMonth(year: number, month: number): Date[] {
   const days: Date[] = []
   const total = new Date(year, month, 0).getDate()

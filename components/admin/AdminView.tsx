@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import { useMe } from '@/hooks/useMe'
 import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
+import { toDateKey } from '@/lib/dateKey'
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
@@ -434,7 +435,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
     await fetch(`/api/equipment/${eq.id}`, { method: 'DELETE' }); load()
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toDateKey(new Date())
   const filtered = equipment.filter(eq => !filterType || String(eq.typeId) === filterType)
   const of = (k: keyof typeof ownedForm) => (v: string) => setOwnedForm(p => ({ ...p, [k]: v }))
   const rf = (k: keyof typeof rentalForm) => (v: string) => setRentalForm(p => ({ ...p, [k]: v }))
