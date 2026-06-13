@@ -13,6 +13,12 @@ export interface Employee {
   primaryTeamId: number
   primaryTeam: ServiceTeam
   siteAccess: EmployeeSiteAccess[]
+  isActive?: boolean
+  hasPhoto?: boolean
+  birthDate?: string | null
+  startDate?: string | null
+  eduField?: string | null
+  eduInstitute?: string | null
 }
 
 export interface EmployeeSiteAccess {

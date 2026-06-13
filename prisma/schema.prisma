@@ -64,6 +64,11 @@ model Employee {
   primaryTeamId Int
   primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
   isActive      Boolean     @default(true)
+  photoUrl      String?     // base64 data URL หรือ URL ภายนอก
+  birthDate     DateTime?   @db.Date
+  startDate     DateTime?   @db.Date
+  eduField      String?     // สาขา/คณะ
+  eduInstitute  String?     // สถาบัน
 
   siteAccess  EmployeeSiteAccess[]
   assignments StaffAssignment[]

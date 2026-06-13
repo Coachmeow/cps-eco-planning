@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
     include: { primaryTeam: true, siteAccess: true },
     orderBy: [{ primaryTeamId: 'asc' }, { fullName: 'asc' }],
   })
-  return NextResponse.json(employees)
+  // strip base64 photoUrl ออกจาก payload (รูปโหลดผ่าน /photo) แต่ส่ง hasPhoto บอกว่ามีรูปไหม
+  const out = employees.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))
+  return NextResponse.json(out)
 }
 
 export async function POST(req: NextRequest) {
@@ -22,6 +24,11 @@ export async function POST(req: NextRequest) {
         nickname:      body.nickname || null,
         primaryTeamId: parseInt(body.primaryTeamId),
         isActive:      true,
+        photoUrl:      body.photoUrl     || null,
+        birthDate:     body.birthDate     ? new Date(body.birthDate) : null,
+        startDate:     body.startDate     ? new Date(body.startDate) : null,
+        eduField:      body.eduField     || null,
+        eduInstitute:  body.eduInstitute || null,
       },
       include: { primaryTeam: true, siteAccess: true },
     })

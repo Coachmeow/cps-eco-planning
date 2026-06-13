@@ -5,11 +5,31 @@ import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import { useMe } from '@/hooks/useMe'
 import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
+import Avatar from '@/components/Avatar'
+import EmployeeCard from '@/components/EmployeeCard'
+
+// ย่อรูปด้วย canvas → JPEG ~256px คืน data URL (เก็บใน DB เป็น base64)
+async function resizeImage(file: File, max = 256, quality = 0.8): Promise<string> {
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file)
+  })
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl
+  })
+  const scale = Math.min(1, max / Math.max(img.width, img.height))
+  const w = Math.round(img.width * scale), h = Math.round(img.height * scale)
+  const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h
+  canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+  return canvas.toDataURL('image/jpeg', quality)
+}
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
 interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
-interface Employee { id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean }
+interface Employee {
+  id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
+  hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
+}
 interface Site     { id: number; code: string; name: string; clientName: string | null; province: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
   id: number; typeId: number; type: EqType; internalNo: string | null; serialNo: string | null
@@ -255,9 +275,12 @@ function EmployeesSection() {
   const [teams,     setTeams]     = useState<Team[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing]     = useState<Employee | null>(null)
-  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '' })
+  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+  const [photo, setPhoto]         = useState<string | null>(null)   // data URL ใหม่ (ถ้าอัปโหลด)
+  const [photoTouched, setPhotoTouched] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [search, setSearch]       = useState('')
+  const [viewing, setViewing]     = useState<Employee | null>(null) // การ์ดประวัติ
 
   const load = useCallback(async () => {
     const [eRes, tRes] = await Promise.all([
@@ -269,21 +292,36 @@ function EmployeesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? '') })
+    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+    setPhoto(null); setPhotoTouched(false)
     setEditing(null); setModal('add')
   }
   function openEdit(e: Employee) {
-    setForm({ fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId) })
+    setForm({
+      fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId),
+      birthDate: e.birthDate?.slice(0, 10) ?? '', startDate: e.startDate?.slice(0, 10) ?? '',
+      eduField: e.eduField ?? '', eduInstitute: e.eduInstitute ?? '',
+    })
+    setPhoto(null); setPhotoTouched(false)
     setEditing(e); setModal('edit')
+  }
+
+  async function onPickPhoto(file?: File) {
+    if (!file) return
+    const resized = await resizeImage(file)
+    setPhoto(resized); setPhotoTouched(true)
   }
 
   async function save() {
     if (!form.fullName || !form.primaryTeamId) return
     setSaving(true)
+    // ส่ง photoUrl เฉพาะตอนผู้ใช้แตะรูป (กันทับรูปเดิมเป็น null)
+    const body: Record<string, unknown> = { ...form }
+    if (photoTouched) body.photoUrl = photo
     if (modal === 'add') {
-      await fetch('/api/employees', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      await fetch('/api/employees', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     } else if (editing) {
-      await fetch(`/api/employees/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, isActive: editing.isActive }) })
+      await fetch(`/api/employees/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, isActive: editing.isActive }) })
     }
     setSaving(false); setModal(null); load()
   }
@@ -319,7 +357,12 @@ function EmployeesSection() {
           <tbody>
             {filtered.map(e => (
               <tr key={e.id} className={`border-t border-slate-100 hover:bg-slate-50 ${!e.isActive ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-2 text-slate-700">{e.fullName}</td>
+                <td className="px-4 py-2">
+                  <button onClick={() => setViewing(e)} className="flex items-center gap-2 text-left hover:text-emerald-700">
+                    <Avatar employeeId={e.id} name={e.nickname ?? e.fullName} hasPhoto={e.hasPhoto} size="sm" />
+                    <span className="font-medium text-slate-700">{e.fullName}</span>
+                  </button>
+                </td>
                 <td className="px-4 py-2 text-slate-500">{e.nickname ?? '—'}</td>
                 <td className="px-4 py-2">
                   <span className={`rounded px-2 py-0.5 text-xs font-semibold ${TEAM_COLOR[e.primaryTeam.code] ?? 'bg-slate-100 text-slate-600'}`}>{e.primaryTeam.code}</span>
@@ -344,6 +387,25 @@ function EmployeesSection() {
       {(modal === 'add' || modal === 'edit') && (
         <Modal title={modal === 'add' ? 'เพิ่มพนักงาน' : 'แก้ไขพนักงาน'} onClose={() => setModal(null)}>
           <div className="space-y-3">
+            {/* รูปถ่าย */}
+            <div className="flex items-center gap-3">
+              {photo
+                ? <img src={photo} alt="preview" className="h-16 w-16 rounded-full object-cover" />
+                : editing
+                  ? <Avatar employeeId={editing.id} name={editing.nickname ?? editing.fullName} hasPhoto={editing.hasPhoto} size="lg" className="!h-16 !w-16" />
+                  : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-300">👤</span>}
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                  เลือกรูป...
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={ev => onPickPhoto(ev.target.files?.[0])} />
+                </label>
+                {(photo || (editing?.hasPhoto)) && (
+                  <button onClick={() => { setPhoto(null); setPhotoTouched(true) }} className="text-[11px] text-red-400 hover:text-red-600">ลบรูป</button>
+                )}
+              </div>
+            </div>
+
             <Input label="ชื่อ-นามสกุล" value={form.fullName} onChange={f('fullName')} placeholder="นายสมชาย ดีมาก" required />
             <Input label="ชื่อเล่น" value={form.nickname} onChange={f('nickname')} placeholder="ชาย" />
             <div className="flex flex-col gap-1">
@@ -354,6 +416,12 @@ function EmployeesSection() {
                 options={teams.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="วันเกิด" value={form.birthDate} onChange={f('birthDate')} type="date" />
+              <Input label="วันเริ่มงาน" value={form.startDate} onChange={f('startDate')} type="date" />
+            </div>
+            <Input label="การศึกษา ป.ตรี — สาขา" value={form.eduField} onChange={f('eduField')} placeholder="วิศวกรรมสิ่งแวดล้อม" />
+            <Input label="สถาบัน" value={form.eduInstitute} onChange={f('eduInstitute')} placeholder="ม.ขอนแก่น" />
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
@@ -361,6 +429,8 @@ function EmployeesSection() {
           </div>
         </Modal>
       )}
+
+      {viewing && <EmployeeCard employee={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }

@@ -8,6 +8,8 @@ import { toDateKey } from '@/lib/dateKey'
 import CalendarCell from './CalendarCell'
 import AssignmentPopup from './AssignmentPopup'
 import ExportButton from '@/components/ExportButton'
+import Avatar from '@/components/Avatar'
+import EmployeeCard from '@/components/EmployeeCard'
 import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
 
 const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'CEMS', 'WT', 'LOG']
@@ -48,6 +50,7 @@ export default function StaffCalendar() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
+  const [viewing, setViewing] = useState<Employee | null>(null)
 
   const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment } =
     useStaffCalendar(year, month)
@@ -167,8 +170,13 @@ export default function StaffCalendar() {
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
-                      <div className="font-medium text-slate-700">{emp.nickname ?? emp.fullName.split(' ')[0]}</div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[100px]">{emp.fullName}</div>
+                      <button onClick={() => setViewing(emp)} className="flex items-center gap-2 text-left hover:opacity-80">
+                        <Avatar employeeId={emp.id} name={emp.nickname ?? emp.fullName} hasPhoto={emp.hasPhoto} size="sm" />
+                        <div>
+                          <div className="font-medium text-slate-700">{emp.nickname ?? emp.fullName.split(' ')[0]}</div>
+                          <div className="text-[10px] text-slate-400 truncate max-w-[88px]">{emp.fullName}</div>
+                        </div>
+                      </button>
                     </td>
                     <td className="sticky left-[120px] z-10 border-b border-r border-slate-200 bg-white px-2 text-center">
                       <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
@@ -195,6 +203,8 @@ export default function StaffCalendar() {
           onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
         />
       )}
+
+      {viewing && <EmployeeCard employee={viewing} onClose={() => setViewing(null)} />}
     </div>
   )
 }

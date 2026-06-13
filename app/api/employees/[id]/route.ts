@@ -7,14 +7,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params
     const body = await req.json()
+    // อัปเดตเฉพาะ key ที่ถูกส่งมา (กัน toggleActive ทับ photoUrl/field อื่นเป็น null)
+    const data: Record<string, unknown> = {}
+    if (body.fullName      !== undefined) data.fullName      = body.fullName
+    if (body.nickname      !== undefined) data.nickname      = body.nickname || null
+    if (body.primaryTeamId !== undefined) data.primaryTeamId = parseInt(body.primaryTeamId)
+    if (body.isActive      !== undefined) data.isActive      = body.isActive
+    if (body.photoUrl      !== undefined) data.photoUrl      = body.photoUrl || null
+    if (body.birthDate     !== undefined) data.birthDate     = body.birthDate ? new Date(body.birthDate) : null
+    if (body.startDate     !== undefined) data.startDate     = body.startDate ? new Date(body.startDate) : null
+    if (body.eduField      !== undefined) data.eduField      = body.eduField || null
+    if (body.eduInstitute  !== undefined) data.eduInstitute  = body.eduInstitute || null
+
     const employee = await prisma.employee.update({
       where: { id: parseInt(id) },
-      data: {
-        fullName:      body.fullName,
-        nickname:      body.nickname || null,
-        primaryTeamId: parseInt(body.primaryTeamId),
-        isActive:      body.isActive ?? true,
-      },
+      data,
       include: { primaryTeam: true, siteAccess: true },
     })
     return NextResponse.json(employee)
