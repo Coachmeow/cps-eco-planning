@@ -7,7 +7,11 @@ export async function GET(req: NextRequest) {
   const employees = await prisma.employee.findMany({
     where:   all ? {} : { isActive: true },
     include: { primaryTeam: true, siteAccess: true },
-    orderBy: [{ primaryTeamId: 'asc' }, { fullName: 'asc' }],
+    orderBy: [
+      { primaryTeam: { sortOrder: 'asc' } },  // ลำดับทีม ST→AMB→WP→WT→CEMS→LOG (ทีมใหม่ต่อท้าย)
+      { primaryTeam: { id: 'asc' } },          // ทีมที่ sortOrder เท่ากัน เรียงตามลำดับการเพิ่ม
+      { fullName: 'asc' },
+    ],
   })
   // strip base64 photoUrl ออกจาก payload (รูปโหลดผ่าน /photo) แต่ส่ง hasPhoto บอกว่ามีรูปไหม
   const out = employees.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))

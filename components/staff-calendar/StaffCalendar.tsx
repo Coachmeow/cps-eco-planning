@@ -12,7 +12,7 @@ import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
 import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
 
-const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'CEMS', 'WT', 'LOG']
+const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'WT', 'CEMS', 'LOG']
 const TEAM_FILTER_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',

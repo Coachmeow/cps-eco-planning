@@ -8,9 +8,10 @@ datasource db {
 }
 
 model ServiceTeam {
-  id   Int    @id @default(autoincrement())
-  code String @unique
-  name String
+  id        Int    @id @default(autoincrement())
+  code      String @unique
+  name      String
+  sortOrder Int    @default(999)  // ลำดับการแสดงผล (ทีมใหม่ที่ไม่ตั้งค่าจะต่อท้าย)
 
   equipmentTypes   EquipmentType[]
   employees        Employee[]

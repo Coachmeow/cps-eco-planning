@@ -24,12 +24,12 @@ async function main() {
   // ── 1. Service Teams ─────────────────────────────────────────────────────
   console.log('🌱 Teams...')
   const [ST, AMB, WP, CEMS, WT, LOG] = await Promise.all([
-    prisma.serviceTeam.create({ data: { code: 'ST',   name: 'Stack'     } }),
-    prisma.serviceTeam.create({ data: { code: 'AMB',  name: 'Ambient'   } }),
-    prisma.serviceTeam.create({ data: { code: 'WP',   name: 'Workplace' } }),
-    prisma.serviceTeam.create({ data: { code: 'CEMS', name: 'CEMS'      } }),
-    prisma.serviceTeam.create({ data: { code: 'WT',   name: 'Water'     } }),
-    prisma.serviceTeam.create({ data: { code: 'LOG',  name: 'Logistic'  } }),
+    prisma.serviceTeam.create({ data: { code: 'ST',   name: 'Stack',     sortOrder: 1 } }),
+    prisma.serviceTeam.create({ data: { code: 'AMB',  name: 'Ambient',   sortOrder: 2 } }),
+    prisma.serviceTeam.create({ data: { code: 'WP',   name: 'Workplace', sortOrder: 3 } }),
+    prisma.serviceTeam.create({ data: { code: 'CEMS', name: 'CEMS',      sortOrder: 5 } }),
+    prisma.serviceTeam.create({ data: { code: 'WT',   name: 'Water',     sortOrder: 4 } }),
+    prisma.serviceTeam.create({ data: { code: 'LOG',  name: 'Logistic',  sortOrder: 6 } }),
   ])
 
   // ── 2. Equipment Types ────────────────────────────────────────────────────

@@ -61,6 +61,13 @@ async function main() {
     created++
   }
   console.log(`✅ สร้างบัญชีพนักงานใหม่ ${created} ราย (ข้ามที่มีอยู่แล้ว ${takenEmp.size} ราย)`)
+
+  // 3) backfill ลำดับทีม (ST→AMB→WP→WT→CEMS→LOG) — ทีมอื่นคง default 999 (ต่อท้าย)
+  const TEAM_ORDER = { ST: 1, AMB: 2, WP: 3, WT: 4, CEMS: 5, LOG: 6 }
+  for (const [code, sortOrder] of Object.entries(TEAM_ORDER)) {
+    await prisma.serviceTeam.updateMany({ where: { code }, data: { sortOrder } })
+  }
+  console.log('✅ อัปเดตลำดับทีมแล้ว')
 }
 
 main()
