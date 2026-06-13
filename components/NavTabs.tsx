@@ -11,28 +11,15 @@ const TABS: { href: string; label: string; roles: UserRole[] }[] = [
   { href: '/dashboard', label: 'Dashboard',    roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { href: '/staff',     label: 'แผนพนักงาน',  roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { href: '/equipment', label: 'เครื่องมือ',   roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
-  { href: '/access',    label: 'Access',        roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { href: '/admin',     label: '⚙ จัดการ',     roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
 ]
 
-function countAlerts(employees: { siteAccess: { expiryDate: string }[] }[]): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  return employees.reduce((sum, emp) =>
-    sum + emp.siteAccess.filter((a) => {
-      const diff = Math.floor((new Date(a.expiryDate).getTime() - today.getTime()) / 86400000)
-      return diff < 30
-    }).length, 0)
-}
-
 export default function NavTabs() {
   const path = usePathname()
-  const [me,     setMe]     = useState<Me | null>(null)
-  const [alerts, setAlerts] = useState(0)
+  const [me, setMe] = useState<Me | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then((r) => r.json()).then((d) => setMe(d.user)).catch(() => {})
-    fetch('/api/access-expiry').then((r) => r.json())
-      .then((data) => Array.isArray(data) && setAlerts(countAlerts(data))).catch(() => {})
   }, [])
 
   // ไม่แสดง nav บนหน้า login
@@ -59,11 +46,6 @@ export default function NavTabs() {
               : 'border-transparent text-slate-400 hover:text-slate-600'}`}
         >
           {t.label}
-          {t.href === '/access' && alerts > 0 && (
-            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
-              {alerts}
-            </span>
-          )}
         </Link>
       ))}
 
