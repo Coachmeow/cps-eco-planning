@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
 import { canPlan } from '@/lib/roles'
@@ -9,7 +9,7 @@ import { toDateKey } from '@/lib/dateKey'
 import EquipmentCell from './EquipmentCell'
 import EquipmentPopup from './EquipmentPopup'
 import ExportButton from '@/components/ExportButton'
-import type { Equipment, EquipmentType } from '@/lib/types'
+import type { Equipment, EquipmentType, EquipmentAssignment } from '@/lib/types'
 
 function getDaysInMonth(year: number, month: number): Date[] {
   const days: Date[] = []
@@ -55,6 +55,43 @@ export default function EquipmentCalendar() {
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
+
+  // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
+  function renderRowCells(eq: Equipment): ReactNode[] {
+    const dayMap = calendarData.get(eq.id)
+    const cells: ReactNode[] = []
+    let i = 0
+    while (i < days.length) {
+      const day       = days[i]
+      const dateKey   = toDateKey(day)
+      const dayAssign: EquipmentAssignment[] = dayMap?.get(dateKey) ?? []
+
+      const parent = dayAssign.find(a => a.parentId == null && Number(a.estimatedDays) >= 2)
+      let span = 1
+      if (parent) {
+        while (i + span < days.length) {
+          const next = dayMap?.get(toDateKey(days[i + span])) ?? []
+          if (!next.some(a => a.parentId === parent.id)) break
+          span++
+        }
+      }
+
+      let isConflict = false
+      for (let k = 0; k < span; k++) {
+        if (conflicts.equipmentConflicts.has(`${eq.id}-${toDateKey(days[i + k])}`)) { isConflict = true; break }
+      }
+
+      cells.push(
+        <EquipmentCell
+          key={dateKey} assignments={dayAssign} isConflict={isConflict}
+          dayOfWeek={day.getDay()} colSpan={span}
+          onClick={() => setPopup({ equipment: eq, dateKey })}
+        />
+      )
+      i += span
+    }
+    return cells
+  }
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
@@ -130,12 +167,7 @@ export default function EquipmentCalendar() {
                           </div>
                           {eq.serialNo && eq.internalNo && <div className="text-[10px] text-slate-400">{eq.serialNo}</div>}
                         </td>
-                        {days.map((day) => {
-                          const dateKey = toDateKey(day)
-                          const dayAssign = dayMap.get(dateKey) ?? []
-                          const isConflict = conflicts.equipmentConflicts.has(`${eq.id}-${dateKey}`)
-                          return <EquipmentCell key={dateKey} assignments={dayAssign} isConflict={isConflict} dayOfWeek={day.getDay()} onClick={() => setPopup({ equipment: eq, dateKey })} />
-                        })}
+                        {renderRowCells(eq)}
                         <td className={`border-b border-slate-200 px-2 text-center ${utilColor(util)}`}>{assignedDays > 0 ? `${util}%` : '—'}</td>
                       </tr>
                     )
@@ -151,6 +183,7 @@ export default function EquipmentCalendar() {
         <EquipmentPopup
           equipment={popup.equipment} date={popup.dateKey}
           assignments={calendarData.get(popup.equipment.id)?.get(popup.dateKey) ?? []}
+          equipmentAssignments={Array.from(calendarData.get(popup.equipment.id)?.values() ?? []).flat()}
           sites={sites}
           allEquipment={equipment}
           canEdit={canEdit}

@@ -87,6 +87,8 @@ export interface EquipmentAssignment {
   staffAssignmentId: number | null
   notes: string | null
   isLocked: boolean
+  estimatedDays: number
+  parentId: number | null
   equipment: Equipment
 }
 

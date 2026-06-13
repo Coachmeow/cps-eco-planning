@@ -8,12 +8,16 @@ interface Props {
   date:         string
   assignments:  EquipmentAssignment[]
   sites:        Site[]
-  allEquipment: Equipment[]
-  canEdit?:     boolean
-  onSave:       (payloads: Record<string, unknown>[]) => Promise<void>
-  onDelete:     (id: number) => Promise<void>
-  onClose:      () => void
+  allEquipment:         Equipment[]
+  equipmentAssignments?: EquipmentAssignment[]   // ทั้งเดือนของเครื่องนี้ (ใช้หาวันลูกของงานหลายวัน)
+  canEdit?:             boolean
+  onSave:               (payloads: Record<string, unknown>[]) => Promise<void>
+  onDelete:             (id: number) => Promise<void>
+  onClose:              () => void
 }
+
+const fmtDay = (d: string) =>
+  new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
 const DAY_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
                      '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
@@ -27,6 +31,7 @@ const SITE_DOT: Record<string, string> = {
 
 export default function EquipmentPopup({
   equipment, date, assignments, sites, allEquipment,
+  equipmentAssignments = [],
   canEdit = true,
   onSave, onDelete, onClose,
 }: Props) {
@@ -145,19 +150,55 @@ export default function EquipmentPopup({
 
           {/* Existing assignments */}
           {assignments.length > 0 && (
-            <div className="border-b border-slate-100 px-4 py-2 space-y-1">
+            <div className="border-b border-slate-100 px-4 py-2 space-y-2">
               <p className="text-xs text-slate-400 mb-1">รายการที่มีอยู่</p>
-              {assignments.map((a) => (
-                <div key={a.id} className="text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-700">{a.site?.code ?? '—'}</span>
-                    {canEdit && !a.isLocked
-                      ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                      : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+              {assignments.map((a) => {
+                // งานหลายวัน → รวมตัวแม่ + ตัวลูก เรียงตามวัน
+                const group = a.parentId == null
+                  ? [a, ...equipmentAssignments.filter((x) => x.parentId === a.id)]
+                      .sort((x, y) => x.assignedDate.localeCompare(y.assignedDate))
+                  : [a]
+
+                if (group.length <= 1) {
+                  return (
+                    <div key={a.id} className="text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-700">{a.site?.code ?? '—'}</span>
+                        {canEdit && !a.isLocked
+                          ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                          : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                      </div>
+                      {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={a.id} className="rounded-lg border border-slate-100 p-2">
+                    <div className="mb-1 text-xs font-semibold text-slate-700">
+                      {a.site?.code ?? '—'}
+                      <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                    </div>
+                    {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    <div className="space-y-0.5">
+                      {group.map((g) => {
+                        const isParent = g.parentId == null
+                        return (
+                          <div key={g.id} className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500">{isParent ? '●' : '○'} {fmtDay(g.assignedDate)}</span>
+                            {canEdit && !g.isLocked
+                              ? <button onClick={() => onDelete(g.id)}
+                                  className={isParent ? 'font-medium text-red-500 hover:text-red-700' : 'text-red-400 hover:text-red-600'}>
+                                  {isParent ? 'ลบทั้งงาน' : 'ลบวันนี้'}
+                                </button>
+                              : g.isLocked ? <span className="text-slate-300 text-[10px]">🔒</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                  {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 

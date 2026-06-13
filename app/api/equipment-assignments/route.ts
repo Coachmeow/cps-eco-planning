@@ -35,20 +35,22 @@ export async function POST(req: NextRequest) {
 
   const date = new Date(assignedDate)
   const hasConflict = await getEquipmentConflicts(equipmentId, date)
+  const days = Math.min(Math.floor(Number(estimatedDays)), 20)
 
+  // วันแม่ — เก็บจำนวนวันรวมไว้ที่ estimatedDays
   const created = await prisma.equipmentAssignment.create({
     data: {
       equipmentId, assignedDate: date,
       siteId: siteId ?? null,
       staffAssignmentId: staffAssignmentId ?? null,
       notes,
+      estimatedDays: days,
     },
     include: { equipment: { include: { type: true } }, site: true },
   })
 
-  // create extra day records for multi-day assignments
+  // วันลูก — ชี้ parentId กลับไปที่วันแม่, estimatedDays = 0 (กันนับซ้ำ)
   const extraDays = []
-  const days = Math.min(Math.floor(Number(estimatedDays)), 20)
   for (let i = 1; i < days; i++) {
     const nextDate = new Date(date)
     nextDate.setDate(nextDate.getDate() + i)
@@ -58,6 +60,8 @@ export async function POST(req: NextRequest) {
         siteId: siteId ?? null,
         staffAssignmentId: staffAssignmentId ?? null,
         notes,
+        estimatedDays: 0,
+        parentId: created.id,
       },
       include: { equipment: { include: { type: true } }, site: true },
     })

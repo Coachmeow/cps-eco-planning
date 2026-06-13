@@ -13,15 +13,17 @@ interface Props {
   assignments: EquipmentAssignment[]
   isConflict:  boolean
   dayOfWeek:   number
+  colSpan?:    number
   onClick:     () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onClick }: Props) {
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, colSpan = 1, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
   const isSun = dayOfWeek === 0
   const isSat = dayOfWeek === 6
   const extra = assignments.length === 0
     ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : '' : ''
+  const merged = colSpan > 1
 
   // หมายเหตุ → tooltip เมื่อ hover
   const noteText = assignments
@@ -32,8 +34,9 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onCl
   return (
     <td
       onClick={onClick}
+      colSpan={colSpan}
       title={noteText || undefined}
-      className={`relative h-10 min-w-[56px] max-w-[80px] cursor-pointer border-r border-b
+      className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[80px]'} cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra}`}
     >
@@ -45,6 +48,9 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onCl
               className={`truncate max-w-[72px] font-semibold ${isConflict && i > 0 ? 'text-red-500' : ''}`}
             >
               {a.site?.code ?? '—'}
+              {merged && a.parentId == null && Number(a.estimatedDays) > 1 && (
+                <span className="ml-1 text-[9px] font-normal opacity-60">({Number(a.estimatedDays)} วัน)</span>
+              )}
             </span>
           ))}
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}

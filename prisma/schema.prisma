@@ -164,6 +164,10 @@ model EquipmentAssignment {
   staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
   notes             String?
   isLocked          Boolean          @default(false)
+  estimatedDays     Int              @default(1)
+  parentId          Int?
+  parent            EquipmentAssignment?  @relation("EqMultiDay", fields: [parentId], references: [id])
+  children          EquipmentAssignment[] @relation("EqMultiDay")
 
   @@index([equipmentId, assignedDate])
   @@index([assignedDate])
