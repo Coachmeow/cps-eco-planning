@@ -103,12 +103,12 @@ export default function StaffCalendar() {
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-2 shadow-sm">
-        <h1 className="text-sm font-semibold text-slate-800">แผนงานพนักงาน</h1>
-        <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100">‹</button>
-          <span className="min-w-[80px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
-          <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100">›</button>
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
+        <h1 className="text-lg font-bold text-slate-800">👤 แผนงานพนักงาน</h1>
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
+          <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
+          <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
+          <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
         </div>
         {totalConflicts > 0 && (
           <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {totalConflicts} conflict</span>

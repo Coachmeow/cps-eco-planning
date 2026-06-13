@@ -684,7 +684,7 @@ export default function AdminView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
-      <h1 className="mb-5 text-base font-semibold text-slate-800">⚙ จัดการข้อมูล</h1>
+      <h1 className="mb-5 text-xl font-bold text-slate-800">⚙️ จัดการข้อมูล</h1>
 
       <div className="mb-5 flex gap-1 rounded-xl bg-slate-200 p-1 w-fit">
         {tabs.map(t => (
