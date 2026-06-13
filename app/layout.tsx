@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import './globals.css'
-import NavTabs from '@/components/NavTabs'
+import Sidebar from '@/components/Sidebar'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -13,9 +13,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className="h-full">
-      <body className={`${geist.className} h-full bg-slate-50`}>
-        <NavTabs />
-        <main className="h-[calc(100vh-45px)] overflow-hidden">{children}</main>
+      <body className={`${geist.className} h-full bg-slate-100`}>
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 overflow-hidden">{children}</main>
+        </div>
       </body>
     </html>
   )

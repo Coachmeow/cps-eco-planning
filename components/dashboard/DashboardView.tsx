@@ -98,14 +98,14 @@ export default function DashboardView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <h1 className="text-base font-semibold text-slate-800">Dashboard</h1>
-        <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-500 hover:bg-slate-200">‹</button>
-          <span className="min-w-[80px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
-          <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-500 hover:bg-slate-200">›</button>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5 shadow-sm">
+          <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
+          <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
+          <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
         </div>
-        {data && <span className="text-xs text-slate-400">{data.workdays} วันทำงาน</span>}
+        {data && <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500 shadow-sm">{data.workdays} วันทำงาน</span>}
         <div className="ml-auto"><ExportButton href={`/api/export/dashboard?year=${year}&month=${month}`} label="Export PDF" /></div>
       </div>
 
@@ -115,15 +115,17 @@ export default function DashboardView() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
           <div className="col-span-full grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
-              { label: 'Util เฉลี่ยเครื่องมือ', value: `${avgUtil}%`,         sub: 'เฉพาะของบริษัท' },
-              { label: 'ภาระงานรวม',            value: `${totalDemand} วัน`,  sub: 'วัน-คนทุกทีม'  },
-              { label: 'กำลังคนทีมตัวเอง',      value: `${totalOwnCap} วัน`,  sub: 'primary team'  },
-              { label: 'พึ่ง Cross-team',        value: `${totalCross} วัน`,   sub: 'วัน-คนข้ามทีม' },
+              { label: 'Util เฉลี่ยเครื่องมือ', value: `${avgUtil}%`,        icon: '🔧', tint: 'bg-rose-100'    },
+              { label: 'ภาระงานรวม',            value: `${totalDemand} วัน`, icon: '📅', tint: 'bg-sky-100'     },
+              { label: 'กำลังคนทีมตัวเอง',      value: `${totalOwnCap} วัน`, icon: '👥', tint: 'bg-emerald-100' },
+              { label: 'พึ่ง Cross-team',        value: `${totalCross} วัน`,  icon: '🤝', tint: 'bg-amber-100'   },
             ].map((k) => (
-              <div key={k.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-xs text-slate-400">{k.label}</p>
-                <p className="mt-1 text-2xl font-bold text-slate-800">{k.value}</p>
-                <p className="text-[11px] text-slate-400">{k.sub}</p>
+              <div key={k.label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${k.tint} text-xl`}>{k.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-2xl font-bold leading-tight text-slate-800">{k.value}</p>
+                  <p className="truncate text-xs text-slate-500">{k.label}</p>
+                </div>
               </div>
             ))}
           </div>
