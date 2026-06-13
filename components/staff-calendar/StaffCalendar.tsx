@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { canPlan } from '@/lib/roles'
 import CalendarCell from './CalendarCell'
 import AssignmentPopup from './AssignmentPopup'
 import ExportButton from '@/components/ExportButton'
-import type { Employee, TeamCode } from '@/lib/types'
+import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
 
 const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'CEMS', 'WT', 'LOG']
 const TEAM_FILTER_COLOR: Record<string, string> = {
@@ -62,6 +62,37 @@ export default function StaffCalendar() {
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
   const totalConflicts = conflicts.staffConflicts.size
+
+  // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ FIELD, estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
+  function renderRowCells(emp: Employee): ReactNode[] {
+    const dayMap = calendarData.get(emp.id)
+    const cells: ReactNode[] = []
+    let i = 0
+    while (i < days.length) {
+      const day       = days[i]
+      const dateKey   = toDateKey(day)
+      const dayAssign: StaffAssignment[] = dayMap?.get(dateKey) ?? []
+
+      const parent = dayAssign.find(a => a.parentId == null && a.status === 'FIELD' && Number(a.estimatedDays) >= 2)
+      const span   = parent ? Math.min(Math.round(Number(parent.estimatedDays)), days.length - i) : 1
+
+      // conflict = วันใดวันหนึ่งในช่วงที่ merge มี conflict
+      let isConflict = false
+      for (let k = 0; k < span; k++) {
+        if (conflicts.staffConflicts.has(`${emp.id}-${toDateKey(days[i + k])}`)) { isConflict = true; break }
+      }
+
+      cells.push(
+        <CalendarCell
+          key={dateKey} assignments={dayAssign} isConflict={isConflict}
+          dayOfWeek={day.getDay()} colSpan={span} employee={emp}
+          onClick={() => setPopup({ employee: emp, dateKey })}
+        />
+      )
+      i += span
+    }
+    return cells
+  }
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
@@ -135,12 +166,7 @@ export default function StaffCalendar() {
                     <td className="sticky left-[120px] z-10 border-b border-r border-slate-200 bg-white px-2 text-center">
                       <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
                     </td>
-                    {days.map((day) => {
-                      const dateKey   = toDateKey(day)
-                      const dayAssign = calendarData.get(emp.id)?.get(dateKey) ?? []
-                      const isConflict = conflicts.staffConflicts.has(`${emp.id}-${dateKey}`)
-                      return <CalendarCell key={dateKey} assignments={dayAssign} isConflict={isConflict} dayOfWeek={day.getDay()} employee={emp} onClick={() => setPopup({ employee: emp, dateKey })} />
-                    })}
+                    {renderRowCells(emp)}
                     <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
                     <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
                   </tr>

@@ -39,10 +39,11 @@ interface Props {
   isConflict:  boolean
   dayOfWeek:   number
   employee:    Employee
+  colSpan?:    number   // >1 = งานหลายวัน merge เป็นช่องเดียว
   onClick:     () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, dayOfWeek, onClick }: Props) {
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, colSpan = 1, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
   const isSun = dayOfWeek === 0
   const isSat = dayOfWeek === 6
@@ -53,11 +54,13 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, onCli
   const primary   = assignments.find(a => !a.isCrossTeam)
   const crossTeam = assignments.filter(a => a.isCrossTeam)
   const displayAssign = primary ?? crossTeam[0]
+  const merged = colSpan > 1
 
   return (
     <td
       onClick={onClick}
-      className={`relative h-10 min-w-[52px] max-w-[80px] cursor-pointer border-r border-b
+      colSpan={colSpan}
+      className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra}`}
     >
@@ -66,10 +69,11 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, onCli
 
           {/* Main label: site code or status */}
           {displayAssign && (
-            <span className="truncate font-semibold max-w-[72px]">
+            <span className="font-semibold">
               {displayAssign.status !== 'FIELD'
                 ? (STATUS_LABEL[displayAssign.status] ?? displayAssign.status)
                 : (displayAssign.site?.code ?? '—')}
+              {merged && <span className="ml-1 text-[9px] font-normal opacity-60">({Number(displayAssign.estimatedDays)} วัน)</span>}
             </span>
           )}
 
