@@ -148,11 +148,14 @@ export default function EquipmentPopup({
             <div className="border-b border-slate-100 px-4 py-2 space-y-1">
               <p className="text-xs text-slate-400 mb-1">รายการที่มีอยู่</p>
               {assignments.map((a) => (
-                <div key={a.id} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-700">{a.site?.code ?? '—'}</span>
-                  {canEdit && !a.isLocked
-                    ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                    : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                <div key={a.id} className="text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-700">{a.site?.code ?? '—'}</span>
+                    {canEdit && !a.isLocked
+                      ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                      : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                  </div>
+                  {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
                 </div>
               ))}
             </div>
@@ -201,7 +204,7 @@ export default function EquipmentPopup({
                 <label className="block text-xs text-slate-500 mb-1">หมายเหตุ</label>
                 <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
                   placeholder="หมายเหตุ..."
-                  className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm placeholder-slate-300 focus:outline-none" />
+                  className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
               </div>
             </div>
           </div>

@@ -56,10 +56,17 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, colSp
   const displayAssign = primary ?? crossTeam[0]
   const merged = colSpan > 1
 
+  // หมายเหตุ → tooltip เมื่อ hover
+  const noteText = assignments
+    .filter(a => a.notes)
+    .map(a => `${a.status !== 'FIELD' ? (STATUS_LABEL[a.status] ?? a.status) : (a.site?.code ?? '')}: ${a.notes}`)
+    .join('\n')
+
   return (
     <td
       onClick={onClick}
       colSpan={colSpan}
+      title={noteText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra}`}
@@ -99,6 +106,9 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, colSp
           )}
           {isConflict && (
             <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+          )}
+          {noteText && (
+            <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>
           )}
         </div>
       )}

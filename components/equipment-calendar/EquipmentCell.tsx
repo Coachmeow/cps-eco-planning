@@ -23,9 +23,16 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onCl
   const extra = assignments.length === 0
     ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : '' : ''
 
+  // หมายเหตุ → tooltip เมื่อ hover
+  const noteText = assignments
+    .filter(a => a.notes)
+    .map(a => `${a.site?.code ?? ''}: ${a.notes}`)
+    .join('\n')
+
   return (
     <td
       onClick={onClick}
+      title={noteText || undefined}
       className={`relative h-10 min-w-[56px] max-w-[80px] cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra}`}
@@ -42,6 +49,7 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, onCl
           ))}
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
           {assignments.some(a => a.isLocked) && <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>}
+          {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
         </div>
       )}
     </td>

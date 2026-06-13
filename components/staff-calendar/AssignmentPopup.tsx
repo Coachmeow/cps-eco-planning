@@ -129,14 +129,17 @@ export default function AssignmentPopup({
               // งานวันเดียว
               if (group.length <= 1) {
                 return (
-                  <div key={a.id} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-700">
-                      {a.site?.code ?? a.status}
-                      {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
-                    </span>
-                    {canEdit && !a.isLocked
-                      ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                      : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                  <div key={a.id} className="text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-700">
+                        {a.site?.code ?? a.status}
+                        {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
+                      </span>
+                      {canEdit && !a.isLocked
+                        ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                        : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                    </div>
+                    {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
                   </div>
                 )
               }
@@ -149,6 +152,7 @@ export default function AssignmentPopup({
                     {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
                     <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
                   </div>
+                  {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
                   <div className="space-y-0.5">
                     {group.map((g) => {
                       const isParent = g.parentId == null
@@ -236,7 +240,7 @@ export default function AssignmentPopup({
             <label className="block text-xs text-slate-500 mb-1">หมายเหตุ</label>
             <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="เช่น ห้ามเปลี่ยน, Audit"
-              className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
+              className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
           </div>
         </div>
         )}
