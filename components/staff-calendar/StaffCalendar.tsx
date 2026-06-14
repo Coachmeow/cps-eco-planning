@@ -3,6 +3,7 @@
 import { useState, useMemo, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
+import { useHolidays } from '@/hooks/useHolidays'
 import { canPlan } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
 import CalendarCell from './CalendarCell'
@@ -56,6 +57,7 @@ export default function StaffCalendar() {
     useStaffCalendar(year, month)
   const { role } = useMe()
   const canEdit = canPlan(role)
+  const { holidaySet, holidayMap } = useHolidays()
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const filteredEmployees = teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter)
@@ -95,7 +97,7 @@ export default function StaffCalendar() {
       cells.push(
         <CalendarCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
-          dayOfWeek={day.getDay()} colSpan={span} employee={emp}
+          dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span} employee={emp}
           onClick={() => setPopup({ employee: emp, dateKey })}
         />
       )
@@ -150,13 +152,15 @@ export default function StaffCalendar() {
                 <th className="sticky left-[120px] z-20 min-w-[48px] border-b border-r border-slate-200 bg-white px-2 py-2 text-center text-xs font-semibold text-slate-600">ทีม</th>
                 {days.map((day) => {
                   const dow = day.getDay()
-                  const isToday   = toDateKey(day) === toDateKey(today)
-                  const weekendCls = dow === 0 ? 'bg-red-50 text-red-400'
-                                   : dow === 6 ? 'bg-orange-50 text-orange-400' : 'text-slate-600'
+                  const key = toDateKey(day)
+                  const isToday   = key === toDateKey(today)
+                  const holName   = holidayMap.get(key)
+                  const dayCls = holName ? 'bg-violet-50 text-violet-500'
+                               : dow === 0 ? 'bg-red-50 text-red-400' : 'text-slate-600'   // เสาร์ = วันทำงาน
                   return (
-                    <th key={toDateKey(day)} className={`min-w-[52px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${weekendCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
+                    <th key={key} title={holName ?? undefined} className={`min-w-[52px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${dayCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
-                      <div className="text-[10px] font-normal opacity-70">{thaiDays[dow]}</div>
+                      <div className="text-[10px] font-normal opacity-70">{holName ? '⛱' : thaiDays[dow]}</div>
                     </th>
                   )
                 })}

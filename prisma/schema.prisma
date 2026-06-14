@@ -179,3 +179,11 @@ model EquipmentAssignment {
   @@index([assignedDate])
   @@map("equipment_assignments")
 }
+
+model Holiday {
+  id   Int      @id @default(autoincrement())
+  date DateTime @unique @db.Date
+  name String
+
+  @@map("holidays")
+}

@@ -3,6 +3,7 @@
 import { useState, useMemo, type ReactNode } from 'react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
+import { useHolidays } from '@/hooks/useHolidays'
 import { canPlan } from '@/lib/roles'
 import { countWorkdays, calcUtil } from '@/lib/workdays'
 import { toDateKey } from '@/lib/dateKey'
@@ -40,8 +41,9 @@ export default function EquipmentCalendar() {
   const { role } = useMe()
   const canEdit = canPlan(role)
 
+  const { holidaySet, holidayMap } = useHolidays()
   const days     = useMemo(() => getDaysInMonth(year, month), [year, month])
-  const workdays = useMemo(() => countWorkdays(year, month), [year, month])
+  const workdays = countWorkdays(year, month, holidaySet)
 
   const grouped = useMemo(() => {
     const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
@@ -84,7 +86,7 @@ export default function EquipmentCalendar() {
       cells.push(
         <EquipmentCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
-          dayOfWeek={day.getDay()} colSpan={span}
+          dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span}
           onClick={() => setPopup({ equipment: eq, dateKey })}
         />
       )
@@ -129,12 +131,16 @@ export default function EquipmentCalendar() {
               <tr>
                 <th className="sticky left-0 z-20 min-w-[140px] border-b border-r border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-600">เครื่องมือ</th>
                 {days.map((day) => {
-                  const dow = day.getDay(); const isToday = toDateKey(day) === toDateKey(today)
-                  const weekendCls = dow === 0 ? 'bg-red-50 text-red-400' : dow === 6 ? 'bg-orange-50 text-orange-400' : 'text-slate-600'
+                  const dow = day.getDay()
+                  const key = toDateKey(day)
+                  const isToday = key === toDateKey(today)
+                  const holName = holidayMap.get(key)
+                  const dayCls = holName ? 'bg-violet-50 text-violet-500'
+                               : dow === 0 ? 'bg-red-50 text-red-400' : 'text-slate-600'
                   return (
-                    <th key={toDateKey(day)} className={`min-w-[56px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${weekendCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
+                    <th key={key} title={holName ?? undefined} className={`min-w-[56px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${dayCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
-                      <div className="text-[10px] font-normal opacity-70">{thaiDays[dow]}</div>
+                      <div className="text-[10px] font-normal opacity-70">{holName ? '⛱' : thaiDays[dow]}</div>
                     </th>
                   )
                 })}

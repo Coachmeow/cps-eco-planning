@@ -653,6 +653,73 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   )
 }
 
+// ── Section: Holidays (วันหยุดพิเศษ) ──────────────────────────
+interface HolidayRow { id: number; date: string; name: string }
+
+function HolidaysSection() {
+  const [holidays, setHolidays] = useState<HolidayRow[]>([])
+  const [date, setDate] = useState('')
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
+    const r = await fetch('/api/holidays'); if (r.ok) setHolidays(await r.json())
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function add() {
+    if (!date || !name) return
+    setSaving(true)
+    await fetch('/api/holidays', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, name }) })
+    setSaving(false); setDate(''); setName(''); load()
+  }
+  async function del(h: HolidayRow) {
+    if (!confirm(`ลบวันหยุด "${h.name}" ?`)) return
+    await fetch(`/api/holidays/${h.id}`, { method: 'DELETE' }); load()
+  }
+  const fmt = (d: string) => new Date(d).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">วันที่</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none" />
+        </div>
+        <div className="flex flex-1 flex-col gap-1 min-w-[180px]">
+          <label className="text-xs font-medium text-slate-600">ชื่อวันหยุด</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="เช่น วันสงกรานต์"
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none" />
+        </div>
+        <Btn onClick={add}>{saving ? 'กำลังเพิ่ม...' : '+ เพิ่มวันหยุด'}</Btn>
+      </div>
+      <p className="mb-2 text-xs text-slate-400">
+        วันอาทิตย์เป็นวันหยุดประจำสัปดาห์อยู่แล้ว — เพิ่มเฉพาะวันหยุดพิเศษ (นักขัตฤกษ์/หยุดบริษัท) ระบบจะหักออกจากวันทำงานในการคำนวณ Utilization
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+            <th className="px-4 py-2 text-left font-medium">วันที่</th>
+            <th className="px-4 py-2 text-left font-medium">ชื่อ</th>
+            <th className="px-4 py-2" />
+          </tr></thead>
+          <tbody>
+            {holidays.length === 0 && <tr><td colSpan={3} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีวันหยุดพิเศษ</td></tr>}
+            {holidays.map(h => (
+              <tr key={h.id} className="border-t border-slate-100 hover:bg-slate-50">
+                <td className="px-4 py-2 text-slate-700">⛱ {fmt(h.date)}</td>
+                <td className="px-4 py-2 text-slate-600">{h.name}</td>
+                <td className="px-4 py-2 text-right"><Btn small variant="danger" onClick={() => del(h)}>ลบ</Btn></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Section: Users (ADMIN เท่านั้น) ───────────────────────────
 interface UserRow {
   id: number; username: string; role: UserRole; isActive: boolean
@@ -737,7 +804,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 }
 
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment' | 'users'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'holidays' | 'users'
 
 export default function AdminView() {
   const { me, role } = useMe()
@@ -747,6 +814,7 @@ export default function AdminView() {
     { key: 'sites',     label: '🏭 ไซต์งาน',  roles: ['ADMIN', 'MANAGER'] },
     { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
     { key: 'equipment', label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'holidays',  label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
     { key: 'users',     label: '🔑 ผู้ใช้งาน',  roles: ['ADMIN'] },
   ]
   const tabs   = allTabs.filter(t => !role || t.roles.includes(role))
@@ -769,6 +837,7 @@ export default function AdminView() {
         {active === 'sites'     && <SitesSection />}
         {active === 'employees' && <EmployeesSection />}
         {active === 'equipment' && <EquipmentSection role={role} />}
+        {active === 'holidays'  && <HolidaysSection />}
         {active === 'users'     && <UsersSection myUid={me?.uid} />}
       </div>
     </div>

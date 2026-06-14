@@ -38,17 +38,17 @@ interface Props {
   assignments: StaffAssignment[]
   isConflict:  boolean
   dayOfWeek:   number
+  isHoliday?:  boolean
   employee:    Employee
   colSpan?:    number   // >1 = งานหลายวัน merge เป็นช่องเดียว
   onClick:     () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, dayOfWeek, colSpan = 1, onClick }: Props) {
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
   const isSun = dayOfWeek === 0
-  const isSat = dayOfWeek === 6
   const extra = assignments.length === 0
-    ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : ''
+    ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : ''   // เสาร์ = วันทำงานปกติ
     : isSun ? 'opacity-90' : ''
 
   const primary   = assignments.find(a => !a.isCrossTeam)

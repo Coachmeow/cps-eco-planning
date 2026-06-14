@@ -13,16 +13,16 @@ interface Props {
   assignments: EquipmentAssignment[]
   isConflict:  boolean
   dayOfWeek:   number
+  isHoliday?:  boolean
   colSpan?:    number
   onClick:     () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, dayOfWeek, colSpan = 1, onClick }: Props) {
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
   const base  = cellStyle(assignments, isConflict)
   const isSun = dayOfWeek === 0
-  const isSat = dayOfWeek === 6
   const extra = assignments.length === 0
-    ? isSun ? 'bg-red-50' : isSat ? 'bg-orange-50' : '' : ''
+    ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : '' : ''   // เสาร์ = วันทำงานปกติ
   const merged = colSpan > 1
 
   // หมายเหตุ → tooltip เมื่อ hover

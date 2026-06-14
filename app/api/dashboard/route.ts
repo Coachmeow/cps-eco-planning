@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { countWorkdays } from '@/lib/workdays'
+import { getHolidaySet } from '@/lib/holidays'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -10,7 +11,8 @@ export async function GET(req: NextRequest) {
 
   const startDate = new Date(year, month - 1, 1)
   const endDate   = new Date(year, month, 0)
-  const workdays  = countWorkdays(year, month)
+  const holidays  = await getHolidaySet()
+  const workdays  = countWorkdays(year, month, holidays)
 
   // ── Equipment Utilization ──────────────────────────────────
   const eqTypesRaw = await prisma.equipmentType.findMany({
@@ -174,7 +176,7 @@ export async function GET(req: NextRequest) {
     const tm = d.getMonth() + 1
     const s  = new Date(ty, tm - 1, 1)
     const e  = new Date(ty, tm, 0)
-    const wd = countWorkdays(ty, tm)
+    const wd = countWorkdays(ty, tm, holidays)
     const md = await prisma.staffAssignment.aggregate({
       where: { assignedDate: { gte: s, lte: e }, status: 'FIELD', parentId: null },
       _sum:  { estimatedDays: true },
