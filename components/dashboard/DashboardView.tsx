@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import BarRow from './BarRow'
 import ExportButton from '@/components/ExportButton'
 import type { DashboardData, PersonUtilRow, SiteMandayRow, TeamCapacityRow, TrendPoint } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
@@ -10,7 +9,34 @@ const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
   CEMS: 'bg-orange-400', WT: 'bg-blue-400', LOG: 'bg-gray-400',
 }
+const TEAM_COLOR_CHIP: Record<string, string> = {
+  ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700', WP: 'bg-purple-100 text-purple-700',
+  CEMS: 'bg-orange-100 text-orange-700', WT: 'bg-blue-100 text-blue-700', LOG: 'bg-gray-100 text-gray-600',
+}
 function utilBarColor(pct: number) { return pct >= 80 ? 'bg-red-400' : pct >= 50 ? 'bg-amber-400' : 'bg-emerald-400' }
+function utilTextColor(pct: number) { return pct >= 80 ? 'text-red-500' : pct >= 50 ? 'text-amber-500' : 'text-emerald-600' }
+
+// แถวสถิติมาตรฐานเดียว ใช้ร่วมทุกการ์ด (แท่ง/ฟอนต์/ความกว้างเท่ากันหมด)
+function StatRow({ rank, badge, label, title, fillColor, pct, value, valueColor }: {
+  rank?: number; badge?: React.ReactNode; label: string; title?: string
+  fillColor: string; pct: number; value: string; valueColor?: string
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {rank != null && <span className="w-4 shrink-0 text-right text-[10px] text-slate-300">{rank}</span>}
+      {badge}
+      <span className="w-16 shrink-0 truncate text-xs text-slate-600" title={title ?? label}>{label}</span>
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full transition-all ${fillColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+      </div>
+      <span className={`w-14 shrink-0 text-right text-xs font-semibold ${valueColor ?? 'text-slate-700'}`}>{value}</span>
+    </div>
+  )
+}
+
+function TeamBadge({ code }: { code: string }) {
+  return <span className={`w-9 shrink-0 rounded text-center text-[10px] font-semibold leading-5 ${TEAM_COLOR_CHIP[code] ?? 'bg-slate-200 text-slate-600'}`}>{code}</span>
+}
 const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
 const thaiMonthsShort = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
@@ -148,9 +174,10 @@ export default function DashboardView() {
           )}
 
           <Card title="Equipment Utilization % (ของบริษัท)">
-            <div className="space-y-2.5">
+            <div className="h-64 space-y-2 overflow-y-auto pr-1">
               {data.equipmentUtil.filter(r=>r.ownCount>0).sort((a,b)=>b.ownUtil-a.ownUtil).map(r=>(
-                <BarRow key={r.typeId} label={r.typeCode} value={r.ownUtil} displayText={`${r.ownUtil}%`} color={utilBarColor(r.ownUtil)} />
+                <StatRow key={r.typeId} label={r.typeCode} pct={r.ownUtil} value={`${r.ownUtil}%`}
+                  fillColor={utilBarColor(r.ownUtil)} valueColor={utilTextColor(r.ownUtil)} />
               ))}
             </div>
           </Card>
@@ -161,12 +188,12 @@ export default function DashboardView() {
                 {data.teamWorkload.map(t=>{
                   const max = Math.max(...data.teamWorkload.map(x=>x.demand),1)
                   return (
-                    <div key={t.teamId} className="space-y-0.5">
-                      <div className="flex justify-between text-[11px] text-slate-500">
-                        <span>{t.teamCode}</span>
+                    <div key={t.teamId} className="space-y-1">
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span className="font-medium text-slate-600">{t.teamCode}</span>
                         <span>{t.ownCap.toFixed(1)} own{t.crossIn>0&&<span className="ml-1 text-sky-500">+{t.crossIn.toFixed(1)}</span>} / {t.demand.toFixed(1)} วัน</span>
                       </div>
-                      <div className="flex h-4 overflow-hidden rounded bg-slate-100">
+                      <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div className={`h-full ${TEAM_COLOR[t.teamCode]??'bg-slate-400'}`} style={{width:`${(t.ownCap/max)*100}%`}} />
                         {t.crossIn>0&&<div className="h-full bg-sky-300" style={{width:`${(t.crossIn/max)*100}%`}} />}
                       </div>
@@ -187,14 +214,14 @@ export default function DashboardView() {
                   const usedColor = t.usedPct >= 90 ? 'bg-red-400' : t.usedPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
                   const remColor  = t.remaining <= 0 ? 'text-red-500' : t.usedPct >= 70 ? 'text-amber-600' : 'text-emerald-600'
                   return (
-                    <div key={t.teamId} className="space-y-0.5">
-                      <div className="flex justify-between text-[11px]">
+                    <div key={t.teamId} className="space-y-1">
+                      <div className="flex justify-between text-xs">
                         <span className="font-medium text-slate-600">{t.teamCode} <span className="text-slate-400">· {t.headcount} คน</span></span>
                         <span className="text-slate-500">
                           ใช้ {t.booked} / {t.capacity} · เหลือ <span className={`font-semibold ${remColor}`}>{t.remaining} วัน</span>
                         </span>
                       </div>
-                      <div className="flex h-4 overflow-hidden rounded bg-slate-100">
+                      <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div className={`h-full ${usedColor}`} style={{ width: `${Math.min(t.usedPct, 100)}%` }} />
                       </div>
                     </div>
@@ -209,21 +236,13 @@ export default function DashboardView() {
             {data.personUtil.length === 0
               ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
               : (
-              <div className="h-64 overflow-y-auto space-y-1.5 pr-1">
-                {data.personUtil.map((p: PersonUtilRow, i: number) => {
-                  const barColor = p.utilPct >= 80 ? 'bg-red-400' : p.utilPct >= 50 ? 'bg-amber-400' : 'bg-emerald-400'
-                  return (
-                    <div key={p.employeeId} className="flex items-center gap-2">
-                      <span className="w-4 text-right text-[10px] text-slate-300">{i+1}</span>
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[p.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{p.primaryTeam}</span>
-                      <span className="w-20 truncate text-xs text-slate-600">{p.nickname||p.fullName.split(' ')[1]||p.fullName}</span>
-                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{width:`${Math.min(p.utilPct,100)}%`}} />
-                      </div>
-                      <span className={`w-10 text-right text-xs font-semibold ${p.utilPct>=80?'text-red-500':p.utilPct>=50?'text-amber-500':'text-emerald-600'}`}>{p.utilPct}%</span>
-                    </div>
-                  )
-                })}
+              <div className="h-64 overflow-y-auto space-y-2 pr-1">
+                {data.personUtil.map((p: PersonUtilRow, i: number) => (
+                  <StatRow key={p.employeeId} rank={i+1} badge={<TeamBadge code={p.primaryTeam} />}
+                    label={p.nickname || p.fullName.split(' ')[1] || p.fullName}
+                    pct={p.utilPct} value={`${p.utilPct}%`}
+                    fillColor={utilBarColor(p.utilPct)} valueColor={utilTextColor(p.utilPct)} />
+                ))}
               </div>
             )}
           </Card>
@@ -233,18 +252,12 @@ export default function DashboardView() {
             {(!data.siteMandays || data.siteMandays.length === 0)
               ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
               : (
-              <div className="h-64 overflow-y-auto space-y-1.5 pr-1">
+              <div className="h-64 overflow-y-auto space-y-2 pr-1">
                 {data.siteMandays.map((s: SiteMandayRow, i: number) => {
                   const max = Math.max(...data.siteMandays.map(x => x.manDays), 1)
                   return (
-                    <div key={s.siteId} className="flex items-center gap-2">
-                      <span className="w-4 text-right text-[10px] text-slate-300">{i+1}</span>
-                      <span className="w-20 truncate text-xs font-medium text-slate-700" title={s.siteName}>{s.siteCode}</span>
-                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${siteDotClass(s.color)} rounded-full transition-all`} style={{width:`${(s.manDays/max)*100}%`}} />
-                      </div>
-                      <span className="w-12 text-right text-xs font-semibold text-slate-700">{s.manDays} วัน</span>
-                    </div>
+                    <StatRow key={s.siteId} rank={i+1} label={s.siteCode} title={s.siteName}
+                      pct={(s.manDays / max) * 100} value={`${s.manDays} วัน`} fillColor={siteDotClass(s.color)} />
                   )
                 })}
               </div>
