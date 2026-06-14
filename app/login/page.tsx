@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
+  const [idle,     setIdle]     = useState(false)
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('idle') === '1') setIdle(true)
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -34,6 +39,12 @@ export default function LoginPage() {
           <h1 className="mt-1 text-lg font-semibold text-slate-800">ระบบแผนงานและเครื่องมือ</h1>
           <p className="mt-1 text-xs text-slate-400">เข้าสู่ระบบเพื่อใช้งาน</p>
         </div>
+
+        {idle && (
+          <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            ⏱ ออกจากระบบอัตโนมัติเนื่องจากไม่ได้ใช้งานเกิน 30 นาที กรุณาเข้าสู่ระบบใหม่
+          </div>
+        )}
 
         <form onSubmit={submit} className="space-y-4">
           <div>
