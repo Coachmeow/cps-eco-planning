@@ -45,6 +45,7 @@ model Equipment {
   status          EquipmentStatus @default(ACTIVE)
   notes           String?
   // ฐานข้อมูลเครื่องมือออฟฟิศ
+  photoUrl        String?           // base64 data URL หรือ URL ภายนอก
   brand           String?
   model           String?
   vendor          String?           // ผู้ขายหลัก

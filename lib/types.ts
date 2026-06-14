@@ -89,6 +89,7 @@ export interface Equipment {
   purchasePrice?: number | null
   lifespanYears?: number | null
   calDueDate?: string | null
+  hasPhoto?: boolean
 }
 
 export type EquipmentEventType = 'REPAIR' | 'CALIBRATION'

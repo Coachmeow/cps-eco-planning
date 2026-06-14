@@ -14,7 +14,7 @@ interface EqDetail {
   status: string; brand: string | null; model: string | null; vendor: string | null
   purchaseDate: string | null; purchasePrice: number | null; lifespanYears: number | null
   calDueDate: string | null; isRental: boolean; rentalVendor: string | null
-  usageDays: number; events: EqEvent[]
+  hasPhoto?: boolean; usageDays: number; events: EqEvent[]
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -57,9 +57,12 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
           <div className="p-8 text-center text-sm text-slate-400">กำลังโหลด...</div>
         ) : (
           <>
-            <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <div className="flex items-center gap-2">
+            <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+              {eq.hasPhoto
+                ? <img src={`/api/equipment/${eq.id}/photo`} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">🔧</span>}
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="text-base font-bold text-slate-800">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</p>
                   <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[eq.status] ?? 'bg-slate-100'}`}>{STATUS_LABEL[eq.status] ?? eq.status}</span>
                   {eq.isRental && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-600">เช่า</span>}

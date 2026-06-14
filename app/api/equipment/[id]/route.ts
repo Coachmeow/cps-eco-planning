@@ -14,7 +14,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const events = await prisma.equipmentEvent.findMany({
     where: { equipmentId: eqId }, orderBy: { sentDate: 'desc' },
   })
-  return NextResponse.json({ ...equipment, usageDays, events })
+  const { photoUrl, ...eq } = equipment
+  return NextResponse.json({ ...eq, hasPhoto: !!photoUrl, usageDays, events })
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         purchaseDate:    body.purchaseDate    ? new Date(body.purchaseDate) : null,
         purchasePrice:   body.purchasePrice != null && body.purchasePrice !== '' ? parseInt(body.purchasePrice) : null,
         lifespanYears:   body.lifespanYears != null && body.lifespanYears !== '' ? parseInt(body.lifespanYears) : null,
+        // อัปเดตรูปเฉพาะตอนส่งมา (กันทับรูปเดิมเป็น null)
+        ...(body.photoUrl !== undefined ? { photoUrl: body.photoUrl || null } : {}),
       },
       include: { type: { include: { primaryTeam: true } } },
     })

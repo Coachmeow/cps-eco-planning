@@ -38,6 +38,7 @@ interface Equipment {
   status: string; notes: string | null
   brand?: string | null; model?: string | null; vendor?: string | null
   purchaseDate?: string | null; purchasePrice?: number | null; lifespanYears?: number | null; calDueDate?: string | null
+  hasPhoto?: boolean
 }
 
 const STATUS_OPTS = ['ACTIVE', 'CALIBRATING', 'BROKEN', 'RETIRED'] as const
@@ -453,6 +454,8 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const initRental = { typeId: '', internalNo: '', rentalVendor: '', rentalStartDate: '', rentalEndDate: '', notes: '' }
   const [ownedForm,  setOwnedForm]  = useState(initOwned)
   const [rentalForm, setRentalForm] = useState(initRental)
+  const [photo, setPhoto]           = useState<string | null>(null)
+  const [photoTouched, setPhotoTouched] = useState(false)
 
   const load = useCallback(async () => {
     const [eRes, tRes] = await Promise.all([
@@ -463,10 +466,16 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   }, [])
   useEffect(() => { load() }, [load])
 
+  async function onPickOwnedPhoto(file?: File) {
+    if (!file) return
+    setPhoto(await resizeImage(file)); setPhotoTouched(true)
+  }
+
   async function saveOwned() {
     if (!ownedForm.typeId || !ownedForm.internalNo) return
     setSaving(true)
-    const body = { ...ownedForm, isRental: false, typeId: parseInt(ownedForm.typeId) }
+    const body: Record<string, unknown> = { ...ownedForm, isRental: false, typeId: parseInt(ownedForm.typeId) }
+    if (photoTouched) body.photoUrl = photo
     if (modal === 'add-owned') {
       await fetch('/api/equipment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     } else if (editing) {
@@ -502,6 +511,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         purchasePrice: eq.purchasePrice != null ? String(eq.purchasePrice) : '',
         lifespanYears: eq.lifespanYears != null ? String(eq.lifespanYears) : '',
       })
+      setPhoto(null); setPhotoTouched(false)
       setModal('edit')
     }
   }
@@ -538,7 +548,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canManage && (
           <div className="ml-auto flex gap-2">
-            <Btn onClick={() => { setEditing(null); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
+            <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
           </div>
         )}
@@ -605,6 +615,23 @@ function EquipmentSection({ role }: { role?: UserRole }) {
       {(modal === 'add-owned' || (modal === 'edit' && editing && !editing.isRental)) && (
         <Modal title={editing ? 'แก้ไขเครื่องมือ (ซื้อ)' : 'เพิ่มเครื่องมือ (ซื้อ)'} onClose={() => setModal(null)}>
           <div className="space-y-3">
+            {/* รูปเครื่องมือ */}
+            <div className="flex items-center gap-3">
+              {photo
+                ? <img src={photo} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                : (editing?.hasPhoto && !photoTouched)
+                  ? <img src={`/api/equipment/${editing.id}/photo`} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                  : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-300">🔧</span>}
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                  เลือกรูป...
+                  <input type="file" accept="image/*" className="hidden" onChange={ev => onPickOwnedPhoto(ev.target.files?.[0])} />
+                </label>
+                {(photo || editing?.hasPhoto) && (
+                  <button onClick={() => { setPhoto(null); setPhotoTouched(true) }} className="text-[11px] text-red-400 hover:text-red-600">ลบรูป</button>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">ประเภทเครื่องมือ<span className="ml-0.5 text-red-500">*</span></label>
               <CustomSelect

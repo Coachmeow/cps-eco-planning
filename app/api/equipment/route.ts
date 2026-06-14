@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
     include: { type: { include: { primaryTeam: true } } },
     orderBy: [{ typeId: 'asc' }, { internalNo: 'asc' }],
   })
-  return NextResponse.json(equipment)
+  // strip base64 photoUrl ออกจาก list (โหลดผ่าน /photo) ส่งแค่ hasPhoto
+  const out = equipment.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))
+  return NextResponse.json(out)
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +41,7 @@ export async function POST(req: NextRequest) {
         rentalEndDate:   body.rentalEndDate   ? new Date(body.rentalEndDate)   : null,
         status:         body.status ?? 'ACTIVE',
         notes:          body.notes  || null,
+        photoUrl:       body.photoUrl || null,
         brand:          body.brand  || null,
         model:          body.model  || null,
         vendor:         body.vendor || null,
