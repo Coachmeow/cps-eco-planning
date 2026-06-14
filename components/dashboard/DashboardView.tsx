@@ -130,6 +130,23 @@ export default function DashboardView() {
             ))}
           </div>
 
+          {data.alerts && (data.alerts.calOverdue + data.alerts.calSoon + data.alerts.repairOverdue) > 0 && (
+            <div className="col-span-full flex flex-wrap gap-2">
+              {data.alerts.calOverdue > 0 && (
+                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">📐 Cal เกินกำหนด {data.alerts.calOverdue} เครื่อง</span>
+              )}
+              {data.alerts.calSoon > 0 && (
+                <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-600">📐 Cal ใกล้ครบ (30 วัน) {data.alerts.calSoon} เครื่อง</span>
+              )}
+              {data.alerts.repairOverdue > 0 && (
+                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">🔧 ส่งซ่อม/Cal เกินกำหนดรับกลับ {data.alerts.repairOverdue} เครื่อง</span>
+              )}
+              {data.alerts.stillOut > 0 && (
+                <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500">กำลังส่งซ่อม/Cal รวม {data.alerts.stillOut} เครื่อง</span>
+              )}
+            </div>
+          )}
+
           <Card title="Equipment Utilization % (ของบริษัท)">
             <div className="space-y-2.5">
               {data.equipmentUtil.filter(r=>r.ownCount>0).sort((a,b)=>b.ownUtil-a.ownUtil).map(r=>(

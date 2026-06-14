@@ -211,5 +211,25 @@ export async function GET(req: NextRequest) {
     })
   )).sort((a, b) => b.manDays - a.manDays)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, workdays, year, month })
+  // ── Alerts: Cal ใกล้ครบ/เกิน + ส่งซ่อมเกินกำหนด ──────────────
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  const in30 = new Date(todayStart); in30.setDate(in30.getDate() + 30)
+  const calList = await prisma.equipment.findMany({
+    where:  { calDueDate: { not: null }, status: { not: 'RETIRED' } },
+    select: { calDueDate: true },
+  })
+  let calOverdue = 0, calSoon = 0
+  for (const e of calList) {
+    const d = e.calDueDate!
+    if (d < todayStart) calOverdue++
+    else if (d <= in30) calSoon++
+  }
+  const repairOverdue = await prisma.equipmentEvent.count({
+    where: { returnedDate: null, expectedDate: { lt: todayStart } },
+  })
+  const stillOut = await prisma.equipmentEvent.count({ where: { returnedDate: null } })
+
+  const alerts = { calOverdue, calSoon, repairOverdue, stillOut }
+
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, alerts, workdays, year, month })
 }

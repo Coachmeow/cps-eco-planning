@@ -186,6 +186,13 @@ export interface TrendPoint {
   eqUtil: number
 }
 
+export interface DashboardAlerts {
+  calOverdue: number
+  calSoon: number
+  repairOverdue: number
+  stillOut: number
+}
+
 export interface DashboardData {
   equipmentUtil: EquipmentUtilRow[]
   teamWorkload: TeamWorkloadRow[]
@@ -194,6 +201,7 @@ export interface DashboardData {
   siteMandays: SiteMandayRow[]
   teamCapacity: TeamCapacityRow[]
   trend: TrendPoint[]
+  alerts?: DashboardAlerts
   workdays: number
   year: number
   month: number

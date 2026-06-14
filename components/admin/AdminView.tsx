@@ -866,6 +866,110 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
   )
 }
 
+// ── Section: Calibration annual plan ──────────────────────────
+const CAL_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+function CalPlanSection() {
+  const [equipment, setEquipment] = useState<Equipment[]>([])
+  const [eqTypes,   setEqTypes]   = useState<EqType[]>([])
+  const [year,      setYear]      = useState(new Date().getFullYear())
+  const [filterType, setFilterType] = useState('')
+
+  const load = useCallback(async () => {
+    const [eRes, tRes] = await Promise.all([
+      fetch('/api/equipment?all=true').then(r => r.json()),
+      fetch('/api/equipment-types').then(r => r.json()),
+    ])
+    setEquipment(Array.isArray(eRes) ? eRes : [])
+    setEqTypes(Array.isArray(tRes) ? tRes : [])
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const todayKey = new Date().toISOString().slice(0, 10)
+  // เครื่องที่มีกำหนด Cal และตรงปีที่เลือก
+  const withCal = equipment.filter(eq => {
+    if (!eq.calDueDate) return false
+    if (filterType && String(eq.typeId) !== filterType) return false
+    return new Date(eq.calDueDate).getFullYear() === year
+  })
+
+  // group by type
+  const groups = new Map<number, { type: EqType; items: Equipment[] }>()
+  for (const eq of withCal) {
+    const t = eqTypes.find(x => x.id === eq.typeId)
+    if (!t) continue
+    if (!groups.has(eq.typeId)) groups.set(eq.typeId, { type: t, items: [] })
+    groups.get(eq.typeId)!.items.push(eq)
+  }
+  const groupArr = Array.from(groups.values())
+
+  // สรุปจำนวนต่อเดือน
+  const monthCount = Array(12).fill(0) as number[]
+  withCal.forEach(eq => { monthCount[new Date(eq.calDueDate!).getMonth()]++ })
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
+          <button onClick={() => setYear(y => y - 1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
+          <span className="min-w-[70px] text-center text-sm font-medium text-slate-700">ปี {year + 543}</span>
+          <button onClick={() => setYear(y => y + 1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
+        </div>
+        <CustomSelect value={filterType} onChange={setFilterType} placeholder="ทุกหมวด" className="w-56"
+          options={[{ value: '', label: 'ทุกหมวด' }, ...eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))]} />
+        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">{withCal.length} เครื่องในปีนี้</span>
+      </div>
+
+      {groupArr.length === 0 ? (
+        <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีเครื่องที่มีกำหนด Calibrate ในปีนี้<br /><span className="text-xs">กำหนด Cal ครั้งถัดไปได้ตอนรับเครื่องกลับในเมนู ซ่อม/Cal</span></p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left font-medium min-w-[150px]">เครื่องมือ</th>
+                {CAL_MONTHS.map((m, i) => (
+                  <th key={m} className="border-l border-slate-100 px-1 py-2 text-center font-medium min-w-[40px]">
+                    {m}{monthCount[i] > 0 && <div className="text-[9px] font-normal text-violet-500">{monthCount[i]}</div>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groupArr.map(({ type, items }) => (
+                <>
+                  <tr key={`g-${type.id}`}>
+                    <td colSpan={13} className="border-t border-slate-200 bg-slate-100 px-3 py-1 font-semibold text-slate-500">{type.code} — {type.name}</td>
+                  </tr>
+                  {items.map(eq => {
+                    const due = new Date(eq.calDueDate!)
+                    const dueMonth = due.getMonth()
+                    const overdue = eq.calDueDate!.slice(0, 10) < todayKey
+                    return (
+                      <tr key={eq.id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</td>
+                        {CAL_MONTHS.map((_, i) => (
+                          <td key={i} className="border-l border-slate-100 px-1 py-1.5 text-center">
+                            {i === dueMonth && (
+                              <span title={`${overdue ? 'เกินกำหนด ' : ''}${eq.calDueDate!.slice(0,10)}`}
+                                className={`inline-block h-2.5 w-2.5 rounded-full ${overdue ? 'bg-red-500' : 'bg-violet-500'}`} />
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="mt-2 text-xs text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-violet-500 align-middle" /> กำหนด Cal · <span className="inline-block h-2 w-2 rounded-full bg-red-500 align-middle" /> เกินกำหนด</p>
+    </div>
+  )
+}
+
 // ── Section: Holidays (วันหยุดพิเศษ) ──────────────────────────
 interface HolidayRow { id: number; date: string; name: string }
 
@@ -1017,7 +1121,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 }
 
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment' | 'maintenance' | 'holidays' | 'users'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'maintenance' | 'calplan' | 'holidays' | 'users'
 
 export default function AdminView() {
   const { me, role } = useMe()
@@ -1028,6 +1132,7 @@ export default function AdminView() {
     { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
     { key: 'equipment',   label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'maintenance', label: '🛠 ซ่อม/Cal',  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'calplan',     label: '📐 แผน Cal',   roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'holidays',    label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
     { key: 'users',     label: '🔑 ผู้ใช้งาน',  roles: ['ADMIN'] },
   ]
@@ -1052,6 +1157,7 @@ export default function AdminView() {
         {active === 'employees' && <EmployeesSection />}
         {active === 'equipment'   && <EquipmentSection role={role} />}
         {active === 'maintenance' && <MaintenanceSection role={role} />}
+        {active === 'calplan'     && <CalPlanSection />}
         {active === 'holidays'    && <HolidaysSection />}
         {active === 'users'     && <UsersSection myUid={me?.uid} />}
       </div>
