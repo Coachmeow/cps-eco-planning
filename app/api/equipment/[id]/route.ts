@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession, hasRole, forbidden } from '@/lib/auth'
 
+// รายละเอียดเครื่อง + ปริมาณใช้งานสะสม (วันออกงาน) + ประวัติซ่อม/Cal
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const eqId = parseInt(id)
+  const equipment = await prisma.equipment.findUnique({
+    where: { id: eqId }, include: { type: { include: { primaryTeam: true } } },
+  })
+  if (!equipment) return NextResponse.json({ error: 'ไม่พบเครื่องมือ' }, { status: 404 })
+  const usageDays = await prisma.equipmentAssignment.count({ where: { equipmentId: eqId } })
+  const events = await prisma.equipmentEvent.findMany({
+    where: { equipmentId: eqId }, orderBy: { sentDate: 'desc' },
+  })
+  return NextResponse.json({ ...equipment, usageDays, events })
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!hasRole(session, 'ADMIN', 'MANAGER', 'MAINTENANCE')) return forbidden()
@@ -32,6 +47,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         rentalEndDate:   body.rentalEndDate   ? new Date(body.rentalEndDate)   : null,
         status:          body.status          ?? 'ACTIVE',
         notes:           body.notes           || null,
+        brand:           body.brand           || null,
+        model:           body.model           || null,
+        vendor:          body.vendor          || null,
+        purchaseDate:    body.purchaseDate    ? new Date(body.purchaseDate) : null,
+        purchasePrice:   body.purchasePrice != null && body.purchasePrice !== '' ? parseInt(body.purchasePrice) : null,
+        lifespanYears:   body.lifespanYears != null && body.lifespanYears !== '' ? parseInt(body.lifespanYears) : null,
       },
       include: { type: { include: { primaryTeam: true } } },
     })

@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
         rentalEndDate:   body.rentalEndDate   ? new Date(body.rentalEndDate)   : null,
         status:         body.status ?? 'ACTIVE',
         notes:          body.notes  || null,
+        brand:          body.brand  || null,
+        model:          body.model  || null,
+        vendor:         body.vendor || null,
+        purchaseDate:   body.purchaseDate ? new Date(body.purchaseDate) : null,
+        purchasePrice:  body.purchasePrice != null && body.purchasePrice !== '' ? parseInt(body.purchasePrice) : null,
+        lifespanYears:  body.lifespanYears != null && body.lifespanYears !== '' ? parseInt(body.lifespanYears) : null,
       },
       include: { type: { include: { primaryTeam: true } } },
     })

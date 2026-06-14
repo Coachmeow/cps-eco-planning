@@ -82,6 +82,29 @@ export interface Equipment {
   rentalEndDate: string | null
   status: EquipmentStatus
   notes: string | null
+  brand?: string | null
+  model?: string | null
+  vendor?: string | null
+  purchaseDate?: string | null
+  purchasePrice?: number | null
+  lifespanYears?: number | null
+  calDueDate?: string | null
+}
+
+export type EquipmentEventType = 'REPAIR' | 'CALIBRATION'
+
+export interface EquipmentEvent {
+  id: number
+  equipmentId: number
+  type: EquipmentEventType
+  sentDate: string
+  expectedDate: string | null
+  returnedDate: string | null
+  nextDueDate: string | null
+  vendor: string | null
+  cost: number | null
+  notes: string | null
+  equipment?: Equipment
 }
 
 export interface EquipmentAssignment {

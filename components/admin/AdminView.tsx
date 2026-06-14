@@ -7,6 +7,7 @@ import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
 import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
+import EquipmentCard from '@/components/EquipmentCard'
 
 // ย่อรูปด้วย canvas → JPEG ~256px คืน data URL (เก็บใน DB เป็น base64)
 async function resizeImage(file: File, max = 256, quality = 0.8): Promise<string> {
@@ -35,6 +36,8 @@ interface Equipment {
   id: number; typeId: number; type: EqType; internalNo: string | null; serialNo: string | null
   isRental: boolean; rentalVendor: string | null; rentalStartDate: string | null; rentalEndDate: string | null
   status: string; notes: string | null
+  brand?: string | null; model?: string | null; vendor?: string | null
+  purchaseDate?: string | null; purchasePrice?: number | null; lifespanYears?: number | null; calDueDate?: string | null
 }
 
 const STATUS_OPTS = ['ACTIVE', 'CALIBRATING', 'BROKEN', 'RETIRED'] as const
@@ -444,8 +447,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [editing,   setEditing]   = useState<Equipment | null>(null)
   const [filterType, setFilterType] = useState('')
   const [saving,    setSaving]    = useState(false)
+  const [viewing,   setViewing]   = useState<Equipment | null>(null)
 
-  const initOwned  = { typeId: '', internalNo: '', serialNo: '', status: 'ACTIVE', notes: '' }
+  const initOwned  = { typeId: '', internalNo: '', serialNo: '', status: 'ACTIVE', notes: '', brand: '', model: '', vendor: '', purchaseDate: '', purchasePrice: '', lifespanYears: '' }
   const initRental = { typeId: '', internalNo: '', rentalVendor: '', rentalStartDate: '', rentalEndDate: '', notes: '' }
   const [ownedForm,  setOwnedForm]  = useState(initOwned)
   const [rentalForm, setRentalForm] = useState(initRental)
@@ -491,7 +495,13 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         rentalStartDate: eq.rentalStartDate?.slice(0, 10) ?? '', rentalEndDate: eq.rentalEndDate?.slice(0, 10) ?? '', notes: eq.notes ?? '',
       }); setModal('add-rental')
     } else {
-      setOwnedForm({ typeId: String(eq.typeId), internalNo: eq.internalNo ?? '', serialNo: eq.serialNo ?? '', status: eq.status, notes: eq.notes ?? '' })
+      setOwnedForm({
+        typeId: String(eq.typeId), internalNo: eq.internalNo ?? '', serialNo: eq.serialNo ?? '', status: eq.status, notes: eq.notes ?? '',
+        brand: eq.brand ?? '', model: eq.model ?? '', vendor: eq.vendor ?? '',
+        purchaseDate: eq.purchaseDate?.slice(0, 10) ?? '',
+        purchasePrice: eq.purchasePrice != null ? String(eq.purchasePrice) : '',
+        lifespanYears: eq.lifespanYears != null ? String(eq.lifespanYears) : '',
+      })
       setModal('edit')
     }
   }
@@ -552,7 +562,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               return (
                 <tr key={eq.id} className={`border-t border-slate-100 hover:bg-slate-50 ${eq.status === 'RETIRED' || isExpired ? 'opacity-50' : ''}`}>
                   <td className="px-4 py-2 font-mono text-xs text-slate-500">{eq.type.code}</td>
-                  <td className="px-4 py-2 font-medium text-slate-700">{eq.internalNo ?? '—'}</td>
+                  <td className="px-4 py-2">
+                    <button onClick={() => setViewing(eq)} className="font-medium text-slate-700 hover:text-emerald-700 hover:underline">{eq.internalNo ?? '—'}</button>
+                  </td>
                   <td className="px-4 py-2 text-slate-400">{eq.serialNo ?? '—'}</td>
                   <td className="px-4 py-2">
                     {eq.isRental
@@ -603,6 +615,16 @@ function EquipmentSection({ role }: { role?: UserRole }) {
             </div>
             <Input label="หมายเลขภายใน" value={ownedForm.internalNo} onChange={of('internalNo')} placeholder="TSP SP49" required />
             <Input label="Serial Number" value={ownedForm.serialNo} onChange={of('serialNo')} placeholder="SP49" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="ยี่ห้อ" value={ownedForm.brand} onChange={of('brand')} placeholder="เช่น TECORA" />
+              <Input label="รุ่น" value={ownedForm.model} onChange={of('model')} placeholder="เช่น Bravo" />
+            </div>
+            <Input label="ผู้ขาย / Vendor" value={ownedForm.vendor} onChange={of('vendor')} placeholder="บ. ..." />
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="วันที่ซื้อ" value={ownedForm.purchaseDate} onChange={of('purchaseDate')} type="date" />
+              <Input label="ราคา (บาท)" value={ownedForm.purchasePrice} onChange={of('purchasePrice')} type="number" placeholder="0" />
+              <Input label="อายุใช้งาน (ปี)" value={ownedForm.lifespanYears} onChange={of('lifespanYears')} type="number" placeholder="5" />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">สถานะ</label>
               <CustomSelect
@@ -645,6 +667,197 @@ function EquipmentSection({ role }: { role?: UserRole }) {
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={saveRental}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {viewing && <EquipmentCard equipmentId={viewing.id} onClose={() => setViewing(null)} />}
+    </div>
+  )
+}
+
+// ── Section: Maintenance (ซ่อม/Cal) ───────────────────────────
+interface EqEventRow {
+  id: number; equipmentId: number; type: 'REPAIR' | 'CALIBRATION'
+  sentDate: string; expectedDate: string | null; returnedDate: string | null
+  nextDueDate: string | null; vendor: string | null; cost: number | null; notes: string | null
+  equipment: { internalNo: string | null; serialNo: string | null; type: { code: string } }
+}
+
+function MaintenanceSection({ role }: { role?: UserRole }) {
+  const [events, setEvents]       = useState<EqEventRow[]>([])
+  const [equipment, setEquipment] = useState<Equipment[]>([])
+  const [modal, setModal]         = useState(false)
+  const [returning, setReturning] = useState<EqEventRow | null>(null)
+  const [saving, setSaving]       = useState(false)
+  const today = new Date().toISOString().slice(0, 10)
+
+  const initForm = { equipmentId: '', type: 'REPAIR', sentDate: today, expectedDate: '', vendor: '', cost: '', nextDueDate: '', notes: '' }
+  const [form, setForm] = useState(initForm)
+  const [retForm, setRetForm] = useState({ returnedDate: today, nextDueDate: '', cost: '' })
+
+  const load = useCallback(async () => {
+    const [evRes, eqRes] = await Promise.all([
+      fetch('/api/equipment-events').then(r => r.json()),
+      fetch('/api/equipment?all=true').then(r => r.json()),
+    ])
+    setEvents(Array.isArray(evRes) ? evRes : [])
+    setEquipment(Array.isArray(eqRes) ? eqRes : [])
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const ff = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
+  const eqLabel = (eq: Equipment) => `${eq.type.code} ${eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}`
+
+  async function save() {
+    if (!form.equipmentId || !form.sentDate) return
+    setSaving(true)
+    await fetch('/api/equipment-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    setSaving(false); setModal(false); setForm(initForm); load()
+  }
+  function openReturn(ev: EqEventRow) {
+    setRetForm({ returnedDate: today, nextDueDate: ev.nextDueDate?.slice(0, 10) ?? '', cost: ev.cost != null ? String(ev.cost) : '' })
+    setReturning(ev)
+  }
+  async function confirmReturn() {
+    if (!returning) return
+    setSaving(true)
+    await fetch(`/api/equipment-events/${returning.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ returnedDate: retForm.returnedDate, nextDueDate: retForm.nextDueDate || null, cost: retForm.cost || null }),
+    })
+    setSaving(false); setReturning(null); load()
+  }
+  async function del(ev: EqEventRow) {
+    if (!confirm('ลบใบงานนี้?')) return
+    await fetch(`/api/equipment-events/${ev.id}`, { method: 'DELETE' }); load()
+  }
+
+  const open = events.filter(e => !e.returnedDate)
+  const history = events.filter(e => e.returnedDate)
+  const overdue = (e: EqEventRow) => !e.returnedDate && e.expectedDate && e.expectedDate.slice(0, 10) < today
+  const canDelete = role === 'ADMIN' || role === 'MANAGER'
+
+  const TypeBadge = ({ t }: { t: string }) => (
+    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${t === 'REPAIR' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
+      {t === 'REPAIR' ? '🔧 ซ่อม' : '📐 Cal'}
+    </span>
+  )
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-slate-500">กำลังส่ง {open.length} รายการ</p>
+        <Btn onClick={() => { setForm({ ...initForm, equipmentId: equipment[0] ? String(equipment[0].id) : '' }); setModal(true) }}>+ เปิดใบงาน</Btn>
+      </div>
+
+      {/* รายการที่ยังไม่รับกลับ */}
+      <div className="mb-5 overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+            <th className="px-4 py-2 text-left font-medium">เครื่องมือ</th>
+            <th className="px-4 py-2 text-left font-medium">ประเภท</th>
+            <th className="px-4 py-2 text-left font-medium">วันส่ง</th>
+            <th className="px-4 py-2 text-left font-medium">กำหนดกลับ</th>
+            <th className="px-4 py-2 text-left font-medium">Vendor</th>
+            <th className="px-4 py-2" />
+          </tr></thead>
+          <tbody>
+            {open.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีเครื่องที่กำลังส่งซ่อม/Cal</td></tr>}
+            {open.map(ev => (
+              <tr key={ev.id} className={`border-t border-slate-100 hover:bg-slate-50 ${overdue(ev) ? 'bg-red-50/40' : ''}`}>
+                <td className="px-4 py-2 font-medium text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
+                <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
+                <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)}</td>
+                <td className="px-4 py-2 text-xs">{ev.expectedDate ? <span className={overdue(ev) ? 'font-semibold text-red-500' : 'text-slate-500'}>{ev.expectedDate.slice(0, 10)}{overdue(ev) && ' ⚠ เกิน'}</span> : '—'}</td>
+                <td className="px-4 py-2 text-xs text-slate-400">{ev.vendor ?? '—'}</td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex justify-end gap-1.5">
+                    <Btn small onClick={() => openReturn(ev)}>รับกลับ</Btn>
+                    {canDelete && <Btn small variant="danger" onClick={() => del(ev)}>ลบ</Btn>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ประวัติ */}
+      <p className="mb-2 text-xs font-semibold text-slate-500">ประวัติ (รับกลับแล้ว)</p>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+            <th className="px-4 py-2 text-left font-medium">เครื่องมือ</th>
+            <th className="px-4 py-2 text-left font-medium">ประเภท</th>
+            <th className="px-4 py-2 text-left font-medium">ส่ง → กลับ</th>
+            <th className="px-4 py-2 text-left font-medium">ค่าใช้จ่าย</th>
+            <th className="px-4 py-2" />
+          </tr></thead>
+          <tbody>
+            {history.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีประวัติ</td></tr>}
+            {history.slice(0, 50).map(ev => (
+              <tr key={ev.id} className="border-t border-slate-100 hover:bg-slate-50">
+                <td className="px-4 py-2 text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
+                <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
+                <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)} → {ev.returnedDate?.slice(0, 10)}</td>
+                <td className="px-4 py-2 text-xs text-slate-500">{ev.cost != null ? `${ev.cost.toLocaleString('th-TH')} บาท` : '—'}</td>
+                <td className="px-4 py-2 text-right">{canDelete && <Btn small variant="danger" onClick={() => del(ev)}>ลบ</Btn>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal เปิดใบงาน */}
+      {modal && (
+        <Modal title="เปิดใบงานซ่อม / Calibrate" onClose={() => setModal(false)}>
+          <div className="space-y-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">เครื่องมือ<span className="ml-0.5 text-red-500">*</span></label>
+              <CustomSelect value={form.equipmentId} onChange={ff('equipmentId')}
+                options={equipment.map(eq => ({ value: String(eq.id), label: eqLabel(eq) }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">ประเภท</label>
+              <CustomSelect value={form.type} onChange={ff('type')}
+                options={[{ value: 'REPAIR', label: '🔧 ส่งซ่อม' }, { value: 'CALIBRATION', label: '📐 ส่ง Calibrate' }]} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="วันส่ง" value={form.sentDate} onChange={ff('sentDate')} type="date" required />
+              <Input label="กำหนดกลับ/เสร็จ" value={form.expectedDate} onChange={ff('expectedDate')} type="date" />
+            </div>
+            {form.type === 'CALIBRATION' && (
+              <Input label="กำหนด Cal ครั้งถัดไป" value={form.nextDueDate} onChange={ff('nextDueDate')} type="date" />
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Vendor / ผู้รับงาน" value={form.vendor} onChange={ff('vendor')} placeholder="บ. ..." />
+              <Input label="ค่าใช้จ่าย (บาท)" value={form.cost} onChange={ff('cost')} type="number" placeholder="0" />
+            </div>
+            <Input label="หมายเหตุ" value={form.notes} onChange={ff('notes')} placeholder="อาการ / รายละเอียด" />
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => setModal(false)}>ยกเลิก</Btn>
+              <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'เปิดใบงาน'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal รับกลับ */}
+      {returning && (
+        <Modal title="รับเครื่องกลับ" onClose={() => setReturning(null)}>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">{returning.equipment.type.code} {returning.equipment.internalNo ?? returning.equipment.serialNo} · <TypeBadge t={returning.type} /></p>
+            <Input label="วันรับกลับ" value={retForm.returnedDate} onChange={v => setRetForm(p => ({ ...p, returnedDate: v }))} type="date" required />
+            {returning.type === 'CALIBRATION' && (
+              <Input label="กำหนด Cal ครั้งถัดไป" value={retForm.nextDueDate} onChange={v => setRetForm(p => ({ ...p, nextDueDate: v }))} type="date" />
+            )}
+            <Input label="ค่าใช้จ่าย (บาท)" value={retForm.cost} onChange={v => setRetForm(p => ({ ...p, cost: v }))} type="number" placeholder="0" />
+            <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-700">รับกลับแล้วเครื่องจะกลับสู่สถานะ "พร้อมใช้" อัตโนมัติ</div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => setReturning(null)}>ยกเลิก</Btn>
+              <Btn onClick={confirmReturn}>{saving ? 'กำลังบันทึก...' : 'ยืนยันรับกลับ'}</Btn>
             </div>
           </div>
         </Modal>
@@ -804,7 +1017,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 }
 
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment' | 'holidays' | 'users'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'maintenance' | 'holidays' | 'users'
 
 export default function AdminView() {
   const { me, role } = useMe()
@@ -813,8 +1026,9 @@ export default function AdminView() {
   const allTabs: { key: AdminTab; label: string; roles: UserRole[] }[] = [
     { key: 'sites',     label: '🏭 ไซต์งาน',  roles: ['ADMIN', 'MANAGER'] },
     { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
-    { key: 'equipment', label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
-    { key: 'holidays',  label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
+    { key: 'equipment',   label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'maintenance', label: '🛠 ซ่อม/Cal',  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'holidays',    label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
     { key: 'users',     label: '🔑 ผู้ใช้งาน',  roles: ['ADMIN'] },
   ]
   const tabs   = allTabs.filter(t => !role || t.roles.includes(role))
@@ -836,8 +1050,9 @@ export default function AdminView() {
       <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
         {active === 'sites'     && <SitesSection />}
         {active === 'employees' && <EmployeesSection />}
-        {active === 'equipment' && <EquipmentSection role={role} />}
-        {active === 'holidays'  && <HolidaysSection />}
+        {active === 'equipment'   && <EquipmentSection role={role} />}
+        {active === 'maintenance' && <MaintenanceSection role={role} />}
+        {active === 'holidays'    && <HolidaysSection />}
         {active === 'users'     && <UsersSection myUid={me?.uid} />}
       </div>
     </div>

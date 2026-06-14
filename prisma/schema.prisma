@@ -44,8 +44,17 @@ model Equipment {
   rentalEndDate   DateTime?       @db.Date
   status          EquipmentStatus @default(ACTIVE)
   notes           String?
+  // ฐานข้อมูลเครื่องมือออฟฟิศ
+  brand           String?
+  model           String?
+  vendor          String?           // ผู้ขายหลัก
+  purchaseDate    DateTime?         @db.Date
+  purchasePrice   Int?              // บาท
+  lifespanYears   Int?              // อายุการใช้งานประเมิน (ปี)
+  calDueDate      DateTime?         @db.Date  // กำหนด Calibrate ครั้งถัดไป
 
   assignments EquipmentAssignment[]
+  events      EquipmentEvent[]
 
   @@map("equipment")
 }
@@ -186,4 +195,29 @@ model Holiday {
   name String
 
   @@map("holidays")
+}
+
+enum EquipmentEventType {
+  REPAIR
+  CALIBRATION
+}
+
+// ใบงานซ่อม/Calibrate — ส่ง → กำหนด → รับกลับ (returnedDate = null คือยังไม่กลับ)
+model EquipmentEvent {
+  id           Int                @id @default(autoincrement())
+  equipmentId  Int
+  equipment    Equipment          @relation(fields: [equipmentId], references: [id])
+  type         EquipmentEventType
+  sentDate     DateTime           @db.Date
+  expectedDate DateTime?          @db.Date  // กำหนดรับกลับ (ซ่อม) / กำหนดเสร็จ (Cal)
+  returnedDate DateTime?          @db.Date  // วันรับกลับจริง
+  nextDueDate  DateTime?          @db.Date  // (Cal) กำหนด Cal ครั้งถัดไป → อัปเดต equipment.calDueDate ตอนรับกลับ
+  vendor       String?
+  cost         Int?               // ค่าใช้จ่าย (บาท, optional)
+  notes        String?
+  createdAt    DateTime           @default(now())
+
+  @@index([equipmentId])
+  @@index([returnedDate])
+  @@map("equipment_events")
 }
