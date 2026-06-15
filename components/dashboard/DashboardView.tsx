@@ -173,13 +173,39 @@ export default function DashboardView() {
             </div>
           )}
 
-          <Card title="Equipment Utilization % (ของบริษัท)">
-            <div className="h-64 space-y-2 overflow-y-auto pr-1">
-              {data.equipmentUtil.filter(r=>r.ownCount>0).sort((a,b)=>b.ownUtil-a.ownUtil).map(r=>(
-                <StatRow key={r.typeId} label={r.typeCode} pct={r.ownUtil} value={`${r.ownUtil}%`}
-                  fillColor={utilBarColor(r.ownUtil)} valueColor={utilTextColor(r.ownUtil)} />
-              ))}
-            </div>
+          <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
+            {(() => {
+              const rows = data.equipmentUtil.filter(r => r.ownCount > 0).sort((a, b) => (b.demandUtil ?? 0) - (a.demandUtil ?? 0))
+              const scaleMax = Math.max(100, ...rows.map(r => r.demandUtil ?? 0))
+              const markerLeft = (100 / scaleMax) * 100
+              return (
+                <>
+                  <div className="h-60 space-y-2 overflow-y-auto pr-1">
+                    {rows.map(r => {
+                      const d = r.demandUtil ?? 0
+                      const over = d > 100
+                      return (
+                        <div key={r.typeId} className="flex items-center gap-2">
+                          <span className="w-16 shrink-0 truncate text-xs text-slate-600" title={r.typeName}>{r.typeCode}</span>
+                          <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                            <div className="flex h-full w-full">
+                              <div className="h-full bg-emerald-400" style={{ width: `${(Math.min(d, 100) / scaleMax) * 100}%` }} />
+                              {over && <div className="h-full bg-red-500" style={{ width: `${((d - 100) / scaleMax) * 100}%` }} />}
+                            </div>
+                            <div className="absolute inset-y-0 w-px bg-slate-400/60" style={{ left: `${markerLeft}%` }} />
+                          </div>
+                          <span className={`w-14 shrink-0 text-right text-xs font-semibold ${over ? 'text-red-500' : 'text-slate-700'}`}>{d}%</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 align-middle" /> กำลังเครื่องซื้อ ·{' '}
+                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 align-middle" /> เกิน 100% = ต้องเช่าเพิ่ม
+                  </p>
+                </>
+              )
+            })()}
           </Card>
 
           <Card title="ภาระงานต่อทีม (วัน-คน)">
@@ -291,9 +317,10 @@ export default function DashboardView() {
                   <thead className="sticky top-0 bg-white"><tr className="border-b border-slate-100 text-left text-slate-400">
                     <th className="py-2 pr-4 font-medium">ประเภท</th>
                     <th className="py-2 pr-4 text-right font-medium">Own</th>
-                    <th className="py-2 pr-4 text-right font-medium">Util (Own)</th>
+                    <th className="py-2 pr-4 text-right font-medium">Own Load</th>
                     <th className="py-2 pr-4 text-right font-medium">เช่า</th>
-                    <th className="py-2 text-right font-medium">Util (เช่า)</th>
+                    <th className="py-2 pr-4 text-right font-medium">Util (เช่า)</th>
+                    <th className="py-2 text-right font-medium">Demand</th>
                   </tr></thead>
                   <tbody>
                     {data.equipmentUtil.map(r=>(
@@ -302,7 +329,8 @@ export default function DashboardView() {
                         <td className="py-2 pr-4 text-right text-slate-500">{r.ownCount>0?`${r.ownCount} เครื่อง`:'—'}</td>
                         <td className={`py-2 pr-4 text-right font-semibold ${r.ownUtil>=80?'text-red-500':r.ownUtil>=50?'text-amber-500':'text-emerald-600'}`}>{r.ownCount>0?`${r.ownUtil}%`:'—'}</td>
                         <td className="py-2 pr-4 text-right text-slate-500">{r.rentalCount>0?`${r.rentalCount} เครื่อง`:'—'}</td>
-                        <td className="py-2 text-right font-semibold text-amber-500">{r.rentalCount>0?`${r.rentalUtil}%`:'—'}</td>
+                        <td className="py-2 pr-4 text-right font-semibold text-amber-500">{r.rentalCount>0?`${r.rentalUtil}%`:'—'}</td>
+                        <td className={`py-2 text-right font-semibold ${r.demandUtil==null?'text-slate-300':r.demandUtil>100?'text-red-500':'text-slate-600'}`}>{r.demandUtil==null?'เช่าล้วน':`${r.demandUtil}%`}</td>
                       </tr>
                     ))}
                   </tbody>

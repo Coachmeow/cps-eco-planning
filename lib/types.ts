@@ -134,6 +134,7 @@ export interface EquipmentUtilRow {
   rentalAssigned: number
   ownUtil: number
   rentalUtil: number
+  demandUtil: number | null
 }
 
 export interface TeamWorkloadRow {

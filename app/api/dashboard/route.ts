@@ -30,14 +30,22 @@ export async function GET(req: NextRequest) {
     const rental = t.equipment.filter((e: any) => e.isRental)
     const ownAssigned    = own.reduce((s: number, e: any) => s + e.assignments.length, 0)
     const rentalAssigned = rental.reduce((s: number, e: any) => s + e.assignments.length, 0)
-    const ownUtil    = own.length > 0 && workdays > 0
-      ? Math.round((ownAssigned    / (workdays * own.length))    * 100) : 0
+    const ownCapacity = workdays * own.length
+
+    // Own Load = งานเครื่องซื้อ ÷ กำลังเครื่องซื้อ (≤100% — เครื่องเราถูกใช้เต็มแค่ไหน)
+    const ownUtil = ownCapacity > 0 ? Math.round((ownAssigned / ownCapacity) * 100) : 0
+    // Util เครื่องเช่า (รายฝูง — ไว้ดูประกอบ)
     const rentalUtil = rental.length > 0 && workdays > 0
       ? Math.round((rentalAssigned / (workdays * rental.length)) * 100) : 0
+    // Demand Util = (งานซื้อ+เช่า) ÷ กำลังเครื่องซื้อ — เกิน 100% = ต้องพึ่งเครื่องเช่า
+    const demandUtil = ownCapacity > 0
+      ? Math.round(((ownAssigned + rentalAssigned) / ownCapacity) * 100)
+      : null  // null = ไม่มีเครื่องซื้อ (เช่าล้วน) เทียบฐานไม่ได้
+
     return {
       typeId: t.id, typeCode: t.code, typeName: t.name,
       ownCount: own.length, rentalCount: rental.length,
-      ownAssigned, rentalAssigned, ownUtil, rentalUtil,
+      ownAssigned, rentalAssigned, ownUtil, rentalUtil, demandUtil,
     }
   }).filter((t: any) => t.ownCount + t.rentalCount > 0)
 
