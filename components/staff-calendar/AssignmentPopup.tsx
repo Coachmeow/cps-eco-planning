@@ -46,6 +46,18 @@ export default function AssignmentPopup({
   const [showOthers,    setShowOthers]    = useState(false)
   const [saving,        setSaving]        = useState(false)
 
+  // เครื่องมือที่แนบไปด้วย
+  interface EqItem { id: number; internalNo: string | null; serialNo: string | null; typeId: number; type: { id: number; code: string; name: string } }
+  const [equipList,   setEquipList]   = useState<EqItem[]>([])
+  const [equipIds,    setEquipIds]    = useState<number[]>([])
+  const [equipSearch, setEquipSearch] = useState('')
+  const [showEquip,   setShowEquip]   = useState(false)
+  const [equipExpanded, setEquipExpanded] = useState<Set<number>>(new Set([employee.primaryTeamId]))
+
+  useEffect(() => {
+    fetch('/api/equipment').then(r => r.json()).then(d => Array.isArray(d) && setEquipList(d)).catch(() => {})
+  }, [])
+
   // click-outside closes popup
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -88,8 +100,10 @@ export default function AssignmentPopup({
       status,
       notes: notes || undefined,
     }
+    // เครื่องมือแนบเฉพาะงานภาคสนามที่เลือกไซต์แล้ว — ติดไปกับงานของคนหลัก
+    const eqAttach = status === 'FIELD' && siteId ? equipIds : []
     const payloads = [
-      { ...base, employeeId: employee.id },
+      { ...base, employeeId: employee.id, equipmentIds: eqAttach },
       ...companions.map(empId => ({ ...base, employeeId: empId })),
     ]
     try {
@@ -231,6 +245,72 @@ export default function AssignmentPopup({
                     <option key={v} value={v}>{v} วัน</option>
                   ))}
                 </select>
+              </div>
+
+              {/* เครื่องมือที่เอาไปด้วย (ไม่บังคับ) */}
+              <div>
+                <button type="button" onClick={() => setShowEquip(s => !s)}
+                  className="flex w-full items-center justify-between rounded border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                  <span>🔧 เครื่องมือที่เอาไปด้วย {equipIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{equipIds.length}</span>}</span>
+                  <span className="text-slate-400">{showEquip ? '▴' : '▾'}</span>
+                </button>
+                {!siteId && showEquip && <p className="mt-1 text-[11px] text-amber-500">เลือกไซต์งานก่อน เครื่องมือจะถูกจองไปไซต์เดียวกัน</p>}
+                {showEquip && siteId && (
+                  <div className="mt-2">
+                    <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ..."
+                      className="mb-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs placeholder-slate-400 focus:bg-white focus:outline-none" />
+                    <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1">
+                      {(() => {
+                        const q = equipSearch.trim().toLowerCase()
+                        const groups = new Map<number, { code: string; name: string; items: EqItem[] }>()
+                        for (const eq of equipList) {
+                          if (q && !(`${eq.internalNo ?? ''} ${eq.serialNo ?? ''} ${eq.type.code} ${eq.type.name}`.toLowerCase().includes(q))) continue
+                          if (!groups.has(eq.typeId)) groups.set(eq.typeId, { code: eq.type.code, name: eq.type.name, items: [] })
+                          groups.get(eq.typeId)!.items.push(eq)
+                        }
+                        const arr = Array.from(groups.entries()).sort((a, b) =>
+                          a[0] === employee.primaryTeamId ? -1 : b[0] === employee.primaryTeamId ? 1 : 0)
+                        if (arr.length === 0) return <p className="py-2 text-center text-[11px] text-slate-300">ไม่พบเครื่องมือ</p>
+                        return arr.map(([typeId, g]) => {
+                          const expanded = equipExpanded.has(typeId) || !!q
+                          const selCount = g.items.filter(e => equipIds.includes(e.id)).length
+                          return (
+                            <div key={typeId} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                              <button type="button" onClick={() => setEquipExpanded(prev => { const n = new Set(prev); n.has(typeId) ? n.delete(typeId) : n.add(typeId); return n })}
+                                className="flex w-full items-center justify-between px-2.5 py-1.5 text-left hover:bg-slate-50">
+                                <span className="text-xs font-semibold text-slate-700">{g.code} <span className="font-normal text-slate-400">{g.name}</span></span>
+                                <span className="flex items-center gap-1.5">
+                                  {selCount > 0 && <span className="rounded-full bg-slate-700 px-1.5 text-[9px] font-bold text-white">{selCount}</span>}
+                                  <span className="text-[9px] text-slate-400">{expanded ? '▴' : `▾ ${g.items.length}`}</span>
+                                </span>
+                              </button>
+                              {expanded && (
+                                <div className="flex flex-wrap gap-1 border-t border-slate-100 px-2.5 py-2">
+                                  {g.items.map(eq => {
+                                    const sel = equipIds.includes(eq.id)
+                                    return (
+                                      <button key={eq.id} type="button"
+                                        onClick={() => setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id])}
+                                        className={`flex items-center gap-0.5 rounded border px-2 py-0.5 text-[11px] font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'}`}>
+                                        {sel && <span className="text-[9px]">✓</span>}{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      })()}
+                    </div>
+                    {equipIds.length > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500">เลือก {equipIds.length} เครื่อง · จองไปไซต์/วันเดียวกัน</span>
+                        <button type="button" onClick={() => setEquipIds([])} className="text-slate-400 hover:text-red-500">ล้าง</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

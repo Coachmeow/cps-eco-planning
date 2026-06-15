@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const {
     employeeId, assignedDate, siteId, serviceTypeId,
     estimatedDays = 1, status = 'FIELD', notes, isLocked = false,
+    equipmentIds = [],   // เครื่องมือที่แนบไปกับงานคนนี้ (ผูก staffAssignmentId)
   } = body
 
   if (!employeeId || !assignedDate) {
@@ -71,6 +72,24 @@ export async function POST(req: NextRequest) {
         include: { employee: true, site: true, serviceType: true },
       })
       extraDays.push(extra)
+    }
+  }
+
+  // แนบเครื่องมือ → สร้างจองเครื่อง (ไซต์/วันเดียวกัน) ผูกกับงานคนนี้
+  if (status === 'FIELD' && siteId && Array.isArray(equipmentIds) && equipmentIds.length > 0) {
+    const days = Math.min(Math.floor(Number(estimatedDays)) || 1, 20)
+    for (const rawEqId of equipmentIds) {
+      const eqId = parseInt(String(rawEqId))
+      if (!eqId) continue
+      const eqParent = await prisma.equipmentAssignment.create({
+        data: { equipmentId: eqId, assignedDate: date, siteId, staffAssignmentId: created.id, estimatedDays: days },
+      })
+      for (let i = 1; i < days; i++) {
+        const nd = new Date(date); nd.setDate(nd.getDate() + i)
+        await prisma.equipmentAssignment.create({
+          data: { equipmentId: eqId, assignedDate: nd, siteId, staffAssignmentId: created.id, estimatedDays: 0, parentId: eqParent.id },
+        })
+      }
     }
   }
 
