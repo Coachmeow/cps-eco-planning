@@ -51,21 +51,23 @@ export default function AssignmentPopup({
   const [equipList,   setEquipList]   = useState<EqItem[]>([])
   const [equipIds,    setEquipIds]    = useState<number[]>([])
   const [equipSearch, setEquipSearch] = useState('')
-  const [showEquip,   setShowEquip]   = useState(false)
+  const [pickerOpen,  setPickerOpen]  = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [equipExpanded, setEquipExpanded] = useState<Set<number>>(new Set([employee.primaryTeamId]))
 
   useEffect(() => {
     fetch('/api/equipment').then(r => r.json()).then(d => Array.isArray(d) && setEquipList(d)).catch(() => {})
   }, [])
 
-  // click-outside closes popup
+  // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป)
   useEffect(() => {
     const h = (e: MouseEvent) => {
+      if (pickerOpen || confirmOpen) return
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [onClose])
+  }, [onClose, pickerOpen, confirmOpen])
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
@@ -247,68 +249,24 @@ export default function AssignmentPopup({
                 </select>
               </div>
 
-              {/* เครื่องมือที่เอาไปด้วย (ไม่บังคับ) */}
+              {/* เครื่องมือที่เอาไปด้วย (ไม่บังคับ) → เปิดแผงด้านข้าง */}
               <div>
-                <button type="button" onClick={() => setShowEquip(s => !s)}
-                  className="flex w-full items-center justify-between rounded border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
+                <button type="button" disabled={!siteId} onClick={() => setPickerOpen(true)}
+                  className="flex w-full items-center justify-between rounded border border-slate-200 px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                   <span>🔧 เครื่องมือที่เอาไปด้วย {equipIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{equipIds.length}</span>}</span>
-                  <span className="text-slate-400">{showEquip ? '▴' : '▾'}</span>
+                  <span className="text-xs text-slate-400">{siteId ? 'เลือก ›' : 'เลือกไซต์ก่อน'}</span>
                 </button>
-                {!siteId && showEquip && <p className="mt-1 text-[11px] text-amber-500">เลือกไซต์งานก่อน เครื่องมือจะถูกจองไปไซต์เดียวกัน</p>}
-                {showEquip && siteId && (
-                  <div className="mt-2">
-                    <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ..."
-                      className="mb-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs placeholder-slate-400 focus:bg-white focus:outline-none" />
-                    <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1">
-                      {(() => {
-                        const q = equipSearch.trim().toLowerCase()
-                        const groups = new Map<number, { code: string; name: string; items: EqItem[] }>()
-                        for (const eq of equipList) {
-                          if (q && !(`${eq.internalNo ?? ''} ${eq.serialNo ?? ''} ${eq.type.code} ${eq.type.name}`.toLowerCase().includes(q))) continue
-                          if (!groups.has(eq.typeId)) groups.set(eq.typeId, { code: eq.type.code, name: eq.type.name, items: [] })
-                          groups.get(eq.typeId)!.items.push(eq)
-                        }
-                        const arr = Array.from(groups.entries()).sort((a, b) =>
-                          a[0] === employee.primaryTeamId ? -1 : b[0] === employee.primaryTeamId ? 1 : 0)
-                        if (arr.length === 0) return <p className="py-2 text-center text-[11px] text-slate-300">ไม่พบเครื่องมือ</p>
-                        return arr.map(([typeId, g]) => {
-                          const expanded = equipExpanded.has(typeId) || !!q
-                          const selCount = g.items.filter(e => equipIds.includes(e.id)).length
-                          return (
-                            <div key={typeId} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                              <button type="button" onClick={() => setEquipExpanded(prev => { const n = new Set(prev); n.has(typeId) ? n.delete(typeId) : n.add(typeId); return n })}
-                                className="flex w-full items-center justify-between px-2.5 py-1.5 text-left hover:bg-slate-50">
-                                <span className="text-xs font-semibold text-slate-700">{g.code} <span className="font-normal text-slate-400">{g.name}</span></span>
-                                <span className="flex items-center gap-1.5">
-                                  {selCount > 0 && <span className="rounded-full bg-slate-700 px-1.5 text-[9px] font-bold text-white">{selCount}</span>}
-                                  <span className="text-[9px] text-slate-400">{expanded ? '▴' : `▾ ${g.items.length}`}</span>
-                                </span>
-                              </button>
-                              {expanded && (
-                                <div className="flex flex-wrap gap-1 border-t border-slate-100 px-2.5 py-2">
-                                  {g.items.map(eq => {
-                                    const sel = equipIds.includes(eq.id)
-                                    return (
-                                      <button key={eq.id} type="button"
-                                        onClick={() => setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id])}
-                                        className={`flex items-center gap-0.5 rounded border px-2 py-0.5 text-[11px] font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'}`}>
-                                        {sel && <span className="text-[9px]">✓</span>}{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })
-                      })()}
-                    </div>
-                    {equipIds.length > 0 && (
-                      <div className="mt-1 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500">เลือก {equipIds.length} เครื่อง · จองไปไซต์/วันเดียวกัน</span>
-                        <button type="button" onClick={() => setEquipIds([])} className="text-slate-400 hover:text-red-500">ล้าง</button>
-                      </div>
-                    )}
+                {equipIds.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {equipIds.map(id => {
+                      const eq = equipList.find(e => e.id === id)
+                      return (
+                        <span key={id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                          {eq ? (eq.internalNo ?? eq.serialNo ?? `#${id}`) : `#${id}`}
+                          <button type="button" onClick={() => setEquipIds(prev => prev.filter(i => i !== id))} className="text-slate-400 hover:text-red-500">×</button>
+                        </span>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -387,23 +345,132 @@ export default function AssignmentPopup({
           </div>
         )}
 
-        {/* ── Save button ── */}
+        {/* ── Save button → เปิดหน้าสรุป ── */}
         {canEdit && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
           <button
-            onClick={handleSave}
+            onClick={() => setConfirmOpen(true)}
             disabled={saving}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
           >
-            {saving
-              ? 'กำลังบันทึก...'
-              : totalPeople > 1
-                ? `บันทึก (${totalPeople} คน)`
-                : 'บันทึก'}
+            ตรวจสอบและบันทึก{totalPeople > 1 ? ` (${totalPeople} คน)` : ''} ›
           </button>
         </div>
         )}
       </div>
+
+      {/* ── แผงเลือกเครื่องมือด้านข้าง ── */}
+      {pickerOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end" onMouseDown={() => setPickerOpen(false)}>
+          <div className="h-full w-[380px] max-w-[90vw] overflow-y-auto bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">🔧 เลือกเครื่องมือ</p>
+                <p className="text-xs text-slate-400">ไป {sites.find(s => String(s.id) === siteId)?.code ?? ''} · {estimatedDays} วัน</p>
+              </div>
+              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{equipIds.length}</span>
+            </div>
+            <div className="p-4">
+              <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ / หมวด..."
+                className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:bg-white focus:outline-none" />
+              <div className="space-y-2">
+                {(() => {
+                  const q = equipSearch.trim().toLowerCase()
+                  const groups = new Map<number, { code: string; name: string; items: EqItem[] }>()
+                  for (const eq of equipList) {
+                    if (q && !(`${eq.internalNo ?? ''} ${eq.serialNo ?? ''} ${eq.type.code} ${eq.type.name}`.toLowerCase().includes(q))) continue
+                    if (!groups.has(eq.typeId)) groups.set(eq.typeId, { code: eq.type.code, name: eq.type.name, items: [] })
+                    groups.get(eq.typeId)!.items.push(eq)
+                  }
+                  const arr = Array.from(groups.entries()).sort((a, b) =>
+                    a[0] === employee.primaryTeamId ? -1 : b[0] === employee.primaryTeamId ? 1 : 0)
+                  if (arr.length === 0) return <p className="py-6 text-center text-xs text-slate-300">ไม่พบเครื่องมือ</p>
+                  return arr.map(([typeId, g]) => {
+                    const expanded = equipExpanded.has(typeId) || !!q
+                    const ids = g.items.map(e => e.id)
+                    const selCount = ids.filter(id => equipIds.includes(id)).length
+                    const allSel = selCount === ids.length
+                    return (
+                      <div key={typeId} className="overflow-hidden rounded-lg border border-slate-200">
+                        <button type="button" onClick={() => setEquipExpanded(prev => { const n = new Set(prev); n.has(typeId) ? n.delete(typeId) : n.add(typeId); return n })}
+                          className="flex w-full items-center justify-between bg-slate-50 px-3 py-2 text-left hover:bg-slate-100">
+                          <span className="text-sm font-semibold text-slate-700">{g.code} <span className="text-xs font-normal text-slate-400">{g.name}</span></span>
+                          <span className="flex items-center gap-2">
+                            {selCount > 0 && <span className="rounded-full bg-slate-700 px-1.5 text-[10px] font-bold text-white">{selCount}</span>}
+                            <span className="text-[10px] text-slate-400">{expanded ? '▴' : `▾ ${g.items.length}`}</span>
+                          </span>
+                        </button>
+                        {expanded && (
+                          <div className="px-3 py-2">
+                            <button type="button" onClick={() => setEquipIds(prev => allSel ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])}
+                              className="mb-2 text-[11px] font-medium text-sky-600 hover:underline">{allSel ? 'เอาออกทั้งหมด' : 'เลือกทั้งหมด'}</button>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {g.items.map(eq => {
+                                const sel = equipIds.includes(eq.id)
+                                return (
+                                  <button key={eq.id} type="button"
+                                    onClick={() => setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id])}
+                                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                    {sel && <span className="text-[10px]">✓</span>}
+                                    <span className="truncate">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex gap-2 border-t border-slate-100 bg-white px-4 py-3">
+              <button type="button" onClick={() => setEquipIds([])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-slate-100">ล้าง</button>
+              <button type="button" onClick={() => setPickerOpen(false)} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">เสร็จ ({equipIds.length})</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── หน้าสรุปก่อนยืนยัน ── */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onMouseDown={() => !saving && setConfirmOpen(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="border-b border-slate-100 px-5 py-3">
+              <p className="text-sm font-semibold text-slate-800">ตรวจสอบก่อนบันทึก</p>
+            </div>
+            <div className="space-y-2 px-5 py-4 text-sm">
+              <div className="flex justify-between"><span className="text-slate-400">สถานะ</span><span className="text-slate-700">{STATUS_OPTIONS.find(o => o.value === status)?.label}</span></div>
+              {status === 'FIELD' && <>
+                <div className="flex justify-between"><span className="text-slate-400">ไซต์งาน</span><span className="font-medium text-slate-700">{sites.find(s => String(s.id) === siteId)?.code ?? '—'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">ประเภทงาน</span><span className="text-slate-700">{teams.find(t => String(t.id) === serviceTypeId)?.code ?? '—'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">วันที่เริ่ม / จำนวน</span><span className="text-slate-700">{dateLabel} · {estimatedDays} วัน</span></div>
+              </>}
+              <div className="border-t border-slate-50 pt-2">
+                <p className="mb-1 text-xs text-slate-400">คน ({totalPeople})</p>
+                <div className="flex flex-wrap gap-1">
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{employee.nickname ?? employee.fullName}</span>
+                  {companions.map(id => { const e = allEmployees.find(x => x.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{e?.nickname ?? e?.fullName ?? `#${id}`}</span> })}
+                </div>
+              </div>
+              {status === 'FIELD' && equipIds.length > 0 && (
+                <div className="border-t border-slate-50 pt-2">
+                  <p className="mb-1 text-xs text-slate-400">เครื่องมือ ({equipIds.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {equipIds.map(id => { const eq = equipList.find(e => e.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{eq ? (eq.internalNo ?? eq.serialNo ?? `#${id}`) : `#${id}`}</span> })}
+                  </div>
+                </div>
+              )}
+              {notes && <div className="border-t border-slate-50 pt-2 text-xs"><span className="text-slate-400">หมายเหตุ: </span><span className="text-slate-600">{notes}</span></div>}
+            </div>
+            <div className="flex gap-2 border-t border-slate-100 px-5 py-3">
+              <button type="button" onClick={() => setConfirmOpen(false)} disabled={saving} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-50">แก้ไข</button>
+              <button type="button" onClick={handleSave} disabled={saving} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">{saving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

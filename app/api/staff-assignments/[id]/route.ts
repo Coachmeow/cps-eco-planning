@@ -14,8 +14,9 @@ export async function DELETE(
   if (!target) return NextResponse.json({ error: 'ไม่พบรายการ' }, { status: 404 })
 
   if (target.parentId == null) {
-    // วันแม่ → ลบทั้งงาน (ลูกหายตาม) + เครื่องมือที่แนบไปกับงานนี้หายตาม
-    await prisma.equipmentAssignment.deleteMany({ where: { staffAssignmentId: targetId } })
+    // วันแม่ → ลบทั้งงาน (ลูกหายตาม)
+    // เครื่องที่แนบ "คงอยู่ที่ไซต์" แค่ตัดสายผูก (จัดการ/ดึงออกรายเครื่องในแผนเครื่องมือ)
+    await prisma.equipmentAssignment.updateMany({ where: { staffAssignmentId: targetId }, data: { staffAssignmentId: null } })
     await prisma.staffAssignment.deleteMany({ where: { parentId: targetId } })
     await prisma.staffAssignment.delete({ where: { id: targetId } })
   } else {
