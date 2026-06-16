@@ -13,6 +13,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.nickname      !== undefined) data.nickname      = body.nickname || null
     if (body.primaryTeamId !== undefined) data.primaryTeamId = parseInt(body.primaryTeamId)
     if (body.isActive      !== undefined) data.isActive      = body.isActive
+    if (body.phone         !== undefined) data.phone         = body.phone || null
     if (body.photoUrl      !== undefined) data.photoUrl      = body.photoUrl || null
     if (body.birthDate     !== undefined) data.birthDate     = body.birthDate ? new Date(body.birthDate) : null
     if (body.startDate     !== undefined) data.startDate     = body.startDate ? new Date(body.startDate) : null

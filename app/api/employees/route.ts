@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
         nickname:      body.nickname || null,
         primaryTeamId: parseInt(body.primaryTeamId),
         isActive:      true,
+        phone:         body.phone     || null,
         photoUrl:      body.photoUrl     || null,
         birthDate:     body.birthDate     ? new Date(body.birthDate) : null,
         startDate:     body.startDate     ? new Date(body.startDate) : null,

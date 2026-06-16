@@ -30,7 +30,7 @@ interface Team     { id: number; code: string; name: string }
 interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
 interface Employee {
   id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
-  hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
+  phone?: string | null; hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
 }
 interface Site     { id: number; code: string; name: string; clientName: string | null; province: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
@@ -280,7 +280,7 @@ function EmployeesSection() {
   const [teams,     setTeams]     = useState<Team[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing]     = useState<Employee | null>(null)
-  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
   const [photo, setPhoto]         = useState<string | null>(null)   // data URL ใหม่ (ถ้าอัปโหลด)
   const [photoTouched, setPhotoTouched] = useState(false)
   const [saving, setSaving]       = useState(false)
@@ -297,13 +297,13 @@ function EmployeesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
     setPhoto(null); setPhotoTouched(false)
     setEditing(null); setModal('add')
   }
   function openEdit(e: Employee) {
     setForm({
-      fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId),
+      fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId), phone: e.phone ?? '',
       birthDate: e.birthDate?.slice(0, 10) ?? '', startDate: e.startDate?.slice(0, 10) ?? '',
       eduField: e.eduField ?? '', eduInstitute: e.eduInstitute ?? '',
     })
@@ -412,7 +412,10 @@ function EmployeesSection() {
             </div>
 
             <Input label="ชื่อ-นามสกุล" value={form.fullName} onChange={f('fullName')} placeholder="นายสมชาย ดีมาก" required />
-            <Input label="ชื่อเล่น" value={form.nickname} onChange={f('nickname')} placeholder="ชาย" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="ชื่อเล่น" value={form.nickname} onChange={f('nickname')} placeholder="ชาย" />
+              <Input label="เบอร์โทร" value={form.phone} onChange={f('phone')} placeholder="08x-xxx-xxxx" />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">ทีม<span className="ml-0.5 text-red-500">*</span></label>
               <CustomSelect

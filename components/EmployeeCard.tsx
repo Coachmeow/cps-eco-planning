@@ -11,6 +11,7 @@ export interface CardEmployee {
   nickname: string | null
   primaryTeam: { code: string; name: string }
   isActive?: boolean
+  phone?: string | null
   hasPhoto?: boolean
   birthDate?: string | null
   startDate?: string | null
@@ -66,6 +67,7 @@ export default function EmployeeCard({ employee, onClose }: { employee: CardEmpl
 
         {/* details */}
         <div className="px-6 pb-5">
+          <Row label="เบอร์โทร"    value={employee.phone || '—'} />
           <Row label="วันเกิด"     value={fmtThaiDate(employee.birthDate)}  sub={calcAge(employee.birthDate)} />
           <Row label="วันเริ่มงาน" value={fmtThaiDate(employee.startDate)}  sub={calcDuration(employee.startDate)} />
           <Row label="การศึกษา (ป.ตรี)" value={edu || '—'} />

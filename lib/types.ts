@@ -14,6 +14,7 @@ export interface Employee {
   primaryTeam: ServiceTeam
   siteAccess: EmployeeSiteAccess[]
   isActive?: boolean
+  phone?: string | null
   hasPhoto?: boolean
   birthDate?: string | null
   startDate?: string | null
