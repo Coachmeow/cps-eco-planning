@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
+import { siteDotClass } from '@/lib/siteColors'
 
 interface Props {
   employee:     Employee
@@ -58,6 +59,33 @@ export default function AssignmentPopup({
   useEffect(() => {
     fetch('/api/equipment').then(r => r.json()).then(d => Array.isArray(d) && setEquipList(d)).catch(() => {})
   }, [])
+
+  // เครื่องที่ถูกจองแล้วในช่วงวันที่เลือก → busyEq[equipmentId] = [{siteCode, siteColor, date}]
+  interface BusyRow { equipmentId: number; assignedDate: string; siteCode: string | null; siteColor: string }
+  const [busyEq, setBusyEq] = useState<Map<number, BusyRow[]>>(new Map())
+  useEffect(() => {
+    if (!pickerOpen || !siteId) return
+    fetch(`/api/equipment-assignments/busy?start=${date}&days=${estimatedDays}`)
+      .then(r => r.json())
+      .then((rows: BusyRow[]) => {
+        const m = new Map<number, BusyRow[]>()
+        for (const r of rows) {
+          if (!m.has(r.equipmentId)) m.set(r.equipmentId, [])
+          m.get(r.equipmentId)!.push(r)
+        }
+        setBusyEq(m)
+      }).catch(() => {})
+  }, [pickerOpen, date, estimatedDays, siteId])
+
+  const busyTitle = (rows: BusyRow[]) => {
+    const bySite = new Map<string, string[]>()
+    for (const r of rows) {
+      const code = r.siteCode ?? '—'
+      if (!bySite.has(code)) bySite.set(code, [])
+      bySite.get(code)!.push(new Date(r.assignedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }))
+    }
+    return 'ถูกจองแล้ว: ' + Array.from(bySite.entries()).map(([c, ds]) => `${c} (${ds.join(', ')})`).join(' · ')
+  }
 
   // รถที่แนบไปด้วย
   interface VehItem { id: number; licensePlate: string; name: string | null; vehicleType: string | null }
@@ -405,7 +433,8 @@ export default function AssignmentPopup({
             </div>
             <div className="p-4">
               <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ / หมวด..."
-                className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:bg-white focus:outline-none" />
+                className="mb-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:bg-white focus:outline-none" />
+              <p className="mb-2 text-[11px] text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-amber-400 align-middle" /> = ถูกจองช่วงวันนี้แล้ว (ชี้เมาส์ดูไซต์) · สี = ไซต์ที่จองไว้</p>
               <div className="space-y-2">
                 {(() => {
                   const q = equipSearch.trim().toLowerCase()
@@ -440,11 +469,14 @@ export default function AssignmentPopup({
                             <div className="grid grid-cols-2 gap-1.5">
                               {g.items.map(eq => {
                                 const sel = equipIds.includes(eq.id)
+                                const busy = busyEq.get(eq.id)
                                 return (
                                   <button key={eq.id} type="button"
+                                    title={busy ? busyTitle(busy) : undefined}
                                     onClick={() => setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id])}
-                                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : busy ? 'border-amber-300 bg-amber-50 text-slate-600 hover:bg-amber-100' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
                                     {sel && <span className="text-[10px]">✓</span>}
+                                    {busy && !sel && <span className={`h-2 w-2 shrink-0 rounded-full ${siteDotClass(busy[0].siteColor)}`} />}
                                     <span className="truncate">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                                   </button>
                                 )
