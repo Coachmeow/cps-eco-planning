@@ -87,6 +87,7 @@ model Employee {
   user        User?
   vehicleBookings VehicleBooking[] @relation("VehicleDriver")
   vehicleLogs     VehicleLog[]     @relation("VehicleLogDriver")
+  vehicleTrips    VehicleTrip[]    @relation("VehicleTripDriver")
 
   @@map("employees")
 }
@@ -136,6 +137,7 @@ model Site {
   equipmentAssignments EquipmentAssignment[]
   vehicleBookings      VehicleBooking[]
   vehicleLogs          VehicleLog[]
+  vehicleTrips         VehicleTrip[]
 
   @@map("sites")
 }
@@ -258,8 +260,40 @@ model Vehicle {
 
   bookings VehicleBooking[]
   logs     VehicleLog[]
+  trips    VehicleTrip[]
 
   @@map("vehicles")
+}
+
+// ทริปการใช้รถ: ออกรถ (mileageOut+ต้นทาง) → จอดรถ (mileageIn+ปลายทาง)
+model VehicleTrip {
+  id          Int             @id @default(autoincrement())
+  vehicleId   Int
+  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id])
+  driverId    Int?
+  driver      Employee?       @relation("VehicleTripDriver", fields: [driverId], references: [id])
+  driverName  String?
+  purpose     VehiclePurpose?
+  siteId      Int?
+  site        Site?           @relation(fields: [siteId], references: [id])
+  bookingId   Int?
+  booking     VehicleBooking? @relation("VBTrip", fields: [bookingId], references: [id])
+  forDate     DateTime        @db.Date
+  origin      String?
+  mileageOut  Int
+  startedAt   DateTime        @default(now())
+  destination String?
+  mileageIn   Int?                          // null = ยังไม่ปิดทริป
+  endedAt     DateTime?
+  nonField    Boolean         @default(false)
+  reason      String?
+  mismatch    Boolean         @default(false)
+  expectedMileage Int?
+  notes       String?
+
+  @@index([vehicleId, startedAt])
+  @@index([mileageIn])
+  @@map("vehicle_trips")
 }
 
 enum VehicleLogType {
@@ -318,6 +352,7 @@ model VehicleBooking {
   driverName        String?          // คนขับนอกระบบ
   notes             String?
   logs              VehicleLog[]
+  trips             VehicleTrip[]    @relation("VBTrip")
 
   @@index([vehicleId, assignedDate])
   @@index([assignedDate])

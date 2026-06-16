@@ -5,10 +5,20 @@ import { useParams } from 'next/navigation'
 import { PURPOSE_META, PURPOSE_ORDER } from '@/lib/vehiclePurpose'
 import type { VehiclePurpose } from '@/lib/types'
 
+interface OpenTrip {
+  id: number
+  origin: string | null
+  mileageOut: number
+  startedAt: string
+  purpose: VehiclePurpose | null
+  siteCode: string | null
+  driver: string | null
+}
 interface PageData {
   vehicle: { id: number; licensePlate: string; name: string | null; vehicleType: string | null; brand: string | null; model: string | null }
   lastMileage: number | null
   lastDriver: string | null
+  openTrip: OpenTrip | null
   todayBooking: { purpose: VehiclePurpose; siteId: number | null; siteCode: string | null; destination: string | null; driverId: number | null } | null
   employees: { id: number; nickname: string | null; fullName: string }[]
   sites: { id: number; code: string; name: string }[]
@@ -19,11 +29,11 @@ export default function MileagePage() {
   const [data, setData] = useState<PageData | null>(null)
   const [err, setErr] = useState('')
   const [mode, setMode] = useState<'USE' | 'REFUEL'>('USE')
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState<{ kind: 'start' | 'close' | 'refuel'; mileage: number; distance?: number } | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // form
-  const [mileage, setMileage] = useState('')
+  const [mileage, setMileage] = useState('')          // ไมล์ออก (start) / ไมล์จอด (close) / ไมล์ (refuel)
   const [driverId, setDriverId] = useState('')
   const [driverName, setDriverName] = useState('')
   const [purpose, setPurpose] = useState<VehiclePurpose>('FIELD')
@@ -38,20 +48,25 @@ export default function MileagePage() {
   const [fuelCost, setFuelCost] = useState('')
   const [notes, setNotes] = useState('')
 
-  useEffect(() => {
+  function applyData(d: PageData) {
+    setData(d)
+    // ปิดทริป: เว้นว่างให้กรอกเลขไมล์ตอนจอดจริง ; เริ่มทริปใหม่: prefill ไมล์ล่าสุด
+    setMileage(d.openTrip ? '' : (d.lastMileage != null ? String(d.lastMileage) : ''))
+    if (!d.openTrip && d.todayBooking) {
+      setPurpose(d.todayBooking.purpose)
+      if (d.todayBooking.siteId) setSiteId(String(d.todayBooking.siteId))
+      if (d.todayBooking.driverId) setDriverId(String(d.todayBooking.driverId))
+    }
+  }
+
+  function reload() {
     fetch(`/api/public/vehicle/${token}`).then(async r => {
       if (!r.ok) { setErr('ไม่พบรถ หรือ QR ไม่ถูกต้อง'); return }
-      const d: PageData = await r.json()
-      setData(d)
-      if (d.lastMileage != null) setMileage(String(d.lastMileage))
-      if (d.todayBooking) {
-        setPurpose(d.todayBooking.purpose)
-        if (d.todayBooking.siteId) setSiteId(String(d.todayBooking.siteId))
-        if (d.todayBooking.driverId) setDriverId(String(d.todayBooking.driverId))
-        if (d.todayBooking.destination) setDestination(d.todayBooking.destination)
-      }
+      applyData(await r.json())
     }).catch(() => setErr('เชื่อมต่อไม่ได้'))
-  }, [token])
+  }
+
+  useEffect(reload, [token])
 
   // auto fuel cost
   useEffect(() => {
@@ -59,30 +74,57 @@ export default function MileagePage() {
     if (!isNaN(l) && !isNaN(p)) setFuelCost((l * p).toFixed(2))
   }, [fuelLiters, fuelPrice])
 
+  const open = data?.openTrip ?? null
   const missing = mismatch && data?.lastMileage != null && mileage !== ''
     ? parseInt(mileage) - data.lastMileage : null
+  const closeDistance = open && mileage !== '' ? parseInt(mileage) - open.mileageOut : null
 
   async function submit() {
     if (!mileage) { setErr('กรอกเลขไมล์'); return }
     setSubmitting(true); setErr('')
-    const body: Record<string, unknown> = {
-      token, type: mode, mileage: parseInt(mileage),
-      driverId: driverId || undefined, driverName: driverName || undefined, notes: notes || undefined,
+
+    if (mode === 'REFUEL') {
+      const body: Record<string, unknown> = {
+        token, type: 'REFUEL', mileage: parseInt(mileage),
+        driverId: driverId || undefined, driverName: driverName || undefined, notes: notes || undefined,
+        fuelLiters: fuelLiters || undefined, fuelPricePerLiter: fuelPrice || undefined, fuelCost: fuelCost || undefined,
+      }
+      const r = await fetch('/api/public/mileage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      setSubmitting(false)
+      if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
+      setDone({ kind: 'refuel', mileage: parseInt(mileage) })
+      return
     }
-    if (mode === 'USE') {
-      Object.assign(body, {
-        purpose, siteId: purpose === 'FIELD' && siteId ? siteId : undefined,
-        origin: origin || undefined, destination: destination || undefined,
-        nonField, reason: nonField ? reason : undefined,
-        mismatch, expectedMileage: mismatch ? data?.lastMileage ?? undefined : undefined,
-      })
+
+    // USE → ปิดทริปถ้ามีเปิดอยู่ ไม่งั้นเริ่มทริป
+    if (open) {
+      const body = { token, action: 'close', mileageIn: parseInt(mileage), destination: destination || undefined, notes: notes || undefined }
+      const r = await fetch('/api/public/trip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      setSubmitting(false)
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(d.error ?? 'ปิดทริปไม่สำเร็จ'); return }
+      setDone({ kind: 'close', mileage: parseInt(mileage), distance: d.distance })
     } else {
-      Object.assign(body, { fuelLiters: fuelLiters || undefined, fuelPricePerLiter: fuelPrice || undefined, fuelCost: fuelCost || undefined })
+      const body: Record<string, unknown> = {
+        token, action: 'start', mileageOut: parseInt(mileage),
+        driverId: driverId || undefined, driverName: driverName || undefined,
+        purpose, siteId: purpose === 'FIELD' && siteId ? siteId : undefined,
+        origin: origin || undefined, nonField, reason: nonField ? reason : undefined,
+        mismatch, expectedMileage: mismatch ? data?.lastMileage ?? undefined : undefined,
+        notes: notes || undefined,
+      }
+      const r = await fetch('/api/public/trip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      setSubmitting(false)
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(d.error ?? 'เริ่มทริปไม่สำเร็จ'); return }
+      setDone({ kind: 'start', mileage: parseInt(mileage) })
     }
-    const r = await fetch('/api/public/mileage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    setSubmitting(false)
-    if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
-    setDone(true)
+  }
+
+  function resetForm() {
+    setDone(null); setMismatch(false); setNotes(''); setOrigin(''); setDestination('')
+    setNonField(false); setReason(''); setFuelLiters(''); setFuelPrice(''); setFuelCost('')
+    reload()
   }
 
   if (err && !data) return <Center><p className="text-red-600">{err}</p></Center>
@@ -92,9 +134,15 @@ export default function MileagePage() {
     <Center>
       <div className="text-center">
         <div className="mb-3 text-5xl">✅</div>
-        <p className="text-lg font-bold text-slate-800">บันทึกแล้ว</p>
-        <p className="mt-1 text-sm text-slate-500">{data.vehicle.licensePlate} · ไมล์ {parseInt(mileage).toLocaleString()}</p>
-        <button onClick={() => { setDone(false); setMismatch(false); setNotes('') }} className="mt-5 rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white">บันทึกอีกครั้ง</button>
+        <p className="text-lg font-bold text-slate-800">
+          {done.kind === 'start' ? 'เริ่มทริปแล้ว — ขับรถปลอดภัย' : done.kind === 'close' ? 'ปิดทริปแล้ว' : 'บันทึกเติมน้ำมันแล้ว'}
+        </p>
+        <p className="mt-1 text-sm text-slate-500">{data.vehicle.licensePlate} · ไมล์ {done.mileage.toLocaleString()}</p>
+        {done.kind === 'close' && done.distance != null && (
+          <p className="mt-1 text-sm font-semibold text-emerald-600">ระยะทางทริปนี้ {done.distance.toLocaleString()} กม.</p>
+        )}
+        {done.kind === 'start' && <p className="mt-1 text-xs text-slate-400">อย่าลืมสแกนปิดทริปตอนจอดรถ</p>}
+        <button onClick={resetForm} className="mt-5 rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white">เสร็จสิ้น</button>
       </div>
     </Center>
   )
@@ -122,12 +170,26 @@ export default function MileagePage() {
           <button onClick={() => setMode('REFUEL')} className={`rounded-xl py-3 text-sm font-semibold ${mode === 'REFUEL' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500'}`}>⛽ เติมน้ำมัน</button>
         </div>
 
+        {/* แจ้งสถานะทริปเปิดอยู่ */}
+        {mode === 'USE' && open && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm">
+            <p className="font-bold text-amber-700">🅿️ กำลังปิดทริป</p>
+            <p className="mt-1 text-amber-800">
+              ออกจาก <b>{open.origin || '—'}</b> · ไมล์ออก <b>{open.mileageOut.toLocaleString()}</b>
+              {open.driver && <> · โดย {open.driver}</>}
+            </p>
+            <p className="mt-0.5 text-xs text-amber-600">เริ่มเมื่อ {new Date(open.startedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+        )}
+
         <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
           {/* mileage */}
           <div>
-            <label className={lbl}>เลขไมล์ปัจจุบัน (กม.) *</label>
+            <label className={lbl}>
+              {mode === 'REFUEL' ? 'เลขไมล์ปัจจุบัน (กม.) *' : open ? 'เลขไมล์ตอนจอดรถ (กม.) *' : 'เลขไมล์ตอนออกรถ (กม.) *'}
+            </label>
             <input type="number" inputMode="numeric" value={mileage} onChange={e => setMileage(e.target.value)} className={inp} />
-            {mode === 'USE' && (
+            {mode === 'USE' && !open && (
               <button onClick={() => setMismatch(m => !m)} className={`mt-1.5 text-xs ${mismatch ? 'text-red-500 font-medium' : 'text-amber-600'}`}>
                 {mismatch ? '✓ กำลังแจ้งไมล์ไม่ตรง' : '⚠ ไมล์ในระบบไม่ตรงกับบนรถ?'}
               </button>
@@ -135,10 +197,37 @@ export default function MileagePage() {
             {mismatch && missing != null && (
               <p className="mt-1 text-xs text-red-500">ส่วนต่างจากระบบ {missing.toLocaleString()} กม.{data.lastDriver && ` — สอบถามผู้ใช้ก่อนหน้า (${data.lastDriver})`}</p>
             )}
+            {mode === 'USE' && open && closeDistance != null && (
+              <p className={`mt-1 text-xs ${closeDistance < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                {closeDistance < 0 ? 'เลขไมล์น้อยกว่าตอนออกรถ — ตรวจสอบอีกครั้ง' : `ระยะทางทริปนี้ ${closeDistance.toLocaleString()} กม.`}
+              </p>
+            )}
           </div>
 
-          {mode === 'USE' ? (
+          {mode === 'REFUEL' ? (
             <>
+              <div>
+                <label className={lbl}>คนขับ / ผู้เติม</label>
+                <select value={driverId} onChange={e => { setDriverId(e.target.value); if (e.target.value) setDriverName('') }} className={inp}>
+                  <option value="">— เลือกพนักงาน —</option>
+                  {data.employees.map(e => <option key={e.id} value={e.id}>{e.nickname ?? e.fullName}</option>)}
+                </select>
+                <input value={driverName} onChange={e => { setDriverName(e.target.value); if (e.target.value) setDriverId('') }} placeholder="หรือพิมพ์ชื่อนอกระบบ" className={`${inp} mt-1.5`} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={lbl}>จำนวนลิตร</label><input type="number" inputMode="decimal" value={fuelLiters} onChange={e => setFuelLiters(e.target.value)} className={inp} /></div>
+                <div><label className={lbl}>ราคา/ลิตร</label><input type="number" inputMode="decimal" value={fuelPrice} onChange={e => setFuelPrice(e.target.value)} className={inp} /></div>
+              </div>
+              <div><label className={lbl}>มูลค่ารวม (บาท)</label><input type="number" inputMode="decimal" value={fuelCost} onChange={e => setFuelCost(e.target.value)} className={inp} /></div>
+            </>
+          ) : open ? (
+            <>
+              {/* ปิดทริป: ปลายทาง */}
+              <div><label className={lbl}>ปลายทาง (จอดที่ไหน)</label><input value={destination} onChange={e => setDestination(e.target.value)} className={inp} placeholder="เช่น ออฟฟิศ / ไซต์งาน" /></div>
+            </>
+          ) : (
+            <>
+              {/* เริ่มทริป: คนขับ + ประเภท + ไซต์ + ต้นทาง */}
               <div>
                 <label className={lbl}>คนขับ</label>
                 <select value={driverId} onChange={e => { setDriverId(e.target.value); if (e.target.value) setDriverName('') }} className={inp}>
@@ -163,23 +252,12 @@ export default function MileagePage() {
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className={lbl}>ต้นทาง</label><input value={origin} onChange={e => setOrigin(e.target.value)} className={inp} placeholder="เช่น ออฟฟิศ" /></div>
-                <div><label className={lbl}>ปลายทาง</label><input value={destination} onChange={e => setDestination(e.target.value)} className={inp} /></div>
-              </div>
+              <div><label className={lbl}>ต้นทาง (ออกจากไหน)</label><input value={origin} onChange={e => setOrigin(e.target.value)} className={inp} placeholder="เช่น ออฟฟิศ" /></div>
               <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" checked={nonField} onChange={e => setNonField(e.target.checked)} className="h-4 w-4" />
                 ใช้นอกเหนืองาน Field
               </label>
               {nonField && <input value={reason} onChange={e => setReason(e.target.value)} placeholder="ระบุเหตุผล" className={inp} />}
-            </>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className={lbl}>จำนวนลิตร</label><input type="number" inputMode="decimal" value={fuelLiters} onChange={e => setFuelLiters(e.target.value)} className={inp} /></div>
-                <div><label className={lbl}>ราคา/ลิตร</label><input type="number" inputMode="decimal" value={fuelPrice} onChange={e => setFuelPrice(e.target.value)} className={inp} /></div>
-              </div>
-              <div><label className={lbl}>มูลค่ารวม (บาท)</label><input type="number" inputMode="decimal" value={fuelCost} onChange={e => setFuelCost(e.target.value)} className={inp} /></div>
             </>
           )}
 
@@ -187,7 +265,7 @@ export default function MileagePage() {
 
           {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
           <button onClick={submit} disabled={submitting} className="w-full rounded-xl bg-emerald-600 py-3 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-            {submitting ? 'กำลังบันทึก...' : 'บันทึก'}
+            {submitting ? 'กำลังบันทึก...' : mode === 'REFUEL' ? 'บันทึกเติมน้ำมัน' : open ? '🅿️ ปิดทริป (จอดรถ)' : '🚗 เริ่มทริป (ออกรถ)'}
           </button>
         </div>
       </div>

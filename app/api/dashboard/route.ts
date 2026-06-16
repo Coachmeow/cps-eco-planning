@@ -236,7 +236,11 @@ export async function GET(req: NextRequest) {
     where: { returnedDate: null, expectedDate: { lt: todayStart } },
   })
   const stillOut = await prisma.equipmentEvent.count({ where: { returnedDate: null } })
-  const mileageMismatch = await prisma.vehicleLog.count({ where: { mismatch: true } })
+  const [logMismatch, tripMismatch] = await Promise.all([
+    prisma.vehicleLog.count({ where: { mismatch: true } }),
+    prisma.vehicleTrip.count({ where: { mismatch: true } }),
+  ])
+  const mileageMismatch = logMismatch + tripMismatch
 
   const alerts = { calOverdue, calSoon, repairOverdue, stillOut, mileageMismatch }
 

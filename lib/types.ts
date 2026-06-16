@@ -190,6 +190,32 @@ export interface VehicleLog {
   notes: string | null
 }
 
+// ทริปการใช้รถ: ออกรถ (mileageOut+ต้นทาง) → จอดรถ (mileageIn+ปลายทาง)
+export interface VehicleTrip {
+  id: number
+  vehicleId: number
+  vehicle?: Vehicle
+  driverId: number | null
+  driver: Employee | null
+  driverName: string | null
+  purpose: VehiclePurpose | null
+  siteId: number | null
+  site: Site | null
+  bookingId: number | null
+  forDate: string
+  origin: string | null
+  mileageOut: number
+  startedAt: string
+  destination: string | null
+  mileageIn: number | null   // null = ยังไม่ปิดทริป
+  endedAt: string | null
+  nonField: boolean
+  reason: string | null
+  mismatch: boolean
+  expectedMileage: number | null
+  notes: string | null
+}
+
 export interface EquipmentUtilRow {
   typeId: number
   typeCode: string

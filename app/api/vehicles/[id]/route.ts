@@ -18,8 +18,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { vehicleId: vId }, orderBy: { loggedAt: 'desc' }, take: 20,
     include: { driver: { select: { nickname: true, fullName: true } }, site: { select: { code: true } } },
   })
-  const lastMileage = logs.reduce((mx, l) => Math.max(mx, l.mileage), 0) || null
-  const mismatches = logs.filter(l => l.mismatch)
+  const trips = await prisma.vehicleTrip.findMany({
+    where: { vehicleId: vId }, orderBy: { startedAt: 'desc' }, take: 20,
+    include: { driver: { select: { nickname: true, fullName: true } }, site: { select: { code: true } } },
+  })
+  // ไมล์ล่าสุด = สูงสุดจากทั้ง log (refuel/legacy) และทริป (out/in)
+  const logMax  = logs.reduce((mx, l) => Math.max(mx, l.mileage), 0)
+  const tripMax = trips.reduce((mx, t) => Math.max(mx, t.mileageIn ?? t.mileageOut), 0)
+  const lastMileage = Math.max(logMax, tripMax) || null
+
+  // mismatch รวมจาก log + ทริป → รูปแบบเดียวกัน (เรียงใหม่→เก่า)
+  const mismatches = [
+    ...logs.filter(l => l.mismatch).map(l => ({ id: `L${l.id}`, loggedAt: l.loggedAt, mileage: l.mileage, expectedMileage: l.expectedMileage })),
+    ...trips.filter(t => t.mismatch).map(t => ({ id: `T${t.id}`, loggedAt: t.startedAt, mileage: t.mileageOut, expectedMileage: t.expectedMileage })),
+  ].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
 
   const { photoUrl, ...v } = vehicle
   return NextResponse.json({ ...v, hasPhoto: !!photoUrl, usageDays, bookings, lastMileage, logs, mismatches })
@@ -55,6 +67,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const vId = parseInt(id)
+    // ลบลูกก่อน (FK): log + ทริป อ้าง booking + vehicle ; แล้วค่อยลบ booking และ vehicle
+    await prisma.vehicleLog.deleteMany({ where: { vehicleId: vId } })
+    await prisma.vehicleTrip.deleteMany({ where: { vehicleId: vId } })
     await prisma.vehicleBooking.deleteMany({ where: { vehicleId: vId } })
     await prisma.vehicle.delete({ where: { id: vId } })
     return NextResponse.json({ ok: true })
