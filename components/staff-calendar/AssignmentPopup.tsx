@@ -76,7 +76,7 @@ export default function AssignmentPopup({
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [onClose, pickerOpen, confirmOpen])
+  }, [onClose, pickerOpen, confirmOpen, vehPickerOpen])
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
