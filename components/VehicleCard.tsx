@@ -54,6 +54,14 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
     setQr(await QRCode.toDataURL(url, { width: 320, margin: 2 }))
   }
 
+  // ดาวน์โหลด QR เป็นไฟล์รูป ตั้งชื่อตามทะเบียน
+  function downloadQR() {
+    if (!qr) return
+    const plate = (v?.licensePlate ?? 'vehicle').replace(/[\\/:*?"<>|\s]+/g, '')
+    const a = document.createElement('a')
+    a.href = qr; a.download = `QR_${plate}.png`; a.click()
+  }
+
   // พิมพ์เฉพาะ QR + ทะเบียน (เปิดหน้าต่างใหม่ เลี่ยงการพิมพ์ทั้งหน้าจอ)
   function printQR() {
     if (!qr) return
@@ -201,6 +209,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
             <img src={qr} alt="QR" className="mx-auto h-64 w-64" />
             <div className="mt-4 flex gap-2">
               <button onClick={() => setQr(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-100">ปิด</button>
+              <button onClick={downloadQR} className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">↓ ดาวน์โหลด</button>
               <button onClick={printQR} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">ปริ้น</button>
             </div>
           </div>
