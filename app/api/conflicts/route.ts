@@ -11,6 +11,6 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[/api/conflicts] error:', msg)
-    return NextResponse.json({ eqConflicts: [], staffConflicts: [], error: msg }, { status: 500 })
+    return NextResponse.json({ eqConflicts: [], staffConflicts: [], vehicleConflicts: [], error: msg }, { status: 500 })
   }
 }

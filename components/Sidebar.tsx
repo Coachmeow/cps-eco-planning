@@ -22,6 +22,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: '/staff',     label: 'แผนพนักงาน', icon: '👤', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
       { href: '/equipment', label: 'แผนเครื่องมือ', icon: '🔧', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+      { href: '/vehicles',  label: 'แผนใช้รถ',    icon: '🚗', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
     ],
   },
   {

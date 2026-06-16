@@ -6,6 +6,7 @@ const PAGE_ACCESS: { prefix: string; roles: UserRole[] }[] = [
   { prefix: '/dashboard', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/staff',     roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/equipment', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+  { prefix: '/vehicles',  roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/access',    roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/admin',     roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
 ]

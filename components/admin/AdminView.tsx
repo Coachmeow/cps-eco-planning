@@ -8,6 +8,7 @@ import { toDateKey } from '@/lib/dateKey'
 import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
 import EquipmentCard from '@/components/EquipmentCard'
+import VehicleCard from '@/components/VehicleCard'
 
 // ย่อรูปด้วย canvas → JPEG ~256px คืน data URL (เก็บใน DB เป็น base64)
 async function resizeImage(file: File, max = 256, quality = 0.8): Promise<string> {
@@ -997,6 +998,142 @@ function CalPlanSection() {
   )
 }
 
+// ── Section: Vehicles (รถ) ────────────────────────────────────
+interface VehicleRow {
+  id: number; licensePlate: string; name: string | null; vehicleType: string | null
+  brand: string | null; model: string | null; seats: number | null; status: string; notes: string | null; hasPhoto?: boolean
+}
+const VEHICLE_STATUS = ['ACTIVE', 'MAINTENANCE', 'RETIRED'] as const
+const VSTATUS_LABEL: Record<string, string> = { ACTIVE: 'พร้อมใช้', MAINTENANCE: 'ซ่อมบำรุง', RETIRED: 'ปลดระวาง' }
+
+function VehiclesSection({ role }: { role?: UserRole }) {
+  const canManage = role === 'ADMIN' || role === 'MANAGER'
+  const [vehicles, setVehicles] = useState<VehicleRow[]>([])
+  const [modal, setModal] = useState<'add' | 'edit' | null>(null)
+  const [editing, setEditing] = useState<VehicleRow | null>(null)
+  const init = { licensePlate: '', name: '', vehicleType: '', brand: '', model: '', seats: '', status: 'ACTIVE', notes: '' }
+  const [form, setForm] = useState(init)
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [photoTouched, setPhotoTouched] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [viewing, setViewing] = useState<VehicleRow | null>(null)
+
+  const load = useCallback(async () => {
+    const r = await fetch('/api/vehicles?all=true'); if (r.ok) setVehicles(await r.json())
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
+  function openAdd() { setForm(init); setPhoto(null); setPhotoTouched(false); setEditing(null); setModal('add') }
+  function openEdit(v: VehicleRow) {
+    setForm({ licensePlate: v.licensePlate, name: v.name ?? '', vehicleType: v.vehicleType ?? '', brand: v.brand ?? '', model: v.model ?? '', seats: v.seats != null ? String(v.seats) : '', status: v.status, notes: v.notes ?? '' })
+    setPhoto(null); setPhotoTouched(false); setEditing(v); setModal('edit')
+  }
+  async function onPickPhoto(file?: File) { if (!file) return; setPhoto(await resizeImage(file)); setPhotoTouched(true) }
+  async function save() {
+    if (!form.licensePlate) return
+    setSaving(true)
+    const body: Record<string, unknown> = { ...form }
+    if (photoTouched) body.photoUrl = photo
+    if (modal === 'add') await fetch('/api/vehicles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    else if (editing) await fetch(`/api/vehicles/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    setSaving(false); setModal(null); load()
+  }
+  async function changeStatus(v: VehicleRow, status: string) {
+    await fetch(`/api/vehicles/${v.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licensePlate: v.licensePlate, name: v.name, vehicleType: v.vehicleType, brand: v.brand, model: v.model, seats: v.seats, status, notes: v.notes }) })
+    load()
+  }
+  async function del(v: VehicleRow) {
+    if (!confirm(`ลบรถ "${v.licensePlate}" ? ประวัติการจองจะถูกลบด้วย`)) return
+    await fetch(`/api/vehicles/${v.id}`, { method: 'DELETE' }); load()
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-slate-400">{vehicles.length} คัน</p>
+        {canManage && <Btn onClick={openAdd}>+ เพิ่มรถ</Btn>}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+            <th className="px-4 py-2 text-left font-medium">ทะเบียน</th>
+            <th className="px-4 py-2 text-left font-medium">ชื่อ/ประเภท</th>
+            <th className="px-4 py-2 text-left font-medium">ที่นั่ง</th>
+            <th className="px-4 py-2 text-left font-medium">สถานะ</th>
+            <th className="px-4 py-2" />
+          </tr></thead>
+          <tbody>
+            {vehicles.map(v => (
+              <tr key={v.id} className={`border-t border-slate-100 hover:bg-slate-50 ${v.status === 'RETIRED' ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-2">
+                  <button onClick={() => setViewing(v)} className="flex items-center gap-2 text-left hover:text-emerald-700">
+                    {v.hasPhoto ? <img src={`/api/vehicles/${v.id}/photo`} alt="" className="h-7 w-7 rounded object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-100 text-sm">🚗</span>}
+                    <span className="font-medium text-slate-700">{v.licensePlate}</span>
+                  </button>
+                </td>
+                <td className="px-4 py-2 text-slate-500">{[v.name, v.vehicleType, v.brand].filter(Boolean).join(' · ') || '—'}</td>
+                <td className="px-4 py-2 text-slate-500">{v.seats ?? '—'}</td>
+                <td className="px-4 py-2">
+                  {canManage
+                    ? <select value={v.status} onChange={e => changeStatus(v, e.target.value)} className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
+                        {VEHICLE_STATUS.map(s => <option key={s} value={s}>{VSTATUS_LABEL[s]}</option>)}
+                      </select>
+                    : <span className="text-xs text-slate-500">{VSTATUS_LABEL[v.status]}</span>}
+                </td>
+                <td className="px-4 py-2 text-right">
+                  {canManage && <div className="flex justify-end gap-1.5">
+                    <Btn small onClick={() => openEdit(v)}>แก้ไข</Btn>
+                    {role === 'ADMIN' && <Btn small variant="danger" onClick={() => del(v)}>ลบ</Btn>}
+                  </div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {(modal === 'add' || modal === 'edit') && (
+        <Modal title={modal === 'add' ? 'เพิ่มรถ' : 'แก้ไขรถ'} onClose={() => setModal(null)}>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              {photo ? <img src={photo} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                : (editing?.hasPhoto && !photoTouched) ? <img src={`/api/vehicles/${editing.id}/photo`} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-300">🚗</span>}
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">เลือกรูป...
+                  <input type="file" accept="image/*" className="hidden" onChange={ev => onPickPhoto(ev.target.files?.[0])} />
+                </label>
+                {(photo || editing?.hasPhoto) && <button onClick={() => { setPhoto(null); setPhotoTouched(true) }} className="text-[11px] text-red-400 hover:text-red-600">ลบรูป</button>}
+              </div>
+            </div>
+            <Input label="ทะเบียน" value={form.licensePlate} onChange={f('licensePlate')} placeholder="กข 1234 ขอนแก่น" required />
+            <Input label="ชื่อเรียก/รหัสภายใน" value={form.name} onChange={f('name')} placeholder="รถตู้ 1" />
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="ประเภท" value={form.vehicleType} onChange={f('vehicleType')} placeholder="กระบะ/ตู้/เก๋ง" />
+              <Input label="ยี่ห้อ" value={form.brand} onChange={f('brand')} placeholder="Toyota" />
+              <Input label="ที่นั่ง" value={form.seats} onChange={f('seats')} type="number" placeholder="4" />
+            </div>
+            <Input label="รุ่น" value={form.model} onChange={f('model')} placeholder="Hilux Revo" />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">สถานะ</label>
+              <CustomSelect value={form.status} onChange={f('status')} options={VEHICLE_STATUS.map(s => ({ value: s, label: VSTATUS_LABEL[s] }))} />
+            </div>
+            <Input label="หมายเหตุ" value={form.notes} onChange={f('notes')} placeholder="..." />
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
+              <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {viewing && <VehicleCard vehicleId={viewing.id} onClose={() => setViewing(null)} />}
+    </div>
+  )
+}
+
 // ── Section: Holidays (วันหยุดพิเศษ) ──────────────────────────
 interface HolidayRow { id: number; date: string; name: string }
 
@@ -1148,7 +1285,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 }
 
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment' | 'maintenance' | 'calplan' | 'holidays' | 'users'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'vehicles' | 'maintenance' | 'calplan' | 'holidays' | 'users'
 
 export default function AdminView() {
   const { me, role } = useMe()
@@ -1158,6 +1295,7 @@ export default function AdminView() {
     { key: 'sites',     label: '🏭 ไซต์งาน',  roles: ['ADMIN', 'MANAGER'] },
     { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
     { key: 'equipment',   label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'vehicles',    label: '🚗 รถ',         roles: ['ADMIN', 'MANAGER'] },
     { key: 'maintenance', label: '🛠 ซ่อม/Cal',  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'calplan',     label: '📐 แผน Cal',   roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'holidays',    label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
@@ -1183,6 +1321,7 @@ export default function AdminView() {
         {active === 'sites'     && <SitesSection />}
         {active === 'employees' && <EmployeesSection />}
         {active === 'equipment'   && <EquipmentSection role={role} />}
+        {active === 'vehicles'    && <VehiclesSection role={role} />}
         {active === 'maintenance' && <MaintenanceSection role={role} />}
         {active === 'calplan'     && <CalPlanSection />}
         {active === 'holidays'    && <HolidaysSection />}

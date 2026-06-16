@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     employeeId, assignedDate, siteId, serviceTypeId,
     estimatedDays = 1, status = 'FIELD', notes, isLocked = false,
     equipmentIds = [],   // เครื่องมือที่แนบไปกับงานคนนี้ (ผูก staffAssignmentId)
+    vehicleIds = [],     // รถที่แนบไปกับงานคนนี้
   } = body
 
   if (!employeeId || !assignedDate) {
@@ -88,6 +89,24 @@ export async function POST(req: NextRequest) {
         const nd = new Date(date); nd.setDate(nd.getDate() + i)
         await prisma.equipmentAssignment.create({
           data: { equipmentId: eqId, assignedDate: nd, siteId, staffAssignmentId: created.id, estimatedDays: 0, parentId: eqParent.id },
+        })
+      }
+    }
+  }
+
+  // แนบรถ → สร้างจองรถ (ไซต์/วันเดียวกัน) ผูกกับงานคนนี้ คนขับ = คนหลัก
+  if (status === 'FIELD' && siteId && Array.isArray(vehicleIds) && vehicleIds.length > 0) {
+    const days = Math.min(Math.floor(Number(estimatedDays)) || 1, 20)
+    for (const rawVId of vehicleIds) {
+      const vId = parseInt(String(rawVId))
+      if (!vId) continue
+      const vParent = await prisma.vehicleBooking.create({
+        data: { vehicleId: vId, assignedDate: date, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: days },
+      })
+      for (let i = 1; i < days; i++) {
+        const nd = new Date(date); nd.setDate(nd.getDate() + i)
+        await prisma.vehicleBooking.create({
+          data: { vehicleId: vId, assignedDate: nd, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: 0, parentId: vParent.id },
         })
       }
     }

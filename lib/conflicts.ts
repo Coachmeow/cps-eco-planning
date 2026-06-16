@@ -59,6 +59,16 @@ export async function getMonthlyConflicts(year: number, month: number) {
       cnt:           g._count.id,
     }))
 
+  // ── Vehicle conflicts: same vehicle, same day, >1 booking ────────────────
+  const vGroups = await prisma.vehicleBooking.groupBy({
+    by:    ['vehicleId', 'assignedDate'],
+    where: { assignedDate: { gte: startDate, lte: endDate } },
+    _count: { id: true },
+  })
+  const vehicleConflicts = vGroups
+    .filter((g) => g._count.id > 1)
+    .map((g) => ({ vehicle_id: g.vehicleId, assigned_date: g.assignedDate, cnt: g._count.id }))
+
   // ── Staff conflicts: same employee, same day, different sites ─────────────
   const staffAssignments = await prisma.staffAssignment.findMany({
     where: {
@@ -92,5 +102,5 @@ export async function getMonthlyConflicts(year: number, month: number) {
     }
   }
 
-  return { eqConflicts, staffConflicts }
+  return { eqConflicts, staffConflicts, vehicleConflicts }
 }

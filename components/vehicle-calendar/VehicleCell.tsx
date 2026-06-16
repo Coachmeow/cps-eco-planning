@@ -1,0 +1,61 @@
+'use client'
+
+import type { VehicleBooking } from '@/lib/types'
+import { PURPOSE_META } from '@/lib/vehiclePurpose'
+
+function cellStyle(bookings: VehicleBooking[], isConflict: boolean): string {
+  if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
+  if (bookings.length === 0) return 'bg-white hover:bg-slate-50'
+  return PURPOSE_META[bookings[0].purpose]?.cell ?? 'bg-slate-50'
+}
+
+interface Props {
+  bookings:   VehicleBooking[]
+  isConflict: boolean
+  dayOfWeek:  number
+  isHoliday?: boolean
+  colSpan?:   number
+  onClick:    () => void
+}
+
+function label(b: VehicleBooking): string {
+  if (b.purpose === 'FIELD') return b.site?.code ?? b.destination ?? '—'
+  return b.destination ?? PURPOSE_META[b.purpose]?.label ?? '—'
+}
+
+export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
+  const base = cellStyle(bookings, isConflict)
+  const isSun = dayOfWeek === 0
+  const extra = bookings.length === 0
+    ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : '' : ''
+  const merged = colSpan > 1
+  const first = bookings[0]
+
+  const noteText = bookings.filter(b => b.notes).map(b => `${label(b)}: ${b.notes}`).join('\n')
+
+  return (
+    <td
+      onClick={onClick}
+      colSpan={colSpan}
+      title={noteText || undefined}
+      className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-b
+        border-slate-300 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra}`}
+    >
+      {bookings.length > 0 && first && (
+        <div className="flex flex-col items-center gap-px leading-tight">
+          <span className="truncate max-w-[84px] font-semibold">
+            {PURPOSE_META[first.purpose]?.icon} {label(first)}
+            {merged && first.parentId == null && Number(first.estimatedDays) > 1 && (
+              <span className="ml-1 text-[9px] font-normal opacity-60">({Number(first.estimatedDays)} วัน)</span>
+            )}
+          </span>
+          {first.driver?.nickname || first.driverName ? (
+            <span className="text-[9px] text-slate-500">🧑 {first.driver?.nickname ?? first.driverName}</span>
+          ) : null}
+          {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
+          {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
+        </div>
+      )}
+    </td>
+  )
+}

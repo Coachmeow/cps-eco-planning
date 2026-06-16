@@ -84,6 +84,7 @@ model Employee {
   siteAccess  EmployeeSiteAccess[]
   assignments StaffAssignment[]
   user        User?
+  vehicleBookings VehicleBooking[] @relation("VehicleDriver")
 
   @@map("employees")
 }
@@ -131,6 +132,7 @@ model Site {
 
   staffAssignments     StaffAssignment[]
   equipmentAssignments EquipmentAssignment[]
+  vehicleBookings      VehicleBooking[]
 
   @@map("sites")
 }
@@ -154,6 +156,7 @@ model StaffAssignment {
   children      StaffAssignment[] @relation("MultiDay")
 
   equipmentAssignments EquipmentAssignment[]
+  vehicleBookings      VehicleBooking[]
 
   @@index([employeeId, assignedDate])
   @@index([assignedDate])
@@ -221,4 +224,60 @@ model EquipmentEvent {
   @@index([equipmentId])
   @@index([returnedDate])
   @@map("equipment_events")
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum VehiclePurpose {
+  FIELD
+  SAMPLE
+  DELIVERY
+  SHUTTLE
+  OTHER
+}
+
+model Vehicle {
+  id           Int           @id @default(autoincrement())
+  licensePlate String        // ทะเบียน
+  name         String?       // ชื่อเรียก/รหัสภายใน
+  vehicleType  String?       // กระบะ/ตู้/เก๋ง
+  brand        String?
+  model        String?
+  seats        Int?
+  photoUrl     String?
+  status       VehicleStatus @default(ACTIVE)
+  notes        String?
+
+  bookings VehicleBooking[]
+
+  @@map("vehicles")
+}
+
+model VehicleBooking {
+  id                Int              @id @default(autoincrement())
+  vehicleId         Int
+  vehicle           Vehicle          @relation(fields: [vehicleId], references: [id])
+  assignedDate      DateTime         @db.Date
+  estimatedDays     Int              @default(1)
+  parentId          Int?
+  parent            VehicleBooking?  @relation("VBMultiDay", fields: [parentId], references: [id])
+  children          VehicleBooking[] @relation("VBMultiDay")
+  purpose           VehiclePurpose   @default(FIELD)
+  siteId            Int?
+  site              Site?            @relation(fields: [siteId], references: [id])
+  destination       String?          // ปลายทางพิมพ์อิสระ (งานนอก)
+  staffAssignmentId Int?
+  staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
+  driverId          Int?
+  driver            Employee?        @relation("VehicleDriver", fields: [driverId], references: [id])
+  driverName        String?          // คนขับนอกระบบ
+  notes             String?
+
+  @@index([vehicleId, assignedDate])
+  @@index([assignedDate])
+  @@map("vehicle_bookings")
 }

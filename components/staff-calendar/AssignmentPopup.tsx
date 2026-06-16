@@ -59,10 +59,19 @@ export default function AssignmentPopup({
     fetch('/api/equipment').then(r => r.json()).then(d => Array.isArray(d) && setEquipList(d)).catch(() => {})
   }, [])
 
+  // รถที่แนบไปด้วย
+  interface VehItem { id: number; licensePlate: string; name: string | null; vehicleType: string | null }
+  const [vehList,    setVehList]    = useState<VehItem[]>([])
+  const [vehicleIds, setVehicleIds] = useState<number[]>([])
+  const [vehPickerOpen, setVehPickerOpen] = useState(false)
+  useEffect(() => {
+    fetch('/api/vehicles').then(r => r.json()).then(d => Array.isArray(d) && setVehList(d)).catch(() => {})
+  }, [])
+
   // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป)
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (pickerOpen || confirmOpen) return
+      if (pickerOpen || confirmOpen || vehPickerOpen) return
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', h)
@@ -102,10 +111,11 @@ export default function AssignmentPopup({
       status,
       notes: notes || undefined,
     }
-    // เครื่องมือแนบเฉพาะงานภาคสนามที่เลือกไซต์แล้ว — ติดไปกับงานของคนหลัก
-    const eqAttach = status === 'FIELD' && siteId ? equipIds : []
+    // เครื่องมือ/รถ แนบเฉพาะงานภาคสนามที่เลือกไซต์แล้ว — ติดไปกับงานของคนหลัก
+    const eqAttach  = status === 'FIELD' && siteId ? equipIds : []
+    const vehAttach = status === 'FIELD' && siteId ? vehicleIds : []
     const payloads = [
-      { ...base, employeeId: employee.id, equipmentIds: eqAttach },
+      { ...base, employeeId: employee.id, equipmentIds: eqAttach, vehicleIds: vehAttach },
       ...companions.map(empId => ({ ...base, employeeId: empId })),
     ]
     try {
@@ -270,6 +280,29 @@ export default function AssignmentPopup({
                   </div>
                 )}
               </div>
+
+              {/* รถที่ใช้ (ไม่บังคับ) → เปิดแผงด้านข้าง */}
+              <div>
+                <button type="button" disabled={!siteId} onClick={() => setVehPickerOpen(true)}
+                  className="flex w-full items-center justify-between rounded border border-slate-200 px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                  <span>🚗 รถที่ใช้ {vehicleIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{vehicleIds.length}</span>}</span>
+                  <span className="text-xs text-slate-400">{siteId ? 'เลือก ›' : 'เลือกไซต์ก่อน'}</span>
+                </button>
+                {vehicleIds.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {vehicleIds.map(id => {
+                      const v = vehList.find(x => x.id === id)
+                      return (
+                        <span key={id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                          🚗 {v ? v.licensePlate : `#${id}`}
+                          <button type="button" onClick={() => setVehicleIds(prev => prev.filter(i => i !== id))} className="text-slate-400 hover:text-red-500">×</button>
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+                <p className="mt-1 text-[10px] text-slate-400">คนขับเริ่มต้น = {employee.nickname ?? employee.fullName} (แก้ได้ในแผนใช้รถ)</p>
+              </div>
             </>
           )}
 
@@ -433,6 +466,37 @@ export default function AssignmentPopup({
         </div>
       )}
 
+      {/* ── แผงเลือกรถด้านข้าง ── */}
+      {vehPickerOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end" onMouseDown={() => setVehPickerOpen(false)}>
+          <div className="h-full w-[340px] max-w-[90vw] overflow-y-auto bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
+              <p className="text-sm font-semibold text-slate-800">🚗 เลือกรถ</p>
+              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{vehicleIds.length}</span>
+            </div>
+            <div className="space-y-1.5 p-4">
+              {vehList.length === 0 && <p className="py-6 text-center text-xs text-slate-300">ยังไม่มีรถในระบบ</p>}
+              {vehList.map(v => {
+                const sel = vehicleIds.includes(v.id)
+                return (
+                  <button key={v.id} type="button"
+                    onClick={() => setVehicleIds(prev => sel ? prev.filter(i => i !== v.id) : [...prev, v.id])}
+                    className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}>
+                    {sel && <span className="text-[10px]">✓</span>}
+                    <span className="font-medium">🚗 {v.licensePlate}</span>
+                    <span className={`text-xs ${sel ? 'text-white/70' : 'text-slate-400'}`}>{[v.name, v.vehicleType].filter(Boolean).join(' · ')}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="sticky bottom-0 flex gap-2 border-t border-slate-100 bg-white px-4 py-3">
+              <button type="button" onClick={() => setVehicleIds([])} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-slate-100">ล้าง</button>
+              <button type="button" onClick={() => setVehPickerOpen(false)} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">เสร็จ ({vehicleIds.length})</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── หน้าสรุปก่อนยืนยัน ── */}
       {confirmOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onMouseDown={() => !saving && setConfirmOpen(false)}>
@@ -459,6 +523,14 @@ export default function AssignmentPopup({
                   <p className="mb-1 text-xs text-slate-400">เครื่องมือ ({equipIds.length})</p>
                   <div className="flex flex-wrap gap-1">
                     {equipIds.map(id => { const eq = equipList.find(e => e.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{eq ? (eq.internalNo ?? eq.serialNo ?? `#${id}`) : `#${id}`}</span> })}
+                  </div>
+                </div>
+              )}
+              {status === 'FIELD' && vehicleIds.length > 0 && (
+                <div className="border-t border-slate-50 pt-2">
+                  <p className="mb-1 text-xs text-slate-400">รถ ({vehicleIds.length}) · คนขับ {employee.nickname ?? employee.fullName}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {vehicleIds.map(id => { const v = vehList.find(x => x.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">🚗 {v ? v.licensePlate : `#${id}`}</span> })}
                   </div>
                 </div>
               )}

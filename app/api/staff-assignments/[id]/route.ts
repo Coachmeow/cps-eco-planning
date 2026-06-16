@@ -15,8 +15,9 @@ export async function DELETE(
 
   if (target.parentId == null) {
     // วันแม่ → ลบทั้งงาน (ลูกหายตาม)
-    // เครื่องที่แนบ "คงอยู่ที่ไซต์" แค่ตัดสายผูก (จัดการ/ดึงออกรายเครื่องในแผนเครื่องมือ)
+    // เครื่อง/รถ ที่แนบ "คงอยู่" แค่ตัดสายผูก (จัดการ/ดึงออกในแผนเครื่องมือ/แผนใช้รถ)
     await prisma.equipmentAssignment.updateMany({ where: { staffAssignmentId: targetId }, data: { staffAssignmentId: null } })
+    await prisma.vehicleBooking.updateMany({ where: { staffAssignmentId: targetId }, data: { staffAssignmentId: null } })
     await prisma.staffAssignment.deleteMany({ where: { parentId: targetId } })
     await prisma.staffAssignment.delete({ where: { id: targetId } })
   } else {

@@ -124,6 +124,43 @@ export interface EquipmentAssignment {
 
 export type EquipmentCalendarData = Map<number, Map<string, EquipmentAssignment[]>>
 
+// ── Vehicle ─────────────────────────────────────────────────
+export type VehicleStatus  = 'ACTIVE' | 'MAINTENANCE' | 'RETIRED'
+export type VehiclePurpose = 'FIELD' | 'SAMPLE' | 'DELIVERY' | 'SHUTTLE' | 'OTHER'
+
+export interface Vehicle {
+  id: number
+  licensePlate: string
+  name: string | null
+  vehicleType: string | null
+  brand: string | null
+  model: string | null
+  seats: number | null
+  status: VehicleStatus
+  notes: string | null
+  hasPhoto?: boolean
+}
+
+export interface VehicleBooking {
+  id: number
+  vehicleId: number
+  vehicle: Vehicle
+  assignedDate: string
+  estimatedDays: number
+  parentId: number | null
+  purpose: VehiclePurpose
+  siteId: number | null
+  site: Site | null
+  destination: string | null
+  staffAssignmentId: number | null
+  driverId: number | null
+  driver: Employee | null
+  driverName: string | null
+  notes: string | null
+}
+
+export type VehicleCalendarData = Map<number, Map<string, VehicleBooking[]>>
+
 export interface EquipmentUtilRow {
   typeId: number
   typeCode: string
