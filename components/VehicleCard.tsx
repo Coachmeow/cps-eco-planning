@@ -53,6 +53,38 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
     const url = `${window.location.origin}/m/${token}`
     setQr(await QRCode.toDataURL(url, { width: 320, margin: 2 }))
   }
+
+  // พิมพ์เฉพาะ QR + ทะเบียน (เปิดหน้าต่างใหม่ เลี่ยงการพิมพ์ทั้งหน้าจอ)
+  function printQR() {
+    if (!qr) return
+    const plate = v?.licensePlate ?? ''
+    const w = window.open('', '_blank', 'width=420,height=620')
+    if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตป๊อปอัปแล้วลองใหม่'); return }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR ${plate}</title>
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,'Segoe UI',sans-serif}
+        body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
+        .tag{font-size:12px;letter-spacing:2px;color:#059669;font-weight:700}
+        .plate{font-size:28px;font-weight:800;color:#1e293b;margin:6px 0 2px}
+        .hint{font-size:13px;color:#64748b;margin-bottom:16px}
+        img{width:300px;height:300px}
+        .foot{font-size:12px;color:#94a3b8;margin-top:14px}
+      </style></head>
+      <body>
+        <div class="tag">CPS ECO · LOGBOOK</div>
+        <div class="plate">🚗 ${plate}</div>
+        <div class="hint">สแกนเพื่อบันทึกไมล์ (ไม่ต้องล็อกอิน)</div>
+        <img src="${qr}" alt="QR" />
+        <div class="foot">บันทึกทุกครั้งที่ออกรถ / จอดรถ และตอนเติมน้ำมัน</div>
+        <script>
+          const img = document.querySelector('img');
+          function go(){ window.focus(); window.print(); }
+          if (img.complete) go(); else img.onload = go;
+          window.onafterprint = () => window.close();
+        <\/script>
+      </body></html>`)
+    w.document.close()
+  }
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     document.addEventListener('mousedown', h)
@@ -169,7 +201,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
             <img src={qr} alt="QR" className="mx-auto h-64 w-64" />
             <div className="mt-4 flex gap-2">
               <button onClick={() => setQr(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-100">ปิด</button>
-              <button onClick={() => window.print()} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">ปริ้น</button>
+              <button onClick={printQR} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">ปริ้น</button>
             </div>
           </div>
         </div>
