@@ -13,8 +13,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { vehicleId: vId, parentId: null }, orderBy: { assignedDate: 'desc' }, take: 50,
     include: { site: true, driver: true },
   })
+  // ไมล์: ล่าสุด, log ล่าสุด, mismatch ที่ยังไม่เคลียร์
+  const logs = await prisma.vehicleLog.findMany({
+    where: { vehicleId: vId }, orderBy: { loggedAt: 'desc' }, take: 20,
+    include: { driver: { select: { nickname: true, fullName: true } }, site: { select: { code: true } } },
+  })
+  const lastMileage = logs.reduce((mx, l) => Math.max(mx, l.mileage), 0) || null
+  const mismatches = logs.filter(l => l.mismatch)
+
   const { photoUrl, ...v } = vehicle
-  return NextResponse.json({ ...v, hasPhoto: !!photoUrl, usageDays, bookings })
+  return NextResponse.json({ ...v, hasPhoto: !!photoUrl, usageDays, bookings, lastMileage, logs, mismatches })
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

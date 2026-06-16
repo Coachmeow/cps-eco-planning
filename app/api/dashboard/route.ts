@@ -236,8 +236,29 @@ export async function GET(req: NextRequest) {
     where: { returnedDate: null, expectedDate: { lt: todayStart } },
   })
   const stillOut = await prisma.equipmentEvent.count({ where: { returnedDate: null } })
+  const mileageMismatch = await prisma.vehicleLog.count({ where: { mismatch: true } })
 
-  const alerts = { calOverdue, calSoon, repairOverdue, stillOut }
+  const alerts = { calOverdue, calSoon, repairOverdue, stillOut, mileageMismatch }
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, alerts, workdays, year, month })
+  // ── Vehicle Utilization (% การจองต่อคัน) ────────────────────
+  const activeVehicles = await prisma.vehicle.findMany({
+    where: { status: { not: 'RETIRED' } }, select: { id: true, licensePlate: true, name: true },
+  })
+  const vbGroups = await prisma.vehicleBooking.groupBy({
+    by: ['vehicleId'],
+    where: { assignedDate: { gte: startDate, lte: endDate } },
+    _count: { id: true },
+  })
+  const vbMap = new Map(vbGroups.map(g => [g.vehicleId, g._count.id]))
+  const vehicleUtil = activeVehicles.map(v => {
+    const bookedDays = vbMap.get(v.id) ?? 0
+    return {
+      vehicleId: v.id,
+      label: v.licensePlate,
+      bookedDays,
+      util: workdays > 0 ? Math.round((bookedDays / workdays) * 100) : 0,
+    }
+  }).sort((a, b) => b.util - a.util)
+
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, workdays, year, month })
 }

@@ -1137,6 +1137,76 @@ function VehiclesSection({ role }: { role?: UserRole }) {
   )
 }
 
+// ── Section: Mileage report (สรุปไมล์รถ) ──────────────────────
+interface MLog {
+  id: number; vehicleId: number; type: 'USE' | 'REFUEL'; mileage: number; forDate: string
+  fuelLiters: number | null; fuelCost: number | null; mismatch: boolean
+  vehicle: { id: number; licensePlate: string; name: string | null }
+}
+function MileageReportSection() {
+  const monthStart = new Date(); monthStart.setDate(1)
+  const [from, setFrom] = useState(monthStart.toISOString().slice(0, 10))
+  const [to, setTo]     = useState(new Date().toISOString().slice(0, 10))
+  const [logs, setLogs] = useState<MLog[]>([])
+
+  const load = useCallback(async () => {
+    const r = await fetch(`/api/vehicle-logs?from=${from}&to=${to}`)
+    if (r.ok) setLogs(await r.json())
+  }, [from, to])
+  useEffect(() => { load() }, [load])
+
+  // aggregate per vehicle
+  const byVehicle = new Map<number, { plate: string; name: string | null; mileages: number[]; liters: number; cost: number; mismatch: number; count: number }>()
+  for (const l of logs) {
+    if (!byVehicle.has(l.vehicleId)) byVehicle.set(l.vehicleId, { plate: l.vehicle.licensePlate, name: l.vehicle.name, mileages: [], liters: 0, cost: 0, mismatch: 0, count: 0 })
+    const g = byVehicle.get(l.vehicleId)!
+    g.mileages.push(l.mileage); g.count++
+    if (l.fuelLiters) g.liters += l.fuelLiters
+    if (l.fuelCost) g.cost += l.fuelCost
+    if (l.mismatch) g.mismatch++
+  }
+  const rows = Array.from(byVehicle.values()).map(g => ({
+    ...g,
+    km: g.mileages.length > 1 ? Math.max(...g.mileages) - Math.min(...g.mileages) : 0,
+  }))
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-1"><label className="text-xs font-medium text-slate-600">ตั้งแต่</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none" /></div>
+        <div className="flex flex-col gap-1"><label className="text-xs font-medium text-slate-600">ถึง</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:outline-none" /></div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+            <th className="px-4 py-2 text-left font-medium">รถ</th>
+            <th className="px-4 py-2 text-right font-medium">ระยะวิ่ง (กม.)</th>
+            <th className="px-4 py-2 text-right font-medium">น้ำมัน (ลิตร)</th>
+            <th className="px-4 py-2 text-right font-medium">ค่าน้ำมัน (บาท)</th>
+            <th className="px-4 py-2 text-right font-medium">บันทึก</th>
+            <th className="px-4 py-2 text-right font-medium">ไมล์ไม่ตรง</th>
+          </tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีข้อมูลในช่วงนี้</td></tr>}
+            {rows.map(r => (
+              <tr key={r.plate} className="border-t border-slate-100 hover:bg-slate-50">
+                <td className="px-4 py-2 font-medium text-slate-700">{r.plate}{r.name ? ` · ${r.name}` : ''}</td>
+                <td className="px-4 py-2 text-right font-semibold text-slate-700">{r.km.toLocaleString()}</td>
+                <td className="px-4 py-2 text-right text-slate-500">{r.liters ? r.liters.toLocaleString() : '—'}</td>
+                <td className="px-4 py-2 text-right text-slate-500">{r.cost ? r.cost.toLocaleString() : '—'}</td>
+                <td className="px-4 py-2 text-right text-slate-400">{r.count}</td>
+                <td className={`px-4 py-2 text-right font-semibold ${r.mismatch > 0 ? 'text-red-500' : 'text-slate-300'}`}>{r.mismatch || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Section: Holidays (วันหยุดพิเศษ) ──────────────────────────
 interface HolidayRow { id: number; date: string; name: string }
 
@@ -1288,7 +1358,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 }
 
 // ── Main AdminView ─────────────────────────────────────────────
-type AdminTab = 'sites' | 'employees' | 'equipment' | 'vehicles' | 'maintenance' | 'calplan' | 'holidays' | 'users'
+type AdminTab = 'sites' | 'employees' | 'equipment' | 'vehicles' | 'mileage' | 'maintenance' | 'calplan' | 'holidays' | 'users'
 
 export default function AdminView() {
   const { me, role } = useMe()
@@ -1299,6 +1369,7 @@ export default function AdminView() {
     { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
     { key: 'equipment',   label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'vehicles',    label: '🚗 รถ',         roles: ['ADMIN', 'MANAGER'] },
+    { key: 'mileage',     label: '📊 ไมล์รถ',     roles: ['ADMIN', 'MANAGER'] },
     { key: 'maintenance', label: '🛠 ซ่อม/Cal',  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'calplan',     label: '📐 แผน Cal',   roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     { key: 'holidays',    label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
@@ -1325,6 +1396,7 @@ export default function AdminView() {
         {active === 'employees' && <EmployeesSection />}
         {active === 'equipment'   && <EquipmentSection role={role} />}
         {active === 'vehicles'    && <VehiclesSection role={role} />}
+        {active === 'mileage'     && <MileageReportSection />}
         {active === 'maintenance' && <MaintenanceSection role={role} />}
         {active === 'calplan'     && <CalPlanSection />}
         {active === 'holidays'    && <HolidaysSection />}

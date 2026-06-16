@@ -156,7 +156,7 @@ export default function DashboardView() {
             ))}
           </div>
 
-          {data.alerts && (data.alerts.calOverdue + data.alerts.calSoon + data.alerts.repairOverdue) > 0 && (
+          {data.alerts && (data.alerts.calOverdue + data.alerts.calSoon + data.alerts.repairOverdue + (data.alerts.mileageMismatch ?? 0)) > 0 && (
             <div className="col-span-full flex flex-wrap gap-2">
               {data.alerts.calOverdue > 0 && (
                 <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">📐 Cal เกินกำหนด {data.alerts.calOverdue} เครื่อง</span>
@@ -169,6 +169,9 @@ export default function DashboardView() {
               )}
               {data.alerts.stillOut > 0 && (
                 <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500">กำลังส่งซ่อม/Cal รวม {data.alerts.stillOut} เครื่อง</span>
+              )}
+              {(data.alerts.mileageMismatch ?? 0) > 0 && (
+                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">🚗 ไมล์รถไม่ตรง {data.alerts.mileageMismatch} รายการ</span>
               )}
             </div>
           )}
@@ -289,6 +292,18 @@ export default function DashboardView() {
               </div>
             )}
           </Card>
+
+          {/* Utilization รถ */}
+          {data.vehicleUtil && data.vehicleUtil.length > 0 && (
+            <Card title="Utilization รถ (% การจอง)">
+              <div className="h-64 space-y-2 overflow-y-auto pr-1">
+                {data.vehicleUtil.map(v => (
+                  <StatRow key={v.vehicleId} label={v.label} pct={v.util} value={`${v.util}%`}
+                    fillColor={utilBarColor(v.util)} valueColor={utilTextColor(v.util)} />
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* แนวโน้ม 6 เดือน — card ปกติ อยู่กลุ่ม util/man-day */}
           <Card title="แนวโน้ม 6 เดือน">

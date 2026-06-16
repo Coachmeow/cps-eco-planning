@@ -85,8 +85,8 @@ export default function Sidebar() {
     fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {})
   }, [])
 
-  // ไม่แสดง sidebar บนหน้า login
-  if (path === '/login') return null
+  // ไม่แสดง sidebar บนหน้า login / หน้า logbook QR (public)
+  if (path === '/login' || path.startsWith('/m/')) return null
 
   const role = me?.role
   const groups = NAV

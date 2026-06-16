@@ -162,6 +162,34 @@ export interface VehicleBooking {
 
 export type VehicleCalendarData = Map<number, Map<string, VehicleBooking[]>>
 
+export type VehicleLogType = 'USE' | 'REFUEL'
+
+export interface VehicleLog {
+  id: number
+  vehicleId: number
+  type: VehicleLogType
+  mileage: number
+  loggedAt: string
+  forDate: string
+  driverId: number | null
+  driver: Employee | null
+  driverName: string | null
+  purpose: VehiclePurpose | null
+  siteId: number | null
+  site: Site | null
+  bookingId: number | null
+  origin: string | null
+  destination: string | null
+  nonField: boolean
+  reason: string | null
+  fuelLiters: number | null
+  fuelPricePerLiter: number | null
+  fuelCost: number | null
+  mismatch: boolean
+  expectedMileage: number | null
+  notes: string | null
+}
+
 export interface EquipmentUtilRow {
   typeId: number
   typeCode: string
@@ -231,6 +259,14 @@ export interface DashboardAlerts {
   calSoon: number
   repairOverdue: number
   stillOut: number
+  mileageMismatch?: number
+}
+
+export interface VehicleUtilRow {
+  vehicleId: number
+  label: string
+  bookedDays: number
+  util: number
 }
 
 export interface DashboardData {
@@ -241,6 +277,7 @@ export interface DashboardData {
   siteMandays: SiteMandayRow[]
   teamCapacity: TeamCapacityRow[]
   trend: TrendPoint[]
+  vehicleUtil?: VehicleUtilRow[]
   alerts?: DashboardAlerts
   workdays: number
   year: number

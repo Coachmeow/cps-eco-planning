@@ -86,6 +86,7 @@ model Employee {
   assignments StaffAssignment[]
   user        User?
   vehicleBookings VehicleBooking[] @relation("VehicleDriver")
+  vehicleLogs     VehicleLog[]     @relation("VehicleLogDriver")
 
   @@map("employees")
 }
@@ -134,6 +135,7 @@ model Site {
   staffAssignments     StaffAssignment[]
   equipmentAssignments EquipmentAssignment[]
   vehicleBookings      VehicleBooking[]
+  vehicleLogs          VehicleLog[]
 
   @@map("sites")
 }
@@ -252,10 +254,48 @@ model Vehicle {
   photoUrl     String?
   status       VehicleStatus @default(ACTIVE)
   notes        String?
+  qrToken      String?       @unique
 
   bookings VehicleBooking[]
+  logs     VehicleLog[]
 
   @@map("vehicles")
+}
+
+enum VehicleLogType {
+  USE
+  REFUEL
+}
+
+model VehicleLog {
+  id        Int             @id @default(autoincrement())
+  vehicleId Int
+  vehicle   Vehicle         @relation(fields: [vehicleId], references: [id])
+  type      VehicleLogType
+  mileage   Int                          // เลขไมล์ที่อ่านได้
+  loggedAt  DateTime        @default(now())
+  forDate   DateTime        @db.Date     // วันที่ใช้
+  driverId  Int?
+  driver    Employee?       @relation("VehicleLogDriver", fields: [driverId], references: [id])
+  driverName String?
+  purpose   VehiclePurpose?
+  siteId    Int?
+  site      Site?           @relation(fields: [siteId], references: [id])
+  bookingId Int?
+  booking   VehicleBooking? @relation(fields: [bookingId], references: [id])
+  origin       String?
+  destination  String?
+  nonField     Boolean      @default(false)   // ใช้นอกงาน
+  reason       String?
+  fuelLiters        Float?
+  fuelPricePerLiter Float?
+  fuelCost          Float?
+  mismatch        Boolean   @default(false)   // แจ้งไมล์ไม่ตรง
+  expectedMileage Int?                        // เลขในระบบตอนนั้น (ก่อนแก้)
+  notes     String?
+
+  @@index([vehicleId, loggedAt])
+  @@map("vehicle_logs")
 }
 
 model VehicleBooking {
@@ -277,6 +317,7 @@ model VehicleBooking {
   driver            Employee?        @relation("VehicleDriver", fields: [driverId], references: [id])
   driverName        String?          // คนขับนอกระบบ
   notes             String?
+  logs              VehicleLog[]
 
   @@index([vehicleId, assignedDate])
   @@index([assignedDate])

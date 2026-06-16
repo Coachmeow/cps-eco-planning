@@ -22,6 +22,8 @@ export async function middleware(req: NextRequest) {
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/m/') ||         // หน้า logbook QR (ไม่ล็อกอิน)
+    pathname.startsWith('/api/public') || // public API
     pathname.startsWith('/_next') ||
     pathname.includes('.')           // static files (favicon, images, etc.)
   ) {
