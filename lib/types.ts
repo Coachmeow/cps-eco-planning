@@ -305,6 +305,7 @@ export interface DashboardData {
   trend: TrendPoint[]
   vehicleUtil?: VehicleUtilRow[]
   alerts?: DashboardAlerts
+  equipmentAvail?: { available: number; total: number; pct: number }
   workdays: number
   year: number
   month: number

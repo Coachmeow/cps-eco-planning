@@ -118,9 +118,20 @@ export default function DashboardView() {
   function nextMonth() { if (month === 12) { setYear(y=>y+1); setMonth(1) } else setMonth(m=>m+1) }
 
   const avgUtil     = data ? Math.round(data.equipmentUtil.filter(r=>r.ownCount>0).reduce((s,r)=>s+r.ownUtil,0)/Math.max(data.equipmentUtil.filter(r=>r.ownCount>0).length,1)) : 0
-  const totalDemand = data?.teamWorkload.reduce((s,t)=>s+t.demand,0) ?? 0
-  const totalOwnCap = data?.teamWorkload.reduce((s,t)=>s+t.ownCap,0) ?? 0
-  const totalCross  = data?.teamWorkload.reduce((s,t)=>s+t.crossIn,0) ?? 0
+
+  // Util พนักงานเฉลี่ย — ฐานกำลังคนทั้งทีม (booked ÷ capacity) ของ ST/AMB/WP/WT/CEMS
+  const STAFF_UTIL_TEAMS = ['ST', 'AMB', 'WP', 'WT', 'CEMS']
+  const staffCap = data?.teamCapacity.filter(t => STAFF_UTIL_TEAMS.includes(t.teamCode)) ?? []
+  const staffCapTotal = staffCap.reduce((s,t)=>s+t.capacity,0)
+  const staffBookedTotal = staffCap.reduce((s,t)=>s+t.booked,0)
+  const staffUtil = staffCapTotal > 0 ? Math.round((staffBookedTotal/staffCapTotal)*100) : 0
+
+  // Util รถยนต์เฉลี่ย — เฉลี่ย % การจองต่อคัน
+  const vehUtil = data?.vehicleUtil && data.vehicleUtil.length > 0
+    ? Math.round(data.vehicleUtil.reduce((s,v)=>s+v.util,0)/data.vehicleUtil.length) : 0
+
+  // % เครื่องมือพร้อมใช้
+  const equipAvail = data?.equipmentAvail?.pct ?? 0
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
@@ -141,10 +152,10 @@ export default function DashboardView() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
           <div className="col-span-full grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
-              { label: 'Util เฉลี่ยเครื่องมือ', value: `${avgUtil}%`,        icon: '🔧', tint: 'bg-rose-100'    },
-              { label: 'ภาระงานรวม',            value: `${totalDemand} วัน`, icon: '📅', tint: 'bg-sky-100'     },
-              { label: 'กำลังคนทีมตัวเอง',      value: `${totalOwnCap} วัน`, icon: '👥', tint: 'bg-emerald-100' },
-              { label: 'พึ่ง Cross-team',        value: `${totalCross} วัน`,  icon: '🤝', tint: 'bg-amber-100'   },
+              { label: 'Util เฉลี่ยเครื่องมือ',  value: `${avgUtil}%`,    icon: '🔧', tint: 'bg-rose-100'    },
+              { label: 'Util พนักงานเฉลี่ย',     value: `${staffUtil}%`,  icon: '👥', tint: 'bg-emerald-100' },
+              { label: 'Util รถยนต์เฉลี่ย',       value: `${vehUtil}%`,    icon: '🚗', tint: 'bg-sky-100'     },
+              { label: 'เครื่องมือพร้อมใช้',      value: `${equipAvail}%`, icon: '✅', tint: 'bg-amber-100'   },
             ].map((k) => (
               <div key={k.label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${k.tint} text-xl`}>{k.icon}</span>
@@ -310,22 +321,6 @@ export default function DashboardView() {
             <TrendChart trend={data.trend} />
           </Card>
 
-          {/* Cross-team compact */}
-          {data.crossContrib.length > 0 && (
-            <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
-              <h3 className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cross-team Contribution</h3>
-              <div className="flex flex-wrap gap-2">
-                {data.crossContrib.map(c => (
-                  <div key={c.employeeId} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
-                    <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[c.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{c.primaryTeam}</span>
-                    <span className="text-slate-600">{c.nickname||c.fullName.split(' ')[1]||c.fullName}</span>
-                    <span className="font-semibold text-sky-600">{c.crossTeamDays}d</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <Card title="Own vs Rental">
             <div className="max-h-64 overflow-auto">
                 <table className="w-full text-xs">
@@ -352,6 +347,22 @@ export default function DashboardView() {
                 </table>
             </div>
           </Card>
+
+          {/* Cross-team compact — ล่างสุด */}
+          {data.crossContrib.length > 0 && (
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
+              <h3 className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cross-team Contribution</h3>
+              <div className="flex flex-wrap gap-2">
+                {data.crossContrib.map(c => (
+                  <div key={c.employeeId} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
+                    <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[c.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{c.primaryTeam}</span>
+                    <span className="text-slate-600">{c.nickname||c.fullName.split(' ')[1]||c.fullName}</span>
+                    <span className="font-semibold text-sky-600">{c.crossTeamDays}d</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

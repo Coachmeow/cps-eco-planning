@@ -244,6 +244,14 @@ export async function GET(req: NextRequest) {
 
   const alerts = { calOverdue, calSoon, repairOverdue, stillOut, mileageMismatch }
 
+  // ── Equipment Availability (% เครื่องพร้อมใช้) ───────────────
+  // available = ACTIVE ; ฐาน = เครื่องที่ยังอยู่ในระบบ (ไม่ RETIRED) → หัก CALIBRATING/BROKEN ออก
+  const [eqActive, eqInService] = await Promise.all([
+    prisma.equipment.count({ where: { status: 'ACTIVE' } }),
+    prisma.equipment.count({ where: { status: { not: 'RETIRED' } } }),
+  ])
+  const equipmentAvail = { available: eqActive, total: eqInService, pct: eqInService > 0 ? Math.round((eqActive / eqInService) * 100) : 0 }
+
   // ── Vehicle Utilization (% การจองต่อคัน) ────────────────────
   const activeVehicles = await prisma.vehicle.findMany({
     where: { status: { not: 'RETIRED' } }, select: { id: true, licensePlate: true, name: true },
@@ -264,5 +272,5 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, workdays, year, month })
 }
