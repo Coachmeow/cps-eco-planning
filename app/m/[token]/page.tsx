@@ -103,8 +103,8 @@ export default function MileagePage() {
   const lbl = 'mb-1 block text-sm font-medium text-slate-600'
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4">
-      <div className="mx-auto max-w-md">
+    <div className="h-full overflow-y-auto bg-slate-100 p-4">
+      <div className="mx-auto max-w-md pb-10">
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
           <p className="text-xs font-bold tracking-widest text-emerald-600">CPS ECO · LOGBOOK</p>
@@ -196,5 +196,5 @@ export default function MileagePage() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">{children}</div>
+  return <div className="flex h-full items-center justify-center overflow-y-auto bg-slate-100 p-4">{children}</div>
 }
