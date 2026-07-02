@@ -96,6 +96,31 @@ export default function AssignmentPopup({
     fetch('/api/vehicles').then(r => r.json()).then(d => Array.isArray(d) && setVehList(d)).catch(() => {})
   }, [])
 
+  // รถที่ถูกจองแล้วในช่วงวันที่เลือก → busyVeh[vehicleId] = [{siteCode, driver, date}]
+  interface BusyVeh { vehicleId: number; assignedDate: string; siteCode: string | null; driver: string | null }
+  const [busyVeh, setBusyVeh] = useState<Map<number, BusyVeh[]>>(new Map())
+  useEffect(() => {
+    if (!vehPickerOpen) return
+    fetch(`/api/vehicle-bookings/busy?start=${date}&days=${estimatedDays}`)
+      .then(r => r.json())
+      .then((rows: BusyVeh[]) => {
+        const m = new Map<number, BusyVeh[]>()
+        for (const r of rows) {
+          if (!m.has(r.vehicleId)) m.set(r.vehicleId, [])
+          m.get(r.vehicleId)!.push(r)
+        }
+        setBusyVeh(m)
+      }).catch(() => {})
+  }, [vehPickerOpen, date, estimatedDays])
+
+  const busyVehTitle = (rows: BusyVeh[]) => {
+    const parts = rows.map(r => {
+      const d = new Date(r.assignedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+      return `${r.siteCode ?? r.driver ?? '—'} (${d})`
+    })
+    return 'จองแล้ว: ' + parts.join(' · ')
+  }
+
   // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป)
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -502,21 +527,42 @@ export default function AssignmentPopup({
       {vehPickerOpen && (
         <div className="fixed inset-0 z-[60] flex justify-end" onMouseDown={() => setVehPickerOpen(false)}>
           <div className="h-full w-[340px] max-w-[90vw] overflow-y-auto bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
-            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
-              <p className="text-sm font-semibold text-slate-800">🚗 เลือกรถ</p>
-              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{vehicleIds.length}</span>
+            <div className="sticky top-0 border-b border-slate-100 bg-white px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-800">🚗 เลือกรถ</p>
+                <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{vehicleIds.length}</span>
+              </div>
+              {vehList.length > 0 && (() => {
+                const busyCount = vehList.filter(v => busyVeh.has(v.id)).length
+                return (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    <span className="text-emerald-600">ว่าง {vehList.length - busyCount}</span>
+                    {busyCount > 0 && <span className="text-amber-600"> · ไม่ว่าง {busyCount}</span>}
+                    <span> ({dateLabel}{Number(estimatedDays) > 1 ? ` · ${estimatedDays} วัน` : ''})</span>
+                  </p>
+                )
+              })()}
             </div>
             <div className="space-y-1.5 p-4">
               {vehList.length === 0 && <p className="py-6 text-center text-xs text-slate-300">ยังไม่มีรถในระบบ</p>}
-              {vehList.map(v => {
-                const sel = vehicleIds.includes(v.id)
+              {[...vehList].sort((a, b) => (busyVeh.has(a.id) ? 1 : 0) - (busyVeh.has(b.id) ? 1 : 0)).map(v => {
+                const sel  = vehicleIds.includes(v.id)
+                const busy = busyVeh.get(v.id)
                 return (
-                  <button key={v.id} type="button"
+                  <button key={v.id} type="button" title={busy ? busyVehTitle(busy) : undefined}
                     onClick={() => setVehicleIds(prev => sel ? prev.filter(i => i !== v.id) : [...prev, v.id])}
-                    className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}>
+                    className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                      sel ? (busy ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-600 bg-slate-700 text-white')
+                          : busy ? 'border-amber-200 bg-amber-50 text-slate-500 hover:border-amber-300'
+                                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}>
                     {sel && <span className="text-[10px]">✓</span>}
                     <span className="font-medium">🚗 {v.licensePlate}</span>
-                    <span className={`text-xs ${sel ? 'text-white/70' : 'text-slate-400'}`}>{[v.name, v.vehicleType].filter(Boolean).join(' · ')}</span>
+                    <span className={`truncate text-xs ${sel ? 'text-white/70' : 'text-slate-400'}`}>{[v.name, v.vehicleType].filter(Boolean).join(' · ')}</span>
+                    {busy && (
+                      <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${sel ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-800'}`}>
+                        ⚠ จองแล้ว{busy[0].siteCode ? ` · ${busy[0].siteCode}` : busy[0].driver ? ` · ${busy[0].driver}` : ''}
+                      </span>
+                    )}
                   </button>
                 )
               })}
