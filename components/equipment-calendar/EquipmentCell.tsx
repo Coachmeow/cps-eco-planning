@@ -1,12 +1,16 @@
 'use client'
 
 import type { EquipmentAssignment } from '@/lib/types'
-import { siteColorClass } from '@/lib/siteColors'
+import { teamCellClass } from '@/lib/teamColors'
 
-function cellStyle(assignments: EquipmentAssignment[], isConflict: boolean): string {
+function cellStyle(
+  assignments: EquipmentAssignment[], isConflict: boolean, team: string,
+  tierOf: (team: string, siteId: number | null) => number,
+): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
-  return siteColorClass(assignments[0].site?.color)
+  // hue = ทีมของเครื่อง (type.primaryTeam) ; เฉด = กลุ่มไซต์
+  return teamCellClass(team, tierOf(team, assignments[0].siteId ?? null))
 }
 
 interface Props {
@@ -15,11 +19,13 @@ interface Props {
   dayOfWeek:   number
   isHoliday?:  boolean
   colSpan?:    number
+  team:        string
+  tierOf?:     (team: string, siteId: number | null) => number
   onClick:     () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
-  const base  = cellStyle(assignments, isConflict)
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, team, tierOf = () => 0, onClick }: Props) {
+  const base  = cellStyle(assignments, isConflict, team, tierOf)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0
     ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : '' : ''   // เสาร์ = วันทำงานปกติ

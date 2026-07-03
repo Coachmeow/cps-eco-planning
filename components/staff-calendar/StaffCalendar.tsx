@@ -12,6 +12,7 @@ import ExportButton from '@/components/ExportButton'
 import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
 import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
+import { buildSiteTierMap } from '@/lib/teamColors'
 
 const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'WT', 'CEMS', 'LOG']
 const TEAM_FILTER_COLOR: Record<string, string> = {
@@ -62,6 +63,23 @@ export default function StaffCalendar() {
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const filteredEmployees = teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter)
 
+  // จับคู่ (ทีมของงาน, ไซต์) → เฉด ให้ช่องไซต์เดียวกันสีเดียวกัน (ไปด้วยกัน)
+  const siteTierMap = useMemo(() => {
+    const pairs: { team: string; siteId: number }[] = []
+    for (const [empId, dayMap] of calendarData) {
+      const emp = employees.find(e => e.id === empId)
+      for (const assignments of dayMap.values()) {
+        for (const a of assignments) {
+          if (a.status === 'FIELD' && a.siteId != null) {
+            pairs.push({ team: a.serviceType?.code ?? emp?.primaryTeam.code ?? 'ST', siteId: a.siteId })
+          }
+        }
+      }
+    }
+    return buildSiteTierMap(pairs)
+  }, [calendarData, employees])
+  const tierOf = (team: string, siteId: number | null) => (siteId == null ? 0 : siteTierMap.get(`${team}:${siteId}`) ?? 0)
+
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
@@ -98,6 +116,7 @@ export default function StaffCalendar() {
         <CalendarCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span} employee={emp}
+          tierOf={tierOf}
           onClick={() => setPopup({ employee: emp, dateKey })}
         />
       )

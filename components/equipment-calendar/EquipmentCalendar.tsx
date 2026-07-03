@@ -11,6 +11,7 @@ import EquipmentCell from './EquipmentCell'
 import EquipmentPopup from './EquipmentPopup'
 import ExportButton from '@/components/ExportButton'
 import type { Equipment, EquipmentType, EquipmentAssignment } from '@/lib/types'
+import { buildSiteTierMap } from '@/lib/teamColors'
 
 function getDaysInMonth(year: number, month: number): Date[] {
   const days: Date[] = []
@@ -55,6 +56,21 @@ export default function EquipmentCalendar() {
     return Array.from(map.values())
   }, [equipment, showRental])
 
+  // จับคู่ (ทีมของเครื่อง, ไซต์) → เฉด ให้ช่องไซต์เดียวกันสีเดียวกัน
+  const siteTierMap = useMemo(() => {
+    const eqTeam = new Map<number, string>()
+    for (const eq of equipment) eqTeam.set(eq.id, eq.type.primaryTeam?.code ?? 'ST')
+    const pairs: { team: string; siteId: number }[] = []
+    for (const [eqId, dayMap] of calendarData) {
+      const team = eqTeam.get(eqId) ?? 'ST'
+      for (const assignments of dayMap.values()) {
+        for (const a of assignments) if (a.siteId != null) pairs.push({ team, siteId: a.siteId })
+      }
+    }
+    return buildSiteTierMap(pairs)
+  }, [equipment, calendarData])
+  const tierOf = (team: string, siteId: number | null) => (siteId == null ? 0 : siteTierMap.get(`${team}:${siteId}`) ?? 0)
+
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
@@ -87,6 +103,7 @@ export default function EquipmentCalendar() {
         <EquipmentCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span}
+          team={eq.type.primaryTeam?.code ?? 'ST'} tierOf={tierOf}
           onClick={() => setPopup({ equipment: eq, dateKey })}
         />
       )

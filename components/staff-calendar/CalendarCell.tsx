@@ -1,7 +1,7 @@
 'use client'
 
 import type { StaffAssignment, Employee } from '@/lib/types'
-import { siteColorClass } from '@/lib/siteColors'
+import { teamCellClass } from '@/lib/teamColors'
 
 // Cross-team badge ring color to complement the site color (subtle ring inside cell)
 const TEAM_RING: Record<string, string> = {
@@ -13,14 +13,19 @@ const TEAM_RING: Record<string, string> = {
   LOG:  'border-gray-400  text-gray-600',
 }
 
-function cellStyle(assignments: StaffAssignment[], isConflict: boolean): string {
+function cellStyle(
+  assignments: StaffAssignment[], isConflict: boolean, employee: Employee,
+  tierOf: (team: string, siteId: number | null) => number,
+): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
   const first = assignments[0]
   switch (first.status) {
     case 'FIELD': {
       const fieldAssign = assignments.find(a => a.status === 'FIELD')
-      return siteColorClass(fieldAssign?.site?.color)
+      // hue = ทีมของงาน (serviceType) fallback ทีมสังกัด ; เฉด = กลุ่มไซต์
+      const team = fieldAssign?.serviceType?.code ?? employee.primaryTeam.code
+      return teamCellClass(team, tierOf(team, fieldAssign?.siteId ?? null))
     }
     case 'OFFICE':   return 'bg-slate-50 text-slate-500'
     case 'LEAVE':    return 'bg-slate-100 text-slate-400'
@@ -41,11 +46,12 @@ interface Props {
   isHoliday?:  boolean
   employee:    Employee
   colSpan?:    number   // >1 = งานหลายวัน merge เป็นช่องเดียว
+  tierOf?:     (team: string, siteId: number | null) => number
   onClick:     () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
-  const base  = cellStyle(assignments, isConflict)
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, employee, tierOf = () => 0, onClick }: Props) {
+  const base  = cellStyle(assignments, isConflict, employee, tierOf)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0
     ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : ''   // เสาร์ = วันทำงานปกติ
