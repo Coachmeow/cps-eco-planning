@@ -75,13 +75,13 @@ function Input({ label, value, onChange, type = 'text', placeholder, required }:
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl bg-white shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3">
           <h3 className="font-semibold text-slate-800">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   )
