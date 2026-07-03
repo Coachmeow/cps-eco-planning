@@ -449,11 +449,17 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const canManage = role === 'ADMIN' || role === 'MANAGER'   // เพิ่ม/แก้ไขครบ
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [eqTypes,   setEqTypes]   = useState<EqType[]>([])
+  const [teams,     setTeams]     = useState<Team[]>([])
   const [modal,     setModal]     = useState<'add-owned' | 'add-rental' | 'edit' | null>(null)
   const [editing,   setEditing]   = useState<Equipment | null>(null)
   const [filterType, setFilterType] = useState('')
   const [saving,    setSaving]    = useState(false)
   const [viewing,   setViewing]   = useState<Equipment | null>(null)
+  // จัดการประเภทเครื่องมือ
+  const [typeModal,   setTypeModal]   = useState(false)
+  const [typeForm,    setTypeForm]    = useState({ code: '', name: '', primaryTeamId: '' })
+  const [editingType, setEditingType] = useState<EqType | null>(null)
+  const [typeSaving,  setTypeSaving]  = useState(false)
 
   const initOwned  = { typeId: '', internalNo: '', serialNo: '', status: 'ACTIVE', notes: '', brand: '', model: '', vendor: '', purchaseDate: '', purchasePrice: '', lifespanYears: '' }
   const initRental = { typeId: '', internalNo: '', rentalVendor: '', rentalStartDate: '', rentalEndDate: '', notes: '' }
@@ -463,11 +469,12 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [photoTouched, setPhotoTouched] = useState(false)
 
   const load = useCallback(async () => {
-    const [eRes, tRes] = await Promise.all([
+    const [eRes, tRes, teamRes] = await Promise.all([
       fetch('/api/equipment?all=true').then(r => r.json()),
       fetch('/api/equipment-types').then(r => r.json()),
+      fetch('/api/teams').then(r => r.json()),
     ])
-    setEquipment(eRes); setEqTypes(tRes)
+    setEquipment(eRes); setEqTypes(tRes); setTeams(teamRes)
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -521,15 +528,48 @@ function EquipmentSection({ role }: { role?: UserRole }) {
     }
   }
 
-  async function changeStatus(eq: Equipment, status: string) {
+  // ส่งฟิลด์ครบทุกตัว (กันฟิลด์ที่ไม่ได้ส่งถูก set เป็น null) แล้ว override เฉพาะที่ต้องการ
+  async function putEquipment(eq: Equipment, overrides: Record<string, unknown>) {
     await fetch(`/api/equipment/${eq.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ typeId: eq.typeId, internalNo: eq.internalNo, serialNo: eq.serialNo, isRental: eq.isRental, rentalVendor: eq.rentalVendor, rentalStartDate: eq.rentalStartDate, rentalEndDate: eq.rentalEndDate, status, notes: eq.notes }) })
+      body: JSON.stringify({
+        typeId: eq.typeId, internalNo: eq.internalNo, serialNo: eq.serialNo, isRental: eq.isRental,
+        rentalVendor: eq.rentalVendor, rentalStartDate: eq.rentalStartDate, rentalEndDate: eq.rentalEndDate,
+        status: eq.status, notes: eq.notes, brand: eq.brand, model: eq.model, vendor: eq.vendor,
+        purchaseDate: eq.purchaseDate, purchasePrice: eq.purchasePrice, lifespanYears: eq.lifespanYears,
+        ...overrides,
+      }) })
     load()
   }
+  const changeStatus = (eq: Equipment, status: string) => putEquipment(eq, { status })
+  const changeType   = (eq: Equipment, typeId: string) => putEquipment(eq, { typeId: parseInt(typeId) })
 
   async function del(eq: Equipment) {
     if (!confirm(`ลบ "${eq.internalNo ?? eq.serialNo}" ? ประวัติการใช้งานจะถูกลบด้วย`)) return
     await fetch(`/api/equipment/${eq.id}`, { method: 'DELETE' }); load()
+  }
+
+  // ── จัดการประเภทเครื่องมือ ──
+  const typeCount = (typeId: number) => equipment.filter(e => e.typeId === typeId).length
+  function resetTypeForm() { setEditingType(null); setTypeForm({ code: '', name: '', primaryTeamId: teams[0] ? String(teams[0].id) : '' }) }
+  function editType(t: EqType) { setEditingType(t); setTypeForm({ code: t.code, name: t.name, primaryTeamId: String(t.primaryTeamId) }) }
+  async function saveType() {
+    if (!typeForm.code || !typeForm.name || !typeForm.primaryTeamId) return
+    setTypeSaving(true)
+    const body = { code: typeForm.code, name: typeForm.name, primaryTeamId: parseInt(typeForm.primaryTeamId) }
+    const res = editingType
+      ? await fetch(`/api/equipment-types/${editingType.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      : await fetch('/api/equipment-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    setTypeSaving(false)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'บันทึกไม่สำเร็จ'); return }
+    resetTypeForm(); load()
+  }
+  async function delType(t: EqType) {
+    const cnt = typeCount(t.id)
+    if (cnt > 0) { alert(`ลบไม่ได้ — มีเครื่องมือ ${cnt} รายการในประเภทนี้ ย้ายออกก่อน`); return }
+    if (!confirm(`ลบประเภท "${t.code} — ${t.name}" ?`)) return
+    const res = await fetch(`/api/equipment-types/${t.id}`, { method: 'DELETE' })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
+    load()
   }
 
   const today = toDateKey(new Date())
@@ -553,6 +593,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canManage && (
           <div className="ml-auto flex gap-2">
+            <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}>🏷 จัดการประเภท</Btn>
             <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
           </div>
@@ -576,7 +617,14 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               const isExpired = eq.isRental && eq.rentalEndDate && eq.rentalEndDate.slice(0,10) < today
               return (
                 <tr key={eq.id} className={`border-t border-slate-100 hover:bg-slate-50 ${eq.status === 'RETIRED' || isExpired ? 'opacity-50' : ''}`}>
-                  <td className="px-4 py-2 font-mono text-xs text-slate-500">{eq.type.code}</td>
+                  <td className="px-4 py-2">
+                    {canManage
+                      ? <select value={eq.typeId} onChange={e => changeType(eq, e.target.value)} title="ย้ายประเภท"
+                          className="max-w-[130px] rounded border border-slate-200 px-1.5 py-0.5 font-mono text-xs text-slate-600 focus:outline-none">
+                          {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code}</option>)}
+                        </select>
+                      : <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>}
+                  </td>
                   <td className="px-4 py-2">
                     <button onClick={() => setViewing(eq)} className="font-medium text-slate-700 hover:text-emerald-700 hover:underline">{eq.internalNo ?? '—'}</button>
                   </td>
@@ -700,6 +748,65 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={saveRental}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: จัดการประเภทเครื่องมือ */}
+      {typeModal && (
+        <Modal title="🏷 จัดการประเภทเครื่องมือ" onClose={() => { setTypeModal(false); resetTypeForm() }}>
+          <div className="space-y-4">
+            {/* ฟอร์มเพิ่ม/แก้ */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-500">{editingType ? `แก้ไข: ${editingType.code}` : 'เพิ่มประเภทใหม่'}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input label="โค้ด" value={typeForm.code} onChange={(v) => setTypeForm(p => ({ ...p, code: v }))} placeholder="เช่น TSP" required />
+                <Input label="ชื่อ" value={typeForm.name} onChange={(v) => setTypeForm(p => ({ ...p, name: v }))} placeholder="เช่น เครื่องเก็บตัวอย่างอากาศ" required />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600">ทีมหลัก</label>
+                <CustomSelect value={typeForm.primaryTeamId} onChange={(v) => setTypeForm(p => ({ ...p, primaryTeamId: v }))}
+                  options={teams.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))} />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                {editingType && <Btn variant="ghost" onClick={resetTypeForm}>ยกเลิกแก้</Btn>}
+                <Btn onClick={saveType}>{typeSaving ? 'กำลังบันทึก...' : editingType ? 'บันทึกการแก้ไข' : '+ เพิ่มประเภท'}</Btn>
+              </div>
+            </div>
+
+            {/* รายการประเภท */}
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+                  <th className="px-3 py-2 text-left font-medium">โค้ด</th>
+                  <th className="px-3 py-2 text-left font-medium">ชื่อ</th>
+                  <th className="px-3 py-2 text-left font-medium">ทีม</th>
+                  <th className="px-3 py-2 text-right font-medium">เครื่อง</th>
+                  <th className="px-3 py-2" />
+                </tr></thead>
+                <tbody>
+                  {eqTypes.length === 0 && <tr><td colSpan={5} className="px-3 py-5 text-center text-xs text-slate-300">ยังไม่มีประเภท</td></tr>}
+                  {eqTypes.map(t => {
+                    const cnt = typeCount(t.id)
+                    return (
+                      <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="px-3 py-2 font-mono text-xs font-medium text-slate-700">{t.code}</td>
+                        <td className="px-3 py-2 text-slate-600">{t.name}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{teams.find(x => x.id === t.primaryTeamId)?.code ?? '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-400">{cnt}</td>
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <Btn small onClick={() => editType(t)}>แก้</Btn>
+                            <Btn small variant="danger" onClick={() => delType(t)}>ลบ</Btn>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-slate-400">ลบได้เฉพาะประเภทที่ไม่มีเครื่องมือ (คอลัมน์ "เครื่อง" = 0) — ถ้ามีเครื่องให้ย้ายประเภทออกก่อน (dropdown ประเภทในตารางเครื่องมือ)</p>
           </div>
         </Modal>
       )}
