@@ -5,7 +5,7 @@ import { teamCellClass } from '@/lib/teamColors'
 
 // Cross-team badge ring color to complement the site color (subtle ring inside cell)
 const TEAM_RING: Record<string, string> = {
-  ST:   'border-slate-400 text-slate-600',
+  ST:   'border-rose-400 text-rose-700',
   AMB:  'border-teal-400  text-teal-700',
   WP:   'border-purple-400 text-purple-700',
   CEMS: 'border-orange-400 text-orange-700',
