@@ -6,16 +6,16 @@ export const TEAM_TIERS = 4
 
 // โทนสีต่อทีม (อิงจาก TEAM_FILTER_COLOR/TEAM_RING เดิม)
 export const TEAM_HUE: Record<string, string> = {
-  ST: 'cyan', AMB: 'teal', WP: 'purple', CEMS: 'orange', WT: 'blue', LOG: 'gray',
+  ST: 'blue', AMB: 'teal', WP: 'purple', CEMS: 'orange', WT: 'cyan', LOG: 'gray',
 }
 
 // 4 เฉดต่อทีม — index = tier
 export const TEAM_CELL: Record<string, string[]> = {
   ST: [
-    'bg-cyan-50  border border-cyan-200 text-cyan-800',
-    'bg-cyan-100 border border-cyan-300 text-cyan-800',
-    'bg-cyan-200 border border-cyan-300 text-cyan-900',
-    'bg-cyan-300 border border-cyan-400 text-cyan-900',
+    'bg-blue-50  border border-blue-200 text-blue-800',
+    'bg-blue-100 border border-blue-300 text-blue-800',
+    'bg-blue-200 border border-blue-300 text-blue-900',
+    'bg-blue-300 border border-blue-400 text-blue-900',
   ],
   AMB: [
     'bg-teal-50  border border-teal-200 text-teal-800',
@@ -36,10 +36,10 @@ export const TEAM_CELL: Record<string, string[]> = {
     'bg-orange-300 border border-orange-400 text-orange-900',
   ],
   WT: [
-    'bg-blue-50  border border-blue-200 text-blue-800',
-    'bg-blue-100 border border-blue-300 text-blue-800',
-    'bg-blue-200 border border-blue-300 text-blue-900',
-    'bg-blue-300 border border-blue-400 text-blue-900',
+    'bg-cyan-50  border border-cyan-200 text-cyan-800',
+    'bg-cyan-100 border border-cyan-300 text-cyan-800',
+    'bg-cyan-200 border border-cyan-300 text-cyan-900',
+    'bg-cyan-300 border border-cyan-400 text-cyan-900',
   ],
   LOG: [
     'bg-gray-50  border border-gray-200 text-gray-700',

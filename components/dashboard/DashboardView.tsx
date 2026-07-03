@@ -6,12 +6,12 @@ import type { DashboardData, PersonUtilRow, SiteMandayRow, TeamCapacityRow, Tren
 import { siteDotClass } from '@/lib/siteColors'
 
 const TEAM_COLOR: Record<string, string> = {
-  ST: 'bg-cyan-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
-  CEMS: 'bg-orange-400', WT: 'bg-blue-400', LOG: 'bg-gray-400',
+  ST: 'bg-blue-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
+  CEMS: 'bg-orange-400', WT: 'bg-cyan-400', LOG: 'bg-gray-400',
 }
 const TEAM_COLOR_CHIP: Record<string, string> = {
-  ST: 'bg-cyan-100 text-cyan-700', AMB: 'bg-teal-100 text-teal-700', WP: 'bg-purple-100 text-purple-700',
-  CEMS: 'bg-orange-100 text-orange-700', WT: 'bg-blue-100 text-blue-700', LOG: 'bg-gray-100 text-gray-600',
+  ST: 'bg-blue-100 text-blue-700', AMB: 'bg-teal-100 text-teal-700', WP: 'bg-purple-100 text-purple-700',
+  CEMS: 'bg-orange-100 text-orange-700', WT: 'bg-cyan-100 text-cyan-700', LOG: 'bg-gray-100 text-gray-600',
 }
 function utilBarColor(pct: number) { return pct >= 80 ? 'bg-red-400' : pct >= 50 ? 'bg-amber-400' : 'bg-emerald-400' }
 function utilTextColor(pct: number) { return pct >= 80 ? 'text-red-500' : pct >= 50 ? 'text-amber-500' : 'text-emerald-600' }
