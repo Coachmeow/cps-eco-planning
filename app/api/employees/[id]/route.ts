@@ -19,11 +19,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.startDate     !== undefined) data.startDate     = body.startDate ? new Date(body.startDate) : null
     if (body.eduField      !== undefined) data.eduField      = body.eduField || null
     if (body.eduInstitute  !== undefined) data.eduInstitute  = body.eduInstitute || null
+    if (body.subTeamId     !== undefined) data.subTeamId     = body.subTeamId != null && body.subTeamId !== '' ? parseInt(String(body.subTeamId)) : null
+    if (body.subTeamOrder  !== undefined) data.subTeamOrder  = body.subTeamOrder != null && body.subTeamOrder !== '' ? parseInt(String(body.subTeamOrder)) : 999
+    if (body.isSubLeader   !== undefined) data.isSubLeader   = !!body.isSubLeader
 
     const employee = await prisma.employee.update({
       where: { id: parseInt(id) },
       data,
-      include: { primaryTeam: true, siteAccess: true },
+      include: { primaryTeam: true, siteAccess: true, subTeam: true },
     })
     return NextResponse.json(employee)
   } catch (err) {

@@ -16,8 +16,22 @@ model ServiceTeam {
   equipmentTypes   EquipmentType[]
   employees        Employee[]
   staffAssignments StaffAssignment[]
+  subTeams         SubTeam[]
 
   @@map("service_teams")
+}
+
+// ทีมย่อยในทีมใหญ่ (เช่น ST แบ่งเป็น ST-1..ST-4) — ใช้จัดกลุ่ม/เรียงลำดับ/แสดงผล
+model SubTeam {
+  id        Int         @id @default(autoincrement())
+  teamId    Int
+  team      ServiceTeam @relation(fields: [teamId], references: [id])
+  name      String
+  sortOrder Int         @default(1)
+  members   Employee[]  @relation("SubTeamMembers")
+
+  @@index([teamId, sortOrder])
+  @@map("sub_teams")
 }
 
 model EquipmentType {
@@ -81,6 +95,11 @@ model Employee {
   startDate     DateTime?   @db.Date
   eduField      String?     // สาขา/คณะ
   eduInstitute  String?     // สถาบัน
+  // ทีมย่อย (optional) — หัวหน้าอยู่บนสุด, เรียงตาม subTeam.sortOrder แล้ว subTeamOrder
+  subTeamId     Int?
+  subTeam       SubTeam?    @relation("SubTeamMembers", fields: [subTeamId], references: [id])
+  subTeamOrder  Int         @default(999)
+  isSubLeader   Boolean     @default(false)
 
   siteAccess  EmployeeSiteAccess[]
   assignments StaffAssignment[]

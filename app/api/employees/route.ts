@@ -6,12 +6,18 @@ export async function GET(req: NextRequest) {
   const all = req.nextUrl.searchParams.get('all') === 'true' // admin: รวมคนที่ปิดการใช้งานด้วย
   const employees = await prisma.employee.findMany({
     where:   all ? {} : { isActive: true },
-    include: { primaryTeam: true, siteAccess: true },
-    orderBy: [
-      { primaryTeam: { sortOrder: 'asc' } },  // ลำดับทีม ST→AMB→WP→WT→CEMS→LOG (ทีมใหม่ต่อท้าย)
-      { primaryTeam: { id: 'asc' } },          // ทีมที่ sortOrder เท่ากัน เรียงตามลำดับการเพิ่ม
-      { fullName: 'asc' },
-    ],
+    include: { primaryTeam: true, siteAccess: true, subTeam: true },
+  })
+  // เรียง: ทีม → ทีมย่อย (ไม่มีทีมย่อย=ท้าย) → หัวหน้าอยู่บน → ลำดับในทีมย่อย → ชื่อ
+  employees.sort((a, b) => {
+    if (a.primaryTeam.sortOrder !== b.primaryTeam.sortOrder) return a.primaryTeam.sortOrder - b.primaryTeam.sortOrder
+    if (a.primaryTeamId !== b.primaryTeamId) return a.primaryTeamId - b.primaryTeamId
+    const sa = a.subTeam?.sortOrder ?? 9999, sb = b.subTeam?.sortOrder ?? 9999
+    if (sa !== sb) return sa - sb
+    const ha = a.isSubLeader ? 0 : 1, hb = b.isSubLeader ? 0 : 1
+    if (ha !== hb) return ha - hb
+    if (a.subTeamOrder !== b.subTeamOrder) return a.subTeamOrder - b.subTeamOrder
+    return a.fullName.localeCompare(b.fullName, 'th')
   })
   // strip base64 photoUrl ออกจาก payload (รูปโหลดผ่าน /photo) แต่ส่ง hasPhoto บอกว่ามีรูปไหม
   const out = employees.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))
@@ -34,8 +40,11 @@ export async function POST(req: NextRequest) {
         startDate:     body.startDate     ? new Date(body.startDate) : null,
         eduField:      body.eduField     || null,
         eduInstitute:  body.eduInstitute || null,
+        subTeamId:     body.subTeamId != null && body.subTeamId !== '' ? parseInt(String(body.subTeamId)) : null,
+        subTeamOrder:  body.subTeamOrder != null && body.subTeamOrder !== '' ? parseInt(String(body.subTeamOrder)) : 999,
+        isSubLeader:   !!body.isSubLeader,
       },
-      include: { primaryTeam: true, siteAccess: true },
+      include: { primaryTeam: true, siteAccess: true, subTeam: true },
     })
     return NextResponse.json(employee, { status: 201 })
   } catch (err) {

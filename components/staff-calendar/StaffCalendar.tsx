@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, Fragment, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -12,7 +12,6 @@ import ExportButton from '@/components/ExportButton'
 import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
 import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
-import { buildSiteTierMap } from '@/lib/teamColors'
 
 const TEAM_CODES: TeamCode[] = ['ST', 'AMB', 'WP', 'WT', 'CEMS', 'LOG']
 const TEAM_FILTER_COLOR: Record<string, string> = {
@@ -63,23 +62,6 @@ export default function StaffCalendar() {
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const filteredEmployees = teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter)
 
-  // จับคู่ (ทีมของงาน, ไซต์) → เฉด ให้ช่องไซต์เดียวกันสีเดียวกัน (ไปด้วยกัน)
-  const siteTierMap = useMemo(() => {
-    const pairs: { team: string; siteId: number }[] = []
-    for (const [empId, dayMap] of calendarData) {
-      const emp = employees.find(e => e.id === empId)
-      for (const assignments of dayMap.values()) {
-        for (const a of assignments) {
-          if (a.status === 'FIELD' && a.siteId != null) {
-            pairs.push({ team: a.serviceType?.code ?? emp?.primaryTeam.code ?? 'ST', siteId: a.siteId })
-          }
-        }
-      }
-    }
-    return buildSiteTierMap(pairs)
-  }, [calendarData, employees])
-  const tierOf = (team: string, siteId: number | null) => (siteId == null ? 0 : siteTierMap.get(`${team}:${siteId}`) ?? 0)
-
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
@@ -116,7 +98,6 @@ export default function StaffCalendar() {
         <CalendarCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span} employee={emp}
-          tierOf={tierOf}
           onClick={() => setPopup({ employee: emp, dateKey })}
         />
       )
@@ -188,26 +169,44 @@ export default function StaffCalendar() {
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map((emp) => {
+              {filteredEmployees.map((emp, i) => {
                 const { fieldDays, crossTeamDays } = rowSummary(emp.id, calendarData)
+                // เส้นแบ่งทีมย่อย: แทรกเมื่อกลุ่ม (ทีม:ทีมย่อย) เปลี่ยนและคนนี้มีทีมย่อย
+                const prev = filteredEmployees[i - 1]
+                const groupKey = (e: Employee) => `${e.primaryTeamId}:${e.subTeamId ?? 'none'}`
+                const showDivider = !!emp.subTeam && (!prev || groupKey(prev) !== groupKey(emp))
                 return (
-                  <tr key={emp.id} className="hover:bg-slate-50/50">
-                    <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
-                      <button onClick={() => setViewing(emp)} className="flex items-center gap-2 text-left hover:opacity-80">
-                        <Avatar employeeId={emp.id} name={emp.nickname ?? emp.fullName} hasPhoto={emp.hasPhoto} size="sm" />
-                        <div>
-                          <div className="font-medium text-slate-700">{emp.nickname ?? emp.fullName.split(' ')[0]}</div>
-                          <div className="text-[10px] text-slate-400 truncate max-w-[88px]">{emp.fullName}</div>
-                        </div>
-                      </button>
-                    </td>
-                    <td className="sticky left-[120px] z-10 border-b border-r border-slate-200 bg-white px-2 text-center">
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
-                    </td>
-                    {renderRowCells(emp)}
-                    <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
-                    <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
-                  </tr>
+                  <Fragment key={emp.id}>
+                    {showDivider && (
+                      <tr>
+                        <td colSpan={days.length + 4} className="border-b border-t border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                          <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
+                          {emp.subTeam!.name}
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
+                        <button onClick={() => setViewing(emp)} className="flex items-center gap-2 text-left hover:opacity-80">
+                          <Avatar employeeId={emp.id} name={emp.nickname ?? emp.fullName} hasPhoto={emp.hasPhoto} size="sm" />
+                          <div>
+                            <div className="font-medium text-slate-700">
+                              {emp.nickname ?? emp.fullName.split(' ')[0]}
+                              {emp.isSubLeader && <span className="ml-1 text-[10px] text-amber-500" title="หัวหน้าทีมย่อย">★</span>}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate max-w-[88px]">{emp.fullName}</div>
+                          </div>
+                        </button>
+                      </td>
+                      <td className="sticky left-[120px] z-10 border-b border-r border-slate-200 bg-white px-2 text-center">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
+                        {emp.subTeam && <div className="mt-0.5 text-[9px] text-slate-400">{emp.subTeam.name}</div>}
+                      </td>
+                      {renderRowCells(emp)}
+                      <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
+                      <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
+                    </tr>
+                  </Fragment>
                 )
               })}
             </tbody>

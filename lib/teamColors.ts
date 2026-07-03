@@ -54,23 +54,3 @@ export function teamCellClass(teamCode: string | null | undefined, tier = 0): st
   const tiers = TEAM_CELL[teamCode ?? ''] ?? TEAM_CELL.ST
   return tiers[tier % TEAM_TIERS] ?? tiers[0]
 }
-
-/**
- * จับคู่ (ทีม, ไซต์) → tier ให้เฉดคงที่และลดการชนกันในทีมเดียวกัน
- * pack เฉดต่อทีม: เรียง siteId แล้ว tier = ลำดับ % TEAM_TIERS
- * key = `${team}:${siteId}`
- */
-export function buildSiteTierMap(pairs: { team: string; siteId: number }[]): Map<string, number> {
-  // team → เซตของ siteId
-  const byTeam = new Map<string, Set<number>>()
-  for (const { team, siteId } of pairs) {
-    if (!byTeam.has(team)) byTeam.set(team, new Set())
-    byTeam.get(team)!.add(siteId)
-  }
-  const out = new Map<string, number>()
-  for (const [team, siteSet] of byTeam) {
-    const sorted = Array.from(siteSet).sort((a, b) => a - b)
-    sorted.forEach((siteId, i) => out.set(`${team}:${siteId}`, i % TEAM_TIERS))
-  }
-  return out
-}

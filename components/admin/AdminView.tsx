@@ -29,9 +29,11 @@ async function resizeImage(file: File, max = 256, quality = 0.8): Promise<string
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
 interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
+interface SubTeamRow { id: number; teamId: number; name: string; sortOrder: number; team?: { code: string }; _count?: { members: number } }
 interface Employee {
   id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
   phone?: string | null; hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
+  subTeamId?: number | null; subTeam?: { id: number; name: string } | null; subTeamOrder?: number; isSubLeader?: boolean
 }
 interface Site     { id: number; code: string; name: string; clientName: string | null; province: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
@@ -279,26 +281,33 @@ function SitesSection() {
 function EmployeesSection() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [teams,     setTeams]     = useState<Team[]>([])
+  const [subTeams,  setSubTeams]  = useState<SubTeamRow[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing]     = useState<Employee | null>(null)
-  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false })
   const [photo, setPhoto]         = useState<string | null>(null)   // data URL ใหม่ (ถ้าอัปโหลด)
   const [photoTouched, setPhotoTouched] = useState(false)
   const [saving, setSaving]       = useState(false)
   const [search, setSearch]       = useState('')
   const [viewing, setViewing]     = useState<Employee | null>(null) // การ์ดประวัติ
+  // จัดการทีมย่อย
+  const [subModal,   setSubModal]   = useState(false)
+  const [subForm,    setSubForm]    = useState({ teamId: '', name: '', sortOrder: '' })
+  const [editingSub, setEditingSub] = useState<SubTeamRow | null>(null)
+  const [subSaving,  setSubSaving]  = useState(false)
 
   const load = useCallback(async () => {
-    const [eRes, tRes] = await Promise.all([
+    const [eRes, tRes, sRes] = await Promise.all([
       fetch('/api/employees?all=true').then(r => r.json()),
       fetch('/api/teams').then(r => r.json()),
+      fetch('/api/sub-teams').then(r => r.json()),
     ])
-    setEmployees(eRes); setTeams(tRes)
+    setEmployees(eRes); setTeams(tRes); setSubTeams(sRes)
   }, [])
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '' })
+    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false })
     setPhoto(null); setPhotoTouched(false)
     setEditing(null); setModal('add')
   }
@@ -307,6 +316,9 @@ function EmployeesSection() {
       fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId), phone: e.phone ?? '',
       birthDate: e.birthDate?.slice(0, 10) ?? '', startDate: e.startDate?.slice(0, 10) ?? '',
       eduField: e.eduField ?? '', eduInstitute: e.eduInstitute ?? '',
+      subTeamId: e.subTeamId != null ? String(e.subTeamId) : '',
+      subTeamOrder: e.subTeamOrder != null && e.subTeamOrder !== 999 ? String(e.subTeamOrder) : '',
+      isSubLeader: !!e.isSubLeader,
     })
     setPhoto(null); setPhotoTouched(false)
     setEditing(e); setModal('edit')
@@ -345,6 +357,29 @@ function EmployeesSection() {
     await fetch(`/api/employees/${e.id}`, { method: 'DELETE' }); load()
   }
 
+  // ── จัดการทีมย่อย ──
+  const subCount = (subId: number) => employees.filter(e => e.subTeamId === subId).length
+  function resetSubForm() { setEditingSub(null); setSubForm({ teamId: teams[0] ? String(teams[0].id) : '', name: '', sortOrder: '' }) }
+  function editSub(s: SubTeamRow) { setEditingSub(s); setSubForm({ teamId: String(s.teamId), name: s.name, sortOrder: String(s.sortOrder) }) }
+  async function saveSub() {
+    if (!subForm.teamId || !subForm.name) return
+    setSubSaving(true)
+    const body = { teamId: parseInt(subForm.teamId), name: subForm.name, sortOrder: subForm.sortOrder ? parseInt(subForm.sortOrder) : 1 }
+    const res = editingSub
+      ? await fetch(`/api/sub-teams/${editingSub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      : await fetch('/api/sub-teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    setSubSaving(false)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'บันทึกไม่สำเร็จ'); return }
+    resetSubForm(); load()
+  }
+  async function delSub(s: SubTeamRow) {
+    const cnt = subCount(s.id)
+    if (!confirm(`ลบทีมย่อย "${s.name}" ?${cnt > 0 ? `\nสมาชิก ${cnt} คนจะกลับเป็นไม่มีทีมย่อย` : ''}`)) return
+    const res = await fetch(`/api/sub-teams/${s.id}`, { method: 'DELETE' })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
+    load()
+  }
+
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
   const filtered = employees.filter(e => !search || e.fullName.includes(search) || (e.nickname ?? '').includes(search))
 
@@ -353,6 +388,7 @@ function EmployeesSection() {
       <div className="mb-3 flex items-center gap-3">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
         <p className="text-sm text-slate-400">{filtered.length} คน</p>
+        <Btn variant="ghost" onClick={() => { resetSubForm(); setSubModal(true) }}>👥 จัดการทีมย่อย</Btn>
         <Btn onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -372,6 +408,11 @@ function EmployeesSection() {
                 <td className="px-4 py-2 text-slate-500">{e.nickname ?? '—'}</td>
                 <td className="px-4 py-2">
                   <span className={`rounded px-2 py-0.5 text-xs font-semibold ${TEAM_COLOR[e.primaryTeam.code] ?? 'bg-slate-100 text-slate-600'}`}>{e.primaryTeam.code}</span>
+                  {e.subTeam && (
+                    <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                      {e.subTeam.name}{e.isSubLeader && <span className="ml-0.5 text-amber-500">★</span>}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <button onClick={() => toggleActive(e)} className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${e.isActive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
@@ -421,10 +462,34 @@ function EmployeesSection() {
               <label className="text-xs font-medium text-slate-600">ทีม<span className="ml-0.5 text-red-500">*</span></label>
               <CustomSelect
                 value={form.primaryTeamId}
-                onChange={f('primaryTeamId')}
+                onChange={(v) => setForm(p => ({ ...p, primaryTeamId: v, subTeamId: '', isSubLeader: false }))}
                 options={teams.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))}
               />
             </div>
+            {/* ทีมย่อย (เฉพาะทีมที่มีทีมย่อย) */}
+            {(() => {
+              const subs = subTeams.filter(s => String(s.teamId) === form.primaryTeamId)
+              if (subs.length === 0) return null
+              return (
+                <div className="grid grid-cols-3 items-end gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-slate-600">ทีมย่อย</label>
+                    <CustomSelect
+                      value={form.subTeamId}
+                      onChange={f('subTeamId')}
+                      placeholder="— ไม่มี —"
+                      options={[{ value: '', label: '— ไม่มี —' }, ...subs.map(s => ({ value: String(s.id), label: s.name }))]}
+                    />
+                  </div>
+                  <Input label="ลำดับในทีมย่อย" value={form.subTeamOrder} onChange={f('subTeamOrder')} type="number" placeholder="1" />
+                  <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
+                    <input type="checkbox" checked={form.isSubLeader} disabled={!form.subTeamId}
+                      onChange={ev => setForm(p => ({ ...p, isSubLeader: ev.target.checked }))} className="h-4 w-4" />
+                    หัวหน้าทีมย่อย ★
+                  </label>
+                </div>
+              )
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <Input label="วันเกิด" value={form.birthDate} onChange={f('birthDate')} type="date" />
               <Input label="วันเริ่มงาน" value={form.startDate} onChange={f('startDate')} type="date" />
@@ -435,6 +500,66 @@ function EmployeesSection() {
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: จัดการทีมย่อย */}
+      {subModal && (
+        <Modal title="👥 จัดการทีมย่อย" onClose={() => { setSubModal(false); resetSubForm() }}>
+          <div className="space-y-4">
+            {/* ฟอร์มเพิ่ม/แก้ */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-500">{editingSub ? `แก้ไข: ${editingSub.name}` : 'เพิ่มทีมย่อยใหม่'}</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-600">ทีมใหญ่</label>
+                  <CustomSelect value={subForm.teamId} onChange={(v) => setSubForm(p => ({ ...p, teamId: v }))}
+                    options={teams.map(t => ({ value: String(t.id), label: t.code }))} />
+                </div>
+                <Input label="ชื่อทีมย่อย" value={subForm.name} onChange={(v) => setSubForm(p => ({ ...p, name: v }))} placeholder="เช่น ทีม 1" required />
+                <Input label="ลำดับ" value={subForm.sortOrder} onChange={(v) => setSubForm(p => ({ ...p, sortOrder: v }))} type="number" placeholder="1" />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                {editingSub && <Btn variant="ghost" onClick={resetSubForm}>ยกเลิกแก้</Btn>}
+                <Btn onClick={saveSub}>{subSaving ? 'กำลังบันทึก...' : editingSub ? 'บันทึกการแก้ไข' : '+ เพิ่มทีมย่อย'}</Btn>
+              </div>
+            </div>
+
+            {/* รายการทีมย่อย */}
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+                  <th className="px-3 py-2 text-left font-medium">ทีม</th>
+                  <th className="px-3 py-2 text-left font-medium">ทีมย่อย</th>
+                  <th className="px-3 py-2 text-right font-medium">ลำดับ</th>
+                  <th className="px-3 py-2 text-right font-medium">สมาชิก</th>
+                  <th className="px-3 py-2" />
+                </tr></thead>
+                <tbody>
+                  {subTeams.length === 0 && <tr><td colSpan={5} className="px-3 py-5 text-center text-xs text-slate-300">ยังไม่มีทีมย่อย</td></tr>}
+                  {subTeams.map(s => (
+                    <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-3 py-2">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[teams.find(t => t.id === s.teamId)?.code ?? ''] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {teams.find(t => t.id === s.teamId)?.code ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-medium text-slate-700">{s.name}</td>
+                      <td className="px-3 py-2 text-right text-slate-400">{s.sortOrder}</td>
+                      <td className="px-3 py-2 text-right text-slate-500">{subCount(s.id)}</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <Btn small onClick={() => editSub(s)}>แก้</Btn>
+                          <Btn small variant="danger" onClick={() => delSub(s)}>ลบ</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-slate-400">ลบทีมย่อยได้เสมอ — สมาชิกจะกลับเป็น "ไม่มีทีมย่อย" อัตโนมัติ · จัดคนเข้าทีมย่อย/ตั้งหัวหน้า ทำในปุ่ม "แก้ไข" ของพนักงานแต่ละคน</p>
           </div>
         </Modal>
       )}

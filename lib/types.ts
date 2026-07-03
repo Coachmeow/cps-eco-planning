@@ -6,6 +6,13 @@ export interface ServiceTeam {
   name: string
 }
 
+export interface SubTeam {
+  id: number
+  teamId: number
+  name: string
+  sortOrder: number
+}
+
 export interface Employee {
   id: number
   fullName: string
@@ -20,6 +27,10 @@ export interface Employee {
   startDate?: string | null
   eduField?: string | null
   eduInstitute?: string | null
+  subTeamId?: number | null
+  subTeam?: SubTeam | null
+  subTeamOrder?: number
+  isSubLeader?: boolean
 }
 
 export interface EmployeeSiteAccess {
