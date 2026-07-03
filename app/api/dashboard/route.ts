@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   const demandRaw = await prisma.staffAssignment.groupBy({
     by:    ['serviceTypeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null },
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
     _sum:  { estimatedDays: true },
   })
 
@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       status:        'FIELD',
       parentId:      null,
       serviceTypeId: { not: null },
+      siteId:        { not: null },
     },
     select: {
       serviceTypeId: true,
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
   // ── Cross-team Contributors ────────────────────────────────
   const crossRaw = await prisma.staffAssignment.groupBy({
     by:    ['employeeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', isCrossTeam: true, parentId: null },
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', isCrossTeam: true, parentId: null, siteId: { not: null } },
     _sum:  { estimatedDays: true },
     orderBy: { _sum: { estimatedDays: 'desc' } },
     take:  10,
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
   // ── Per-person Utilization ─────────────────────────────────
   const personGroups = await prisma.staffAssignment.groupBy({
     by:    ['employeeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null },
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
     _sum:  { estimatedDays: true },
   })
 
@@ -146,7 +147,7 @@ export async function GET(req: NextRequest) {
   })
   const bookedRaw = await prisma.staffAssignment.groupBy({
     by:    ['employeeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null },
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
     _sum:  { estimatedDays: true },
   })
   const bookedByEmp = new Map<number, number>(
@@ -186,7 +187,7 @@ export async function GET(req: NextRequest) {
     const e  = new Date(ty, tm, 0)
     const wd = countWorkdays(ty, tm, holidays)
     const md = await prisma.staffAssignment.aggregate({
-      where: { assignedDate: { gte: s, lte: e }, status: 'FIELD', parentId: null },
+      where: { assignedDate: { gte: s, lte: e }, status: 'FIELD', parentId: null, siteId: { not: null } },
       _sum:  { estimatedDays: true },
     })
     const eqAsg = await prisma.equipmentAssignment.count({

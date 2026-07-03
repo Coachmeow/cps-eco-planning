@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
   if (!employeeId || !assignedDate) {
     return NextResponse.json({ error: 'employeeId และ assignedDate จำเป็น' }, { status: 400 })
   }
+  // งานภาคสนามต้องมีไซต์ — กัน record FIELD ไร้ไซต์ (โชว์เป็น "FIELD" + ไปโป่ง utilization)
+  if ((status ?? 'FIELD') === 'FIELD' && !siteId) {
+    return NextResponse.json({ error: 'งานภาคสนามต้องเลือกไซต์งาน' }, { status: 400 })
+  }
 
   const date = new Date(assignedDate)
 

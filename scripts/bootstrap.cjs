@@ -68,6 +68,25 @@ async function main() {
     await prisma.serviceTeam.updateMany({ where: { code }, data: { sortOrder } })
   }
   console.log('✅ อัปเดตลำดับทีมแล้ว')
+
+  // 4) ล้างงานภาคสนาม (FIELD) ที่ไม่มีไซต์ — ข้อมูลค้างที่โชว์เป็น "FIELD" และไปโป่ง utilization
+  //    idempotent: หลังเพิ่ม validation จะไม่มีเกิดใหม่ ; ลบซ้ำทุก deploy ปลอดภัย
+  const fieldless = await prisma.staffAssignment.findMany({
+    where:  { status: 'FIELD', siteId: null },
+    select: { id: true },
+  })
+  if (fieldless.length > 0) {
+    const ids = fieldless.map((a) => a.id)
+    // ตัดสายผูกเครื่อง/รถ กัน FK ก่อนลบ
+    await prisma.equipmentAssignment.updateMany({ where: { staffAssignmentId: { in: ids } }, data: { staffAssignmentId: null } })
+    await prisma.vehicleBooking.updateMany({ where: { staffAssignmentId: { in: ids } }, data: { staffAssignmentId: null } })
+    // ลบตัวลูกก่อน (parentId ไม่ null) แล้วค่อยลบตัวแม่ กัน FK self-relation
+    await prisma.staffAssignment.deleteMany({ where: { status: 'FIELD', siteId: null, parentId: { not: null } } })
+    await prisma.staffAssignment.deleteMany({ where: { status: 'FIELD', siteId: null } })
+    console.log(`🧹 ลบงาน FIELD ไร้ไซต์ ${ids.length} รายการ`)
+  } else {
+    console.log('🧹 ไม่มีงาน FIELD ไร้ไซต์ค้าง')
+  }
 }
 
 main()

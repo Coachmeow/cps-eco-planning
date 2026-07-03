@@ -155,6 +155,7 @@ export default function AssignmentPopup({
   }
 
   async function handleSave() {
+    if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
     setSaving(true)
     const base = {
       assignedDate:  date,
@@ -279,10 +280,11 @@ export default function AssignmentPopup({
               <div>
                 <label className="block text-xs text-slate-500 mb-1">ไซต์งาน</label>
                 <select value={siteId} onChange={(e) => setSiteId(e.target.value)}
-                  className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                  className={`w-full rounded border px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 ${siteId ? 'border-slate-200 focus:ring-slate-300' : 'border-red-300 focus:ring-red-300'}`}>
                   <option value="">— เลือกไซต์ —</option>
                   {sites.map((s) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
                 </select>
+                {!siteId && <p className="mt-1 text-xs text-red-500">ต้องเลือกไซต์สำหรับงานภาคสนาม</p>}
               </div>
 
               {/* Service type */}
@@ -435,8 +437,8 @@ export default function AssignmentPopup({
         {canEdit && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
           <button
-            onClick={() => setConfirmOpen(true)}
-            disabled={saving}
+            onClick={() => { if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return } setConfirmOpen(true) }}
+            disabled={saving || (status === 'FIELD' && !siteId)}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
           >
             ตรวจสอบและบันทึก{totalPeople > 1 ? ` (${totalPeople} คน)` : ''} ›
