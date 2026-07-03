@@ -6,16 +6,16 @@ export const TEAM_TIERS = 4
 
 // โทนสีต่อทีม (อิงจาก TEAM_FILTER_COLOR/TEAM_RING เดิม)
 export const TEAM_HUE: Record<string, string> = {
-  ST: 'slate', AMB: 'teal', WP: 'purple', CEMS: 'orange', WT: 'blue', LOG: 'gray',
+  ST: 'amber', AMB: 'teal', WP: 'purple', CEMS: 'orange', WT: 'blue', LOG: 'gray',
 }
 
 // 4 เฉดต่อทีม — index = tier
 export const TEAM_CELL: Record<string, string[]> = {
   ST: [
-    'bg-slate-50  border border-slate-200 text-slate-800',
-    'bg-slate-100 border border-slate-300 text-slate-800',
-    'bg-slate-200 border border-slate-300 text-slate-900',
-    'bg-slate-300 border border-slate-400 text-slate-900',
+    'bg-amber-50  border border-amber-200 text-amber-800',
+    'bg-amber-100 border border-amber-300 text-amber-800',
+    'bg-amber-200 border border-amber-300 text-amber-900',
+    'bg-amber-300 border border-amber-400 text-amber-900',
   ],
   AMB: [
     'bg-teal-50  border border-teal-200 text-teal-800',
