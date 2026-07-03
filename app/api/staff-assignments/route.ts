@@ -83,9 +83,13 @@ export async function POST(req: NextRequest) {
   // แนบเครื่องมือ → สร้างจองเครื่อง (ไซต์/วันเดียวกัน) ผูกกับงานคนนี้
   if (status === 'FIELD' && siteId && Array.isArray(equipmentIds) && equipmentIds.length > 0) {
     const days = Math.min(Math.floor(Number(estimatedDays)) || 1, 20)
+    // แนบได้เฉพาะเครื่องพร้อมใช้ — ข้ามเครื่องซ่อม/Cal/เสีย/ปลดระวาง
+    const wantIds = equipmentIds.map((v: unknown) => parseInt(String(v))).filter(Boolean)
+    const activeEq = await prisma.equipment.findMany({ where: { id: { in: wantIds }, status: 'ACTIVE' }, select: { id: true } })
+    const activeSet = new Set(activeEq.map(e => e.id))
     for (const rawEqId of equipmentIds) {
       const eqId = parseInt(String(rawEqId))
-      if (!eqId) continue
+      if (!eqId || !activeSet.has(eqId)) continue
       const eqParent = await prisma.equipmentAssignment.create({
         data: { equipmentId: eqId, assignedDate: date, siteId, staffAssignmentId: created.id, estimatedDays: days },
       })

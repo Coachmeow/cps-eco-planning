@@ -59,11 +59,16 @@ export default function EquipmentPopup({
     weekday: 'short', day: 'numeric', month: 'short',
   })
 
-  // Group all other equipment by type; own type first
+  // สถานะเครื่อง → จองได้เฉพาะ ACTIVE
+  const STATUS_TH: Record<string, string> = { CALIBRATING: 'สอบเทียบ (Cal)', BROKEN: 'เสีย', RETIRED: 'ปลดระวาง' }
+  const bookable = equipment.status === 'ACTIVE'
+
+  // Group all other equipment by type; own type first (เฉพาะเครื่องพร้อมใช้ ACTIVE)
   const groups = useMemo(() => {
     const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
     for (const eq of allEquipment) {
       if (eq.id === equipment.id) continue
+      if (eq.status !== 'ACTIVE') continue   // ซ่อม/Cal/เสีย → ไม่ให้เลือกเป็นเครื่องมือร่วม
       if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
       map.get(eq.typeId)!.items.push(eq)
     }
@@ -206,8 +211,16 @@ export default function EquipmentPopup({
             <div className="px-4 py-3 text-xs text-slate-400">👁 โหมดดูอย่างเดียว — ไม่มีสิทธิ์จองเครื่องมือ</div>
           )}
 
-          {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน) ── */}
-          {canEdit && (
+          {/* เครื่องไม่พร้อมใช้ (ซ่อม/Cal/เสีย/ปลดระวาง) → จองออกงานไม่ได้ */}
+          {canEdit && !bookable && (
+            <div className="m-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-700">
+              🔧 เครื่องนี้กำลัง<b>{STATUS_TH[equipment.status] ?? equipment.status}</b> — จองออกงานไม่ได้
+              <p className="mt-1 text-[11px] text-amber-600">รับเครื่องกลับ หรือเปลี่ยนสถานะเป็นพร้อมใช้ก่อน</p>
+            </div>
+          )}
+
+          {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน + เครื่องพร้อมใช้) ── */}
+          {canEdit && bookable && (
           <div className="px-4 py-3 space-y-3 border-b border-slate-100">
             {/* Site dropdown */}
             <div>
@@ -252,7 +265,7 @@ export default function EquipmentPopup({
           )}
 
           {/* ── Companion section ── */}
-          {canEdit && (
+          {canEdit && bookable && (
           <div className="px-4 py-3">
             {/* Section header */}
             <div className="mb-2 flex items-center justify-between">
@@ -346,7 +359,7 @@ export default function EquipmentPopup({
         </div>
 
         {/* ── Save button (fixed at bottom) ── */}
-        {canEdit && (
+        {canEdit && bookable && (
         <div className="shrink-0 border-t border-slate-100 px-4 pb-4 pt-3">
           <button onClick={handleSave} disabled={saving || !siteId}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">

@@ -48,7 +48,7 @@ export default function AssignmentPopup({
   const [saving,        setSaving]        = useState(false)
 
   // เครื่องมือที่แนบไปด้วย
-  interface EqItem { id: number; internalNo: string | null; serialNo: string | null; typeId: number; type: { id: number; code: string; name: string } }
+  interface EqItem { id: number; internalNo: string | null; serialNo: string | null; typeId: number; status: string; type: { id: number; code: string; name: string } }
   const [equipList,   setEquipList]   = useState<EqItem[]>([])
   const [equipIds,    setEquipIds]    = useState<number[]>([])
   const [equipSearch, setEquipSearch] = useState('')
@@ -467,6 +467,7 @@ export default function AssignmentPopup({
                   const q = equipSearch.trim().toLowerCase()
                   const groups = new Map<number, { code: string; name: string; items: EqItem[] }>()
                   for (const eq of equipList) {
+                    if (eq.status !== 'ACTIVE') continue   // ซ่อม/Cal/เสีย/ปลดระวาง → จองไม่ได้
                     if (q && !(`${eq.internalNo ?? ''} ${eq.serialNo ?? ''} ${eq.type.code} ${eq.type.name}`.toLowerCase().includes(q))) continue
                     if (!groups.has(eq.typeId)) groups.set(eq.typeId, { code: eq.type.code, name: eq.type.name, items: [] })
                     groups.get(eq.typeId)!.items.push(eq)
