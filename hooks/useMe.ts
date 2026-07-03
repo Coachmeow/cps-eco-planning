@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import type { UserRole } from '@/lib/roles'
 
 export interface Me {
-  uid:      number
-  role:     UserRole
-  username: string
-  name:     string
+  uid:        number
+  role:       UserRole
+  username:   string
+  name:       string
+  cemsAccess?: boolean   // สิทธิ์โมดูล CEMS (ADMIN = true เสมอ)
 }
 
 // โหลดข้อมูลผู้ใช้ปัจจุบันสำหรับ gate UI (ปุ่ม/แท็บ) ฝั่ง client

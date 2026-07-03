@@ -18,6 +18,16 @@ export async function requireRole(...roles: UserRole[]): Promise<SessionPayload 
   return hasRole(session, ...roles) ? session : null
 }
 
+// สิทธิ์โมดูล CEMS: ADMIN เข้าได้เสมอ / คนอื่นต้องมี cemsAccess (เช็ค DB → มีผลทันทีไม่ต้อง re-login)
+export async function requireCems(): Promise<SessionPayload | null> {
+  const session = await getSession()
+  if (!session) return null
+  if (session.role === 'ADMIN') return session
+  const { prisma } = await import('./prisma')
+  const user = await prisma.user.findUnique({ where: { id: session.uid }, select: { cemsAccess: true, isActive: true } })
+  return user?.isActive && user.cemsAccess ? session : null
+}
+
 // ── Password hashing (scrypt) — format: scrypt$<saltHex>$<hashHex> ──
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16)

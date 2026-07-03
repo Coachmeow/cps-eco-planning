@@ -9,6 +9,8 @@ const PAGE_ACCESS: { prefix: string; roles: UserRole[] }[] = [
   { prefix: '/vehicles',  roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/access',    roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
   { prefix: '/admin',     roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+  // /cems: coarse gate = ล็อกอินทุก role — สิทธิ์ CEMS จริงเช็คใน API (requireCems) + หน้า /cems
+  { prefix: '/cems',      roles: ['ADMIN', 'MANAGER', 'MAINTENANCE', 'GENERAL'] },
 ]
 
 function landingFor(role: UserRole): string {
@@ -23,6 +25,7 @@ export async function middleware(req: NextRequest) {
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/m/') ||         // หน้า logbook QR (ไม่ล็อกอิน)
+    pathname.startsWith('/a/') ||         // หน้า QR เครื่อง CEMS (ไม่ล็อกอิน)
     pathname.startsWith('/api/public') || // public API
     pathname.startsWith('/_next') ||
     pathname.includes('.')           // static files (favicon, images, etc.)

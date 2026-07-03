@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { ROLE_LABEL, type UserRole } from '@/lib/roles'
 
-interface Me { uid: number; role: UserRole; username: string; name: string }
+interface Me { uid: number; role: UserRole; username: string; name: string; cemsAccess?: boolean }
 
 interface NavItem { href: string; label: string; icon: string; roles: UserRole[] }
 interface NavGroup { title: string; items: NavItem[] }
@@ -23,6 +23,13 @@ const NAV: NavGroup[] = [
       { href: '/staff',     label: 'แผนพนักงาน', icon: '👤', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
       { href: '/equipment', label: 'แผนเครื่องมือ', icon: '🔧', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
       { href: '/vehicles',  label: 'แผนใช้รถ',    icon: '🚗', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+    ],
+  },
+  {
+    title: 'บริการ',
+    items: [
+      // เมนู CEMS กรองด้วย cemsAccess เพิ่มเติมใน component (ไม่ใช่แค่ role)
+      { href: '/cems', label: 'CEMS Service', icon: '🖥', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE', 'GENERAL'] },
     ],
   },
   {
@@ -85,12 +92,20 @@ export default function Sidebar() {
     fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {})
   }, [])
 
-  // ไม่แสดง sidebar บนหน้า login / หน้า logbook QR (public)
-  if (path === '/login' || path.startsWith('/m/')) return null
+  // ไม่แสดง sidebar บนหน้า login / หน้า QR public (/m โลจบุ๊ครถ, /a เครื่อง CEMS)
+  if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/')) return null
 
   const role = me?.role
   const groups = NAV
-    .map(g => ({ ...g, items: g.items.filter(it => !role || it.roles.includes(role)) }))
+    .map(g => ({
+      ...g,
+      items: g.items.filter(it => {
+        if (role && !it.roles.includes(role)) return false
+        // เมนู CEMS โชว์เฉพาะ ADMIN หรือคนที่มีสิทธิ์ CEMS
+        if (it.href === '/cems') return !!me && (me.role === 'ADMIN' || !!me.cemsAccess)
+        return true
+      }),
+    }))
     .filter(g => g.items.length > 0)
 
   async function logout() {

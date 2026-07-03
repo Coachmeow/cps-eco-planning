@@ -15,6 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const data: Record<string, unknown> = {}
   if (body.role && ROLES.includes(body.role))   data.role     = body.role
   if (typeof body.isActive === 'boolean')        data.isActive = body.isActive
+  if (typeof body.cemsAccess === 'boolean')      data.cemsAccess = body.cemsAccess
   if (body.username)                             data.username = String(body.username).trim().toLowerCase()
   if (body.resetPassword)                        data.passwordHash = hashPassword(String(body.resetPassword))
 

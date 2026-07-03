@@ -14,6 +14,7 @@ export async function GET() {
     username:     u.username,
     role:         u.role,
     isActive:     u.isActive,
+    cemsAccess:   u.cemsAccess,
     employeeId:   u.employeeId,
     employeeName: u.employee?.nickname ?? u.employee?.fullName ?? null,
     fullName:     u.employee?.fullName ?? null,

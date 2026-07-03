@@ -124,6 +124,7 @@ model User {
   passwordHash String
   role         UserRole  @default(GENERAL)
   isActive     Boolean   @default(true)
+  cemsAccess   Boolean   @default(false)   // สิทธิ์เข้าโมดูล CEMS Service (ADMIN เข้าได้เสมอ)
   employeeId   Int?      @unique
   employee     Employee? @relation(fields: [employeeId], references: [id])
   createdAt    DateTime  @default(now())
@@ -376,4 +377,83 @@ model VehicleBooking {
   @@index([vehicleId, assignedDate])
   @@index([assignedDate])
   @@map("vehicle_bookings")
+}
+
+// ══ CEMS Service Module ═══════════════════════════════════════
+
+enum CemsOwnership {
+  POOL_OWN     // หน่วยงานซื้อเอง (pool)
+  POOL_LEGACY  // ของเก่าจากไซต์ นำมา pool
+  CUSTOMER     // ของลูกค้าประจำไซต์
+}
+
+enum CemsAnalyzerStatus {
+  READY
+  IN_USE
+  REPAIR
+  RETIRED
+}
+
+enum CemsEventType {
+  REPAIR  // ส่งซ่อม
+  RETURN  // รับคืน
+  MOVE    // ย้ายที่
+  PM      // เข้า PM
+  ISSUE   // แจ้งอาการผิดปกติ (จาก QR)
+}
+
+model CemsSite {
+  id       Int     @id @default(autoincrement())
+  code     String  @unique // SKK3, STL5, CFB, ...
+  name     String?
+  isManual Boolean @default(false)
+
+  analyzers     CemsAnalyzer[]      @relation("CurrentSite")
+  homeAnalyzers CemsAnalyzer[]      @relation("HomeSite")
+  events        CemsAnalyzerEvent[] @relation("EvtSite")
+
+  @@map("cems_sites")
+}
+
+model CemsAnalyzer {
+  id              Int                @id @default(autoincrement())
+  tag             String             // ชื่อเรียก/รหัสเครื่อง
+  brand           String?
+  model           String?
+  serialNo        String?
+  parameter       String?            // วัดอะไร เช่น SO2/NOx/CO/O2
+  ownership       CemsOwnership      @default(POOL_OWN)
+  homeSiteId      Int?               // เครื่องลูกค้า = ไซต์เจ้าของ ; pool = null
+  homeSite        CemsSite?          @relation("HomeSite", fields: [homeSiteId], references: [id])
+  currentSiteId   Int?               // อยู่ที่ไหนตอนนี้ ; null = อยู่หน่วยงาน (pool)
+  currentSite     CemsSite?          @relation("CurrentSite", fields: [currentSiteId], references: [id])
+  status          CemsAnalyzerStatus @default(READY)
+  receivedDate    DateTime?          @db.Date // วันรับเข้า → นับอายุใช้งาน
+  statusUpdatedAt DateTime           @default(now())
+  qrToken         String?            @unique
+  photoUrl        String?
+  notes           String?
+
+  events CemsAnalyzerEvent[]
+
+  @@map("cems_analyzers")
+}
+
+model CemsAnalyzerEvent {
+  id         Int           @id @default(autoincrement())
+  analyzerId Int
+  analyzer   CemsAnalyzer  @relation(fields: [analyzerId], references: [id])
+  type       CemsEventType
+  eventDate  DateTime      @db.Date
+  symptom    String?       // อาการ/สาเหตุส่งซ่อม
+  action     String?       // สิ่งที่ทำ/ผลรับคืน
+  siteId     Int?          // MOVE: ไปไซต์ไหน (null = กลับหน่วยงาน) / ISSUE: แจ้งจากไซต์ไหน
+  site       CemsSite?     @relation("EvtSite", fields: [siteId], references: [id])
+  vendor     String?
+  reporter   String?
+  notes      String?
+  createdAt  DateTime      @default(now())
+
+  @@index([analyzerId, eventDate])
+  @@map("cems_analyzer_events")
 }

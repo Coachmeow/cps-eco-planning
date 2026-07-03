@@ -1449,7 +1449,7 @@ function HolidaysSection() {
 
 // ── Section: Users (ADMIN เท่านั้น) ───────────────────────────
 interface UserRow {
-  id: number; username: string; role: UserRole; isActive: boolean
+  id: number; username: string; role: UserRole; isActive: boolean; cemsAccess: boolean
   employeeId: number | null; employeeName: string | null; fullName: string | null; team: string | null
 }
 
@@ -1496,6 +1496,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
               <th className="px-4 py-2 text-left font-medium">ชื่อ</th>
               <th className="px-4 py-2 text-left font-medium">ทีม</th>
               <th className="px-4 py-2 text-left font-medium">สิทธิ์</th>
+              <th className="px-4 py-2 text-left font-medium">CEMS</th>
               <th className="px-4 py-2 text-left font-medium">สถานะ</th>
               <th className="px-4 py-2" />
             </tr>
@@ -1511,6 +1512,14 @@ function UsersSection({ myUid }: { myUid?: number }) {
                 <td className="px-4 py-2 w-44">
                   <CustomSelect value={u.role} onChange={(v) => patch(u, { role: v })}
                     options={ROLE_ORDER.map(r => ({ value: r, label: ROLE_LABEL[r] }))} />
+                </td>
+                <td className="px-4 py-2">
+                  {u.role === 'ADMIN'
+                    ? <span className="text-[10px] text-slate-400">เข้าได้เสมอ</span>
+                    : <button onClick={() => patch(u, { cemsAccess: !u.cemsAccess })}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${u.cemsAccess ? 'bg-sky-100 text-sky-700 hover:bg-sky-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                        {u.cemsAccess ? '✓ CEMS' : '—'}
+                      </button>}
                 </td>
                 <td className="px-4 py-2">
                   <button onClick={() => patch(u, { isActive: !u.isActive })}
