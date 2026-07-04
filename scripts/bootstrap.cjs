@@ -87,6 +87,38 @@ async function main() {
   } else {
     console.log('🧹 ไม่มีงาน FIELD ไร้ไซต์ค้าง')
   }
+
+  // 5) นำเข้าอะไหล่ CEMS จากไฟล์ Excel เดิม (ครั้งเดียว — เมื่อ stock ยังว่าง)
+  //    ยอดตั้งต้น = txn IN 1 รายการ note "ยอดยกมาจาก Excel"
+  const partCount = await prisma.cemsSparePart.count()
+  if (partCount === 0) {
+    let seed = []
+    try { seed = require('./cems-parts-seed.json') } catch { seed = [] }
+    let n = 0
+    for (const p of seed) {
+      const part = await prisma.cemsSparePart.create({
+        data: {
+          code: p.code, name: p.name, brand: p.brand || null, unit: p.unit || null,
+          minStock: p.minStock || 0, location: p.location || null,
+          refCost: p.refCost != null ? p.refCost : null,
+          notes: p.origCode ? `รหัสเดิมในไฟล์: ${p.origCode}` : null,
+        },
+      })
+      if (p.openingStock > 0) {
+        await prisma.cemsPartTxn.create({
+          data: {
+            partId: part.id, type: 'IN', qty: p.openingStock,
+            unitCost: p.refCost != null ? p.refCost : null,
+            txnDate: new Date('2026-07-03'), notes: 'ยอดยกมาจาก Excel',
+          },
+        })
+      }
+      n++
+    }
+    console.log(`📥 นำเข้าอะไหล่ CEMS ${n} รายการ (ครั้งแรก)`)
+  } else {
+    console.log(`📥 อะไหล่ CEMS มีอยู่แล้ว ${partCount} รายการ (ข้ามการนำเข้า)`)
+  }
 }
 
 main()
