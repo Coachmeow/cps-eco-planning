@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useMe } from '@/hooks/useMe'
 import AnalyzerSection from '@/components/cems/AnalyzerSection'
 import CemsSitesSection from '@/components/cems/CemsSitesSection'
+import PartsSection from '@/components/cems/PartsSection'
 
 type CemsTab = 'analyzers' | 'sites' | 'parts' | 'plan' | 'gas'
 
@@ -25,7 +26,7 @@ export default function CemsPage() {
   const tabs: { key: CemsTab; label: string; ready: boolean }[] = [
     { key: 'analyzers', label: '📟 Analyzer',        ready: true },
     { key: 'sites',     label: '🏭 ไซต์ CEMS',       ready: true },
-    { key: 'parts',     label: '🔩 Stock อะไหล่',    ready: false },
+    { key: 'parts',     label: '🔩 Stock อะไหล่',    ready: true },
     { key: 'plan',      label: '📅 แผนเปลี่ยนอะไหล่', ready: false },
     { key: 'gas',       label: '🧪 Standard Gas',    ready: false },
   ]
@@ -49,6 +50,7 @@ export default function CemsPage() {
       <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
         {tab === 'analyzers' && <AnalyzerSection />}
         {tab === 'sites'     && <CemsSitesSection />}
+        {tab === 'parts'     && <PartsSection />}
       </div>
     </div>
   )

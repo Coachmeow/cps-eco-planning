@@ -411,6 +411,7 @@ model CemsSite {
   analyzers     CemsAnalyzer[]      @relation("CurrentSite")
   homeAnalyzers CemsAnalyzer[]      @relation("HomeSite")
   events        CemsAnalyzerEvent[] @relation("EvtSite")
+  partTxns      CemsPartTxn[]       @relation("PartTxnSite")
 
   @@map("cems_sites")
 }
@@ -434,7 +435,8 @@ model CemsAnalyzer {
   photoUrl        String?
   notes           String?
 
-  events CemsAnalyzerEvent[]
+  events   CemsAnalyzerEvent[]
+  partTxns CemsPartTxn[]
 
   @@map("cems_analyzers")
 }
@@ -456,4 +458,51 @@ model CemsAnalyzerEvent {
 
   @@index([analyzerId, eventDate])
   @@map("cems_analyzer_events")
+}
+
+// ── CEMS เฟส 2: Stock อะไหล่ ──────────────────────────────────
+
+enum CemsTxnType {
+  IN     // รับเข้า (มีต้นทุน/หน่วย)
+  OUT    // เบิกออก (ผูกไซต์/เครื่อง/ใบเสนอราคา)
+  ADJUST // ปรับยอด (qty เป็น +/- ได้)
+}
+
+model CemsSparePart {
+  id       Int     @id @default(autoincrement())
+  code     String  @unique // BEK001, DUR003, ...
+  name     String
+  brand    String? // BEKO / Durag / OPSIS / อื่นๆ
+  unit     String? // ชิ้น/ชุด/เมตร/ม้วน
+  minStock Int     @default(0) // Reorder level
+  location String? // ตำแหน่งจัดเก็บ A1-A18, F1-F4
+  refCost  Float?  // ราคาอ้างอิงล่าสุด (อัปเดตอัตโนมัติตอนรับเข้า) → มูลค่า = stock × refCost
+  isActive Boolean @default(true)
+  notes    String?
+
+  txns CemsPartTxn[]
+
+  @@map("cems_spare_parts")
+}
+
+model CemsPartTxn {
+  id         Int           @id @default(autoincrement())
+  partId     Int
+  part       CemsSparePart @relation(fields: [partId], references: [id])
+  type       CemsTxnType
+  qty        Float         // IN/OUT บวกเสมอ ; ADJUST เป็น +/- ได้
+  unitCost   Float?        // IN: ต้นทุนต่อหน่วยของล็อตนี้
+  txnDate    DateTime      @db.Date
+  siteId     Int?          // OUT: เบิกไปไซต์ไหน
+  site       CemsSite?     @relation("PartTxnSite", fields: [siteId], references: [id])
+  manualSite String?       // ไซต์นอกฐานข้อมูล (พิมพ์เอง)
+  analyzerId Int?          // OUT: ใช้กับเครื่องไหน
+  analyzer   CemsAnalyzer? @relation(fields: [analyzerId], references: [id])
+  quoteNo    String?       // เลขใบเสนอราคาที่เสนอลูกค้า
+  person     String?       // ผู้เบิก/ผู้รับเข้า
+  notes      String?
+  createdAt  DateTime      @default(now())
+
+  @@index([partId, txnDate])
+  @@map("cems_part_txns")
 }
