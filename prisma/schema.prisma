@@ -107,6 +107,7 @@ model Employee {
   vehicleBookings VehicleBooking[] @relation("VehicleDriver")
   vehicleLogs     VehicleLog[]     @relation("VehicleLogDriver")
   vehicleTrips    VehicleTrip[]    @relation("VehicleTripDriver")
+  cemsRequests    CemsPartRequest[] @relation("CemsRequester")
 
   @@map("employees")
 }
@@ -412,6 +413,7 @@ model CemsSite {
   homeAnalyzers CemsAnalyzer[]      @relation("HomeSite")
   events        CemsAnalyzerEvent[] @relation("EvtSite")
   partTxns      CemsPartTxn[]       @relation("PartTxnSite")
+  partRequests  CemsPartRequest[]   @relation("ReqSite")
 
   @@map("cems_sites")
 }
@@ -435,8 +437,9 @@ model CemsAnalyzer {
   photoUrl        String?
   notes           String?
 
-  events   CemsAnalyzerEvent[]
-  partTxns CemsPartTxn[]
+  events       CemsAnalyzerEvent[]
+  partTxns     CemsPartTxn[]
+  partRequests CemsPartRequest[]  @relation("ReqAnalyzer")
 
   @@map("cems_analyzers")
 }
@@ -479,10 +482,44 @@ model CemsSparePart {
   refCost  Float?  // ราคาอ้างอิงล่าสุด (อัปเดตอัตโนมัติตอนรับเข้า) → มูลค่า = stock × refCost
   isActive Boolean @default(true)
   notes    String?
+  qrToken  String? @unique // QR แขวนที่ชั้นเก็บ → สแกนเปิดหน้าขอเบิก
 
-  txns CemsPartTxn[]
+  txns     CemsPartTxn[]
+  requests CemsPartRequest[]
 
   @@map("cems_spare_parts")
+}
+
+enum CemsRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// คำขอเบิกจากการสแกน QR (ไม่แตะ stock จนกว่า CEMS Admin อนุมัติ → สร้าง OUT txn)
+model CemsPartRequest {
+  id          Int               @id @default(autoincrement())
+  partId      Int
+  part        CemsSparePart     @relation(fields: [partId], references: [id])
+  qty         Int
+  requesterId Int               // ต้องเป็นพนักงาน
+  requester   Employee          @relation("CemsRequester", fields: [requesterId], references: [id])
+  siteId      Int?
+  site        CemsSite?         @relation("ReqSite", fields: [siteId], references: [id])
+  manualSite  String?
+  analyzerId  Int?
+  analyzer    CemsAnalyzer?     @relation("ReqAnalyzer", fields: [analyzerId], references: [id])
+  quoteNo     String?
+  note        String?
+  status      CemsRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  decidedAt   DateTime?
+  decidedBy   String?
+  rejectReason String?
+  txnId       Int?              // OUT txn ที่สร้างตอนอนุมัติ
+
+  @@index([status, createdAt])
+  @@map("cems_part_requests")
 }
 
 model CemsPartTxn {

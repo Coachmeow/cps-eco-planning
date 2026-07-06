@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from '@/components/cems/ui'
 
 interface PartRow {
@@ -17,6 +18,13 @@ interface TxnRow {
 }
 interface SiteOpt { id: number; code: string }
 interface AnalyzerOpt { id: number; tag: string; currentSiteId: number | null }
+interface ReqRow {
+  id: number; qty: number; quoteNo: string | null; note: string | null; createdAt: string
+  manualSite: string | null
+  part: { code: string; name: string; unit: string | null }
+  requester: { nickname: string | null; fullName: string }
+  site: { code: string } | null; analyzer: { tag: string } | null
+}
 
 const TXN_META: Record<string, { label: string; chip: string }> = {
   IN:     { label: 'รับเข้า', chip: 'bg-emerald-100 text-emerald-700' },
@@ -45,14 +53,21 @@ export default function PartsSection() {
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // คำขอเบิกรออนุมัติ + QR
+  const [requests, setRequests] = useState<ReqRow[]>([])
+  const [reqModal, setReqModal] = useState(false)
+  const [qrPart, setQrPart] = useState<PartRow | null>(null)
+
   const load = useCallback(async () => {
     setLoading(true)
-    const [pRes, sRes, aRes] = await Promise.all([
+    const [pRes, sRes, aRes, rRes] = await Promise.all([
       fetch('/api/cems/parts'), fetch('/api/cems/sites'), fetch('/api/cems/analyzers'),
+      fetch('/api/cems/part-requests?status=PENDING'),
     ])
     if (pRes.ok) setParts(await pRes.json())
     if (sRes.ok) setSites(await sRes.json())
     if (aRes.ok) setAnalyzers(await aRes.json())
+    if (rRes.ok) setRequests(await rRes.json())
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
@@ -124,6 +139,10 @@ export default function PartsSection() {
         </button>
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
         <div className="ml-auto flex gap-2">
+          <button onClick={() => setReqModal(true)}
+            className={`rounded px-3 py-2 text-sm font-medium transition-colors ${requests.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'text-slate-500 hover:bg-slate-100'}`}>
+            🔔 คำขอเบิก{requests.length > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{requests.length}</span>}
+          </button>
           <label className={`cursor-pointer rounded px-4 py-2 text-sm font-medium transition-colors ${importing ? 'bg-slate-100 text-slate-400' : 'text-slate-500 hover:bg-slate-100'}`}>
             {importing ? 'กำลังนำเข้า...' : '📥 นำเข้า Excel'}
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" disabled={importing}
@@ -170,6 +189,7 @@ export default function PartsSection() {
                     <div className="flex justify-end gap-1">
                       <Btn small onClick={() => setTxnModal({ part: p, type: 'IN' })}>+ รับ</Btn>
                       <Btn small variant="ghost" onClick={() => setTxnModal({ part: p, type: 'OUT' })}>− เบิก</Btn>
+                      <Btn small variant="ghost" onClick={() => setQrPart(p)}>QR</Btn>
                       <Btn small variant="ghost" onClick={() => setHistoryPart(p)}>ประวัติ</Btn>
                       <Btn small variant="ghost" onClick={() => { setEditPart(p); setAddOpen(true) }}>แก้</Btn>
                       <Btn small variant="danger" onClick={() => delPart(p)}>ลบ</Btn>
@@ -186,7 +206,111 @@ export default function PartsSection() {
         onClose={() => setTxnModal(null)} onSaved={() => { setTxnModal(null); load() }} />}
       {historyPart && <HistoryModal part={historyPart} onClose={() => setHistoryPart(null)} onChanged={load} />}
       {addOpen && <PartModal part={editPart} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} />}
+      {reqModal && <RequestsModal requests={requests} onClose={() => setReqModal(false)} onChanged={load} />}
+      {qrPart && <QrModal part={qrPart} onClose={() => setQrPart(null)} />}
     </div>
+  )
+}
+
+// ── Modal: คำขอเบิกรออนุมัติ ─────────────────────────────────
+function RequestsModal({ requests, onClose, onChanged }: { requests: ReqRow[]; onClose: () => void; onChanged: () => void }) {
+  const [busy, setBusy] = useState<number | null>(null)
+
+  async function decide(r: ReqRow, action: 'approve' | 'reject') {
+    let rejectReason: string | undefined
+    if (action === 'reject') {
+      const v = prompt(`ปฏิเสธคำขอเบิก ${r.part.code} × ${r.qty} — เหตุผล?`)
+      if (v === null) return
+      rejectReason = v || undefined
+    }
+    setBusy(r.id)
+    const res = await fetch(`/api/cems/part-requests/${r.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, rejectReason }),
+    })
+    setBusy(null)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'ทำรายการไม่สำเร็จ'); return }
+    onChanged()
+  }
+
+  return (
+    <Modal title={`🔔 คำขอเบิกรออนุมัติ (${requests.length})`} onClose={onClose} wide>
+      {requests.length === 0 ? <p className="py-6 text-center text-sm text-slate-300">ไม่มีคำขอค้าง</p> : (
+        <div className="space-y-2">
+          {requests.map(r => (
+            <div key={r.id} className="rounded-lg border border-slate-200 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 text-xs">
+                  <p className="font-semibold text-slate-700">{r.part.code} <span className="font-normal text-slate-400">{r.part.name}</span></p>
+                  <p className="mt-0.5 text-sm font-bold text-amber-600">− {r.qty} {r.part.unit ?? ''}</p>
+                  <p className="mt-0.5 text-slate-500">
+                    👤 {r.requester.nickname ?? r.requester.fullName}
+                    {(r.site?.code || r.manualSite) && <span> · 📍 {r.site?.code ?? r.manualSite}</span>}
+                    {r.analyzer && <span> · {r.analyzer.tag}</span>}
+                    {r.quoteNo && <span className="ml-1 rounded bg-sky-50 px-1 text-sky-600">QT: {r.quoteNo}</span>}
+                  </p>
+                  {r.note && <p className="mt-0.5 text-[11px] text-amber-600">📝 {r.note}</p>}
+                  <p className="mt-0.5 text-[10px] text-slate-400">{fmtDate(r.createdAt)}</p>
+                </div>
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  <Btn small onClick={() => decide(r, 'approve')}>{busy === r.id ? '...' : '✓ อนุมัติ'}</Btn>
+                  <Btn small variant="danger" onClick={() => decide(r, 'reject')}>✕ ปฏิเสธ</Btn>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+// ── Modal: QR อะไหล่ (พิมพ์/ดาวน์โหลด) ───────────────────────
+function QrModal({ part, onClose }: { part: PartRow; onClose: () => void }) {
+  const [qr, setQr] = useState<string | null>(null)
+  useEffect(() => {
+    (async () => {
+      const r = await fetch(`/api/cems/parts/${part.id}/qr`)
+      if (!r.ok) return
+      const { token } = await r.json()
+      const url = `${window.location.origin}/p/${token}`
+      setQr(await QRCode.toDataURL(url, { width: 320, margin: 2 }))
+    })()
+  }, [part.id])
+
+  function download() {
+    if (!qr) return
+    const safe = part.code.replace(/[\\/:*?"<>|\s]+/g, '')
+    const a = document.createElement('a'); a.href = qr; a.download = `QR_${safe}.png`; a.click()
+  }
+  function print() {
+    if (!qr) return
+    const w = window.open('', '_blank', 'width=420,height=620')
+    if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตแล้วลองใหม่'); return }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR ${part.code}</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,'Segoe UI',sans-serif}
+      body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
+      .tag{font-size:12px;letter-spacing:2px;color:#059669;font-weight:700}.code{font-size:26px;font-weight:800;color:#1e293b;margin:6px 0 2px}
+      .name{font-size:13px;color:#64748b;margin-bottom:16px}img{width:300px;height:300px}.foot{font-size:12px;color:#94a3b8;margin-top:14px}</style></head>
+      <body><div class="tag">CPS ECO · CEMS เบิกอะไหล่</div><div class="code">🔩 ${part.code}</div>
+      <div class="name">${part.name}${part.location ? ' · ชั้น ' + part.location : ''}</div>
+      <img src="${qr}" alt="QR" /><div class="foot">สแกนเพื่อขอเบิก (รอ CEMS Admin อนุมัติ)</div>
+      <script>const i=document.querySelector('img');function g(){window.focus();window.print()}if(i.complete)g();else i.onload=g;window.onafterprint=()=>window.close()<\/script>
+      </body></html>`)
+    w.document.close()
+  }
+
+  return (
+    <Modal title={`QR — ${part.code}`} onClose={onClose}>
+      <div className="text-center">
+        <p className="mb-3 text-xs text-slate-400">{part.name} — แขวนที่ชั้นเก็บ สแกนเพื่อขอเบิก (ไม่ต้องล็อกอิน)</p>
+        {qr ? <img src={qr} alt="QR" className="mx-auto h-56 w-56" /> : <p className="py-16 text-sm text-slate-300">กำลังสร้าง QR...</p>}
+        <div className="mt-4 flex gap-2">
+          <Btn variant="ghost" onClick={onClose}>ปิด</Btn>
+          <Btn variant="ghost" onClick={download}>↓ ดาวน์โหลด</Btn>
+          <Btn onClick={print}>ปริ้น</Btn>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

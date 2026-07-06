@@ -13,7 +13,7 @@ export default function IdleLogout() {
   const lastWrite = useRef(0)
 
   useEffect(() => {
-    if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/')) return
+    if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/') || path.startsWith('/p/')) return
 
     const bump = () => {
       const now = Date.now()
