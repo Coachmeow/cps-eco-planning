@@ -1466,13 +1466,23 @@ interface UserRow {
 
 function UsersSection({ myUid }: { myUid?: number }) {
   const [users, setUsers]   = useState<UserRow[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [search, setSearch] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/users')
-    if (r.ok) setUsers(await r.json())
+    const [uRes, eRes] = await Promise.all([fetch('/api/users'), fetch('/api/employees?all=true')])
+    if (uRes.ok) setUsers(await uRes.json())
+    if (eRes.ok) setEmployees(await eRes.json())
   }, [])
   useEffect(() => { load() }, [load])
+
+  async function delUser(u: UserRow) {
+    if (!confirm(`ลบบัญชี "${u.username}" ?`)) return
+    const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
+    load()
+  }
 
   async function patch(u: UserRow, body: Record<string, unknown>) {
     const r = await fetch(`/api/users/${u.id}`, {
@@ -1498,6 +1508,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหา username / ชื่อ..."
           className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
         <p className="text-sm text-slate-400">{filtered.length} บัญชี</p>
+        <Btn onClick={() => setAddOpen(true)}>+ เพิ่มผู้ใช้</Btn>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
@@ -1539,14 +1550,74 @@ function UsersSection({ myUid }: { myUid?: number }) {
                   </button>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <Btn small variant="ghost" onClick={() => resetPw(u)}>รีเซ็ตรหัส</Btn>
+                  <div className="flex justify-end gap-1.5">
+                    <Btn small variant="ghost" onClick={() => resetPw(u)}>รีเซ็ตรหัส</Btn>
+                    {u.id !== myUid && <Btn small variant="danger" onClick={() => delUser(u)}>ลบ</Btn>}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {addOpen && <AddUserModal
+        employees={employees.filter(e => !users.some(u => u.employeeId === e.id))}
+        onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} />}
     </div>
+  )
+}
+
+// ── Modal: เพิ่มผู้ใช้ ────────────────────────────────────────
+function AddUserModal({ employees, onClose, onSaved }: { employees: Employee[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({ username: '', password: '', role: 'GENERAL' as UserRole, cemsAccess: false, employeeId: '' })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
+
+  async function save() {
+    if (!form.username || !form.password) { setErr('กรอก username และรหัสผ่าน'); return }
+    setSaving(true); setErr('')
+    const r = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    setSaving(false)
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'สร้างไม่สำเร็จ'); return }
+    onSaved()
+  }
+
+  return (
+    <Modal title="+ เพิ่มผู้ใช้" onClose={onClose}>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">ผูกกับพนักงาน (ไม่บังคับ)</label>
+          <CustomSelect value={form.employeeId} onChange={(v) => {
+            const emp = employees.find(e => String(e.id) === v)
+            // เดา username จากชื่อเล่นถ้ายังว่าง
+            setForm(p => ({ ...p, employeeId: v, username: p.username || (emp?.nickname ? emp.nickname.toLowerCase() : p.username) }))
+          }}
+            options={[{ value: '', label: '— ไม่ผูกพนักงาน (บัญชีกลาง) —' },
+              ...employees.map(e => ({ value: String(e.id), label: `${e.nickname ? e.nickname + ' · ' : ''}${e.fullName}` }))]} />
+          <p className="text-[11px] text-slate-400">แสดงเฉพาะพนักงานที่ยังไม่มีบัญชี</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Username" value={form.username} onChange={f('username')} placeholder="เช่น somchai" required />
+          <Input label="รหัสผ่าน" value={form.password} onChange={f('password')} placeholder="อย่างน้อย 4 ตัว" required />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">สิทธิ์ (Role)</label>
+          <CustomSelect value={form.role} onChange={(v) => setForm(p => ({ ...p, role: v as UserRole }))}
+            options={ROLE_ORDER.map(r => ({ value: r, label: ROLE_LABEL[r] }))} />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={form.cemsAccess} onChange={e => setForm(p => ({ ...p, cemsAccess: e.target.checked }))} className="h-4 w-4" />
+          สิทธิ์เข้าโมดูล CEMS
+        </label>
+        {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+          <Btn onClick={save}>{saving ? 'กำลังสร้าง...' : 'สร้างบัญชี'}</Btn>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -31,3 +31,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: String(err) }, { status: 400 })
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireRole('ADMIN')
+  if (!admin) return forbidden()
+  const { id } = await params
+  const uid = parseInt(id)
+  if (uid === admin.uid) return NextResponse.json({ error: 'ห้ามลบบัญชีตัวเอง' }, { status: 400 })
+  try {
+    await prisma.user.delete({ where: { id: uid } })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 400 })
+  }
+}
