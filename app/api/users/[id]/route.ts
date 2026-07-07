@@ -28,7 +28,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const u = await prisma.user.update({ where: { id: uid }, data })
     return NextResponse.json({ id: u.id, username: u.username, role: u.role, isActive: u.isActive })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 400 })
+    const s = String(err)
+    return NextResponse.json({ error: s.includes('Unique') ? 'username นี้มีอยู่แล้ว' : s }, { status: 400 })
   }
 }
 

@@ -1499,6 +1499,14 @@ function UsersSection({ myUid }: { myUid?: number }) {
     alert(`รีเซ็ตรหัสผ่าน ${u.username} แล้ว`)
   }
 
+  async function renameUser(u: UserRow) {
+    const name = prompt(`เปลี่ยน username ของ "${u.username}"`, u.username)
+    if (name == null) return
+    const clean = name.trim().toLowerCase()
+    if (!clean || clean === u.username) return
+    await patch(u, { username: clean })
+  }
+
   const filtered = users.filter(u =>
     !search || u.username.includes(search) || (u.employeeName ?? '').includes(search) || (u.fullName ?? '').includes(search))
 
@@ -1527,7 +1535,8 @@ function UsersSection({ myUid }: { myUid?: number }) {
             {filtered.map(u => (
               <tr key={u.id} className={`border-t border-slate-100 hover:bg-slate-50 ${!u.isActive ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-2 font-mono font-medium text-slate-700">
-                  {u.username}{u.id === myUid && <span className="ml-1 text-[10px] text-sky-500">(คุณ)</span>}
+                  <button onClick={() => renameUser(u)} title="คลิกเพื่อแก้ไข username" className="hover:text-emerald-700 hover:underline">{u.username}</button>
+                  {u.id === myUid && <span className="ml-1 text-[10px] text-sky-500">(คุณ)</span>}
                 </td>
                 <td className="px-4 py-2 text-slate-600">{u.employeeName ?? '—'}</td>
                 <td className="px-4 py-2 text-xs text-slate-500">{u.team ?? '—'}</td>
