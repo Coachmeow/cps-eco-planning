@@ -22,6 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.subTeamId     !== undefined) data.subTeamId     = body.subTeamId != null && body.subTeamId !== '' ? parseInt(String(body.subTeamId)) : null
     if (body.subTeamOrder  !== undefined) data.subTeamOrder  = body.subTeamOrder != null && body.subTeamOrder !== '' ? parseInt(String(body.subTeamOrder)) : 999
     if (body.isSubLeader   !== undefined) data.isSubLeader   = !!body.isSubLeader
+    if (body.inPlanner     !== undefined) data.inPlanner     = !!body.inPlanner
 
     const employee = await prisma.employee.update({
       where: { id: parseInt(id) },

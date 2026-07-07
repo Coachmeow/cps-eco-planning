@@ -34,6 +34,7 @@ interface Employee {
   id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
   phone?: string | null; hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
   subTeamId?: number | null; subTeam?: { id: number; name: string } | null; subTeamOrder?: number; isSubLeader?: boolean
+  inPlanner?: boolean
 }
 interface Site     { id: number; code: string; name: string; clientName: string | null; province: string | null; region: string | null; color: string | null; requiresAccess: string[] }
 interface Equipment {
@@ -284,7 +285,7 @@ function EmployeesSection() {
   const [subTeams,  setSubTeams]  = useState<SubTeamRow[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing]     = useState<Employee | null>(null)
-  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false })
+  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
   const [photo, setPhoto]         = useState<string | null>(null)   // data URL ใหม่ (ถ้าอัปโหลด)
   const [photoTouched, setPhotoTouched] = useState(false)
   const [saving, setSaving]       = useState(false)
@@ -307,7 +308,7 @@ function EmployeesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false })
+    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
     setPhoto(null); setPhotoTouched(false)
     setEditing(null); setModal('add')
   }
@@ -319,6 +320,7 @@ function EmployeesSection() {
       subTeamId: e.subTeamId != null ? String(e.subTeamId) : '',
       subTeamOrder: e.subTeamOrder != null && e.subTeamOrder !== 999 ? String(e.subTeamOrder) : '',
       isSubLeader: !!e.isSubLeader,
+      inPlanner: e.inPlanner !== false,
     })
     setPhoto(null); setPhotoTouched(false)
     setEditing(e); setModal('edit')
@@ -403,6 +405,7 @@ function EmployeesSection() {
                   <button onClick={() => setViewing(e)} className="flex items-center gap-2 text-left hover:text-emerald-700">
                     <Avatar employeeId={e.id} name={e.nickname ?? e.fullName} hasPhoto={e.hasPhoto} size="sm" />
                     <span className="font-medium text-slate-700">{e.fullName}</span>
+                    {e.inPlanner === false && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">สำนักงาน</span>}
                   </button>
                 </td>
                 <td className="px-4 py-2 text-slate-500">{e.nickname ?? '—'}</td>
@@ -490,6 +493,14 @@ function EmployeesSection() {
                 </div>
               )
             })()}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={form.inPlanner}
+                  onChange={ev => setForm(p => ({ ...p, inPlanner: ev.target.checked }))} className="h-4 w-4" />
+                ลงแผนปฏิทิน (ภาคสนาม)
+              </label>
+              <p className="mt-1 text-[11px] text-slate-400">ปิดสำหรับ CEMS Admin / Supervisor ที่ไม่ต้องลงแผน — ยังเป็นผู้ใช้ระบบ / ผู้เบิกอะไหล่ได้</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="วันเกิด" value={form.birthDate} onChange={f('birthDate')} type="date" />
               <Input label="วันเริ่มงาน" value={form.startDate} onChange={f('startDate')} type="date" />

@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
   // capacity = จำนวนพนักงาน active ในทีม × วันทำงาน
   // booked   = วัน FIELD ที่คนในทีมถูกจองไปแล้ว (ไม่ว่าจะทำให้ทีมไหน — คนไม่ว่างคือไม่ว่าง)
   const activeEmployees = await prisma.employee.findMany({
-    where:  { isActive: true },
+    where:  { isActive: true, inPlanner: true },
     select: { id: true, primaryTeamId: true },
   })
   const bookedRaw = await prisma.staffAssignment.groupBy({

@@ -5,7 +5,7 @@ import { requireRole, forbidden } from '@/lib/auth'
 export async function GET(req: NextRequest) {
   const all = req.nextUrl.searchParams.get('all') === 'true' // admin: รวมคนที่ปิดการใช้งานด้วย
   const employees = await prisma.employee.findMany({
-    where:   all ? {} : { isActive: true },
+    where:   all ? {} : { isActive: true, inPlanner: true },
     include: { primaryTeam: true, siteAccess: true, subTeam: true },
   })
   // เรียง: ทีม → ทีมย่อย (ไม่มีทีมย่อย=ท้าย) → หัวหน้าอยู่บน → ลำดับในทีมย่อย → ชื่อ
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
         nickname:      body.nickname || null,
         primaryTeamId: parseInt(body.primaryTeamId),
         isActive:      true,
+        inPlanner:     body.inPlanner !== undefined ? !!body.inPlanner : true,
         phone:         body.phone     || null,
         photoUrl:      body.photoUrl     || null,
         birthDate:     body.birthDate     ? new Date(body.birthDate) : null,
