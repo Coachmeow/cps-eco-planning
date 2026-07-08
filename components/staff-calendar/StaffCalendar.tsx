@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, Fragment, type ReactNode } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -169,23 +169,10 @@ export default function StaffCalendar() {
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map((emp, i) => {
+              {filteredEmployees.map((emp) => {
                 const { fieldDays, crossTeamDays } = rowSummary(emp.id, calendarData)
-                // เส้นแบ่งทีมย่อย: แทรกเมื่อกลุ่ม (ทีม:ทีมย่อย) เปลี่ยนและคนนี้มีทีมย่อย
-                const prev = filteredEmployees[i - 1]
-                const groupKey = (e: Employee) => `${e.primaryTeamId}:${e.subTeamId ?? 'none'}`
-                const showDivider = !!emp.subTeam && (!prev || groupKey(prev) !== groupKey(emp))
                 return (
-                  <Fragment key={emp.id}>
-                    {showDivider && (
-                      <tr>
-                        <td colSpan={days.length + 4} className="border-b border-t border-slate-200 bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                          <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
-                          {emp.subTeam!.name}
-                        </td>
-                      </tr>
-                    )}
-                    <tr className="hover:bg-slate-50/50">
+                    <tr key={emp.id} className="hover:bg-slate-50/50">
                       <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
                         <button onClick={() => setViewing(emp)} className="flex items-center gap-2 text-left hover:opacity-80">
                           <Avatar employeeId={emp.id} name={emp.nickname ?? emp.fullName} hasPhoto={emp.hasPhoto} size="sm" />
@@ -206,7 +193,6 @@ export default function StaffCalendar() {
                       <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
                       <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
                     </tr>
-                  </Fragment>
                 )
               })}
             </tbody>
