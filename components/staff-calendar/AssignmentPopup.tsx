@@ -15,6 +15,7 @@ interface Props {
   canEdit?:            boolean
   onSave:              (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:            (id: number) => Promise<void>
+  onMove?:             (p: { assignmentId: number; newStartDate: string; includeIds: number[] }) => Promise<{ moved: number; skipped: string[] }>
   onClose:             () => void
 }
 
@@ -34,7 +35,7 @@ export default function AssignmentPopup({
   employee, date, assignments, sites, teams, allEmployees,
   employeeAssignments = [],
   canEdit = true,
-  onSave, onDelete, onClose,
+  onSave, onDelete, onMove, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -121,15 +122,51 @@ export default function AssignmentPopup({
     return 'จองแล้ว: ' + parts.join(' · ')
   }
 
-  // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป)
+  // เลื่อนงาน (reschedule) — เลือกวันเริ่มใหม่ + ติ๊กเพื่อนร่วมกลุ่มที่จะเลื่อนพร้อมกัน
+  interface MovePeer { id: number; name: string }
+  const [moveFor,     setMoveFor]     = useState<StaffAssignment | null>(null)
+  const [moveDate,    setMoveDate]    = useState('')
+  const [movePeers,   setMovePeers]   = useState<MovePeer[]>([])
+  const [moveInclude, setMoveInclude] = useState<number[]>([])
+  const [moving,      setMoving]      = useState(false)
+
+  function openMove(a: StaffAssignment) {
+    setMoveFor(a)
+    setMoveDate(String(a.assignedDate).slice(0, 10))
+    setMovePeers([])
+    setMoveInclude([])
+    fetch(`/api/staff-assignments/move?assignmentId=${a.id}`)
+      .then(r => r.json())
+      .then((rows: MovePeer[]) => {
+        if (!Array.isArray(rows)) return
+        setMovePeers(rows)
+        setMoveInclude(rows.map(p => p.id))   // default = เลื่อนทั้งกลุ่ม
+      }).catch(() => {})
+  }
+
+  async function handleMove() {
+    if (!moveFor || !onMove || !moveDate) return
+    setMoving(true)
+    try {
+      const res = await onMove({ assignmentId: moveFor.id, newStartDate: moveDate, includeIds: moveInclude })
+      if (res.skipped.length > 0) alert(`ข้ามงานที่ถูกล็อก: ${res.skipped.join(', ')}`)
+      onClose()
+    } catch (err) {
+      alert(`เลื่อนงานไม่สำเร็จ: ${err instanceof Error ? err.message : err}`)
+    } finally {
+      setMoving(false)
+    }
+  }
+
+  // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป/แผงเลื่อนงาน)
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (pickerOpen || confirmOpen || vehPickerOpen) return
+      if (pickerOpen || confirmOpen || vehPickerOpen || moveFor) return
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [onClose, pickerOpen, confirmOpen, vehPickerOpen])
+  }, [onClose, pickerOpen, confirmOpen, vehPickerOpen, moveFor])
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
@@ -152,6 +189,22 @@ export default function AssignmentPopup({
     } else {
       setCompanions(prev => [...new Set([...prev, ...ids])])
     }
+  }
+
+  // กลุ่มทีมย่อยในทีมเดียวกัน → ปุ่มเลือกทั้งทีมย่อย (เรียงตาม sortOrder)
+  const subTeamGroups = (() => {
+    const m = new Map<number, { name: string; sortOrder: number; ids: number[] }>()
+    for (const e of sameTeam) {
+      if (!e.subTeam) continue
+      if (!m.has(e.subTeam.id)) m.set(e.subTeam.id, { name: e.subTeam.name, sortOrder: e.subTeam.sortOrder, ids: [] })
+      m.get(e.subTeam.id)!.ids.push(e.id)
+    }
+    return Array.from(m.values()).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+  })()
+
+  function toggleSubTeam(ids: number[]) {
+    const allSel = ids.every(id => companions.includes(id))
+    setCompanions(prev => allSel ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])
   }
 
   async function handleSave() {
@@ -216,7 +269,12 @@ export default function AssignmentPopup({
                         {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
                       </span>
                       {canEdit && !a.isLocked
-                        ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                        ? <span className="flex items-center gap-2">
+                            {a.parentId == null && a.status === 'FIELD' && onMove && (
+                              <button onClick={() => openMove(a)} className="text-sky-500 hover:text-sky-700">↔ เลื่อน</button>
+                            )}
+                            <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                          </span>
                         : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
                     </div>
                     {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
@@ -227,10 +285,15 @@ export default function AssignmentPopup({
               // งานหลายวัน → แตกรายวัน
               return (
                 <div key={a.id} className="rounded-lg border border-slate-100 p-2">
-                  <div className="mb-1 text-xs font-semibold text-slate-700">
-                    {a.site?.code ?? a.status}
-                    {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
-                    <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                  <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-700">
+                    <span>
+                      {a.site?.code ?? a.status}
+                      {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
+                      <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                    </span>
+                    {canEdit && !a.isLocked && a.status === 'FIELD' && onMove && (
+                      <button onClick={() => openMove(a)} className="font-normal text-sky-500 hover:text-sky-700">↔ เลื่อน</button>
+                    )}
                   </div>
                   {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
                   <div className="space-y-0.5">
@@ -394,6 +457,25 @@ export default function AssignmentPopup({
                 )}
               </div>
             </div>
+
+            {/* ปุ่มเลือกทั้งทีมย่อย (เฉพาะทีมที่มีทีมย่อย) */}
+            {subTeamGroups.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-1">
+                <span className="text-[10px] text-slate-400">ทีมย่อย:</span>
+                {subTeamGroups.map(g => {
+                  const allSel = g.ids.every(id => companions.includes(id))
+                  return (
+                    <button key={g.name} onClick={() => toggleSubTeam(g.ids)}
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        allSel ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}>
+                      {allSel && <span className="mr-0.5">✓</span>}{g.name}
+                      <span className={`ml-0.5 ${allSel ? 'text-white/60' : 'text-slate-400'}`}>({g.ids.length})</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-1.5">
               {displayed.map(emp => {
@@ -620,6 +702,55 @@ export default function AssignmentPopup({
             <div className="flex gap-2 border-t border-slate-100 px-5 py-3">
               <button type="button" onClick={() => setConfirmOpen(false)} disabled={saving} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-50">แก้ไข</button>
               <button type="button" onClick={handleSave} disabled={saving} className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">{saving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── แผงเลื่อนงาน (จำนวนวันเท่าเดิม + เลื่อนทั้งกลุ่มได้) ── */}
+      {moveFor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onMouseDown={() => !moving && setMoveFor(null)}>
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="border-b border-slate-100 px-5 py-3">
+              <p className="text-sm font-semibold text-slate-800">↔ เลื่อนงาน {moveFor.site?.code ?? ''}</p>
+              <p className="text-xs text-slate-400">
+                เดิมเริ่ม {fmtDay(moveFor.assignedDate)} · {Number(moveFor.estimatedDays)} วัน — จำนวนวันคงเดิม
+              </p>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">วันเริ่มใหม่</label>
+                <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
+                  className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300" />
+              </div>
+              {movePeers.length > 0 && (
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">เลื่อนพร้อมกัน (กลุ่มเดียวกัน {movePeers.length} คน)</p>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-slate-100 p-2">
+                    {movePeers.map(p => (
+                      <label key={p.id} className="flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                        <input type="checkbox" checked={moveInclude.includes(p.id)}
+                          onChange={() => setMoveInclude(prev => prev.includes(p.id) ? prev.filter(i => i !== p.id) : [...prev, p.id])} />
+                        {p.name}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-400">ติ๊กออก = คนนั้นไม่ถูกเลื่อน (งานเดิมคงอยู่)</p>
+                </div>
+              )}
+              <p className="rounded bg-sky-50 px-2 py-1.5 text-xs text-sky-700">
+                จะเลื่อน {1 + moveInclude.length} คน · {Number(moveFor.estimatedDays)} วัน → เริ่ม {moveDate ? fmtDay(moveDate) : '—'}
+                <span className="block text-[10px] text-sky-500">เครื่องมือ/รถที่ผูกกับงานถูกเลื่อนตามด้วย</span>
+              </p>
+            </div>
+            <div className="flex gap-2 border-t border-slate-100 px-5 py-3">
+              <button type="button" onClick={() => setMoveFor(null)} disabled={moving}
+                className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-50">ยกเลิก</button>
+              <button type="button" onClick={handleMove}
+                disabled={moving || !moveDate || moveDate === String(moveFor.assignedDate).slice(0, 10)}
+                className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+                {moving ? 'กำลังเลื่อน...' : 'ยืนยันเลื่อน'}
+              </button>
             </div>
           </div>
         </div>

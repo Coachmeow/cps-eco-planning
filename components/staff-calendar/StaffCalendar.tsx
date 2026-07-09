@@ -53,7 +53,7 @@ export default function StaffCalendar() {
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
   const [viewing, setViewing] = useState<Employee | null>(null)
 
-  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment } =
+  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment, moveAssignment } =
     useStaffCalendar(year, month)
   const { role } = useMe()
   const canEdit = canPlan(role)
@@ -208,7 +208,7 @@ export default function StaffCalendar() {
           sites={sites} teams={teams}
           allEmployees={employees}
           canEdit={canEdit}
-          onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
+          onSave={addAssignments} onDelete={removeAssignment} onMove={moveAssignment} onClose={() => setPopup(null)}
         />
       )}
 

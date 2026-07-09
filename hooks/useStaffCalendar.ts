@@ -108,5 +108,18 @@ export function useStaffCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
-  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment }
+  // เลื่อนงาน (แม่+ลูก+เครื่องมือ/รถที่ผูก) ไปวันเริ่มใหม่ — เลื่อนทั้งกลุ่มได้ผ่าน includeIds
+  const moveAssignment = useCallback(async (payload: { assignmentId: number; newStartDate: string; includeIds: number[] }) => {
+    const res = await fetch('/api/staff-assignments/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const data = await res.json()
+    await fetchAll()
+    return data as { moved: number; skipped: string[] }
+  }, [fetchAll])
+
+  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment, moveAssignment }
 }
