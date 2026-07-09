@@ -10,14 +10,21 @@ export default function ExportButton({ href, label }: Props) {
   async function handleClick() {
     setLoading(true)
     try {
-      const res  = await fetch(href)
+      const res = await fetch(href)
+      // กัน API พัง (404/500) → ดาวน์โหลดหน้า error เป็นไฟล์ขยะ
+      if (!res.ok) {
+        alert(`Export ไม่สำเร็จ (${res.status}) — กรุณาลองใหม่หรือแจ้งผู้ดูแลระบบ`)
+        return
+      }
       const blob = await res.blob()
       const url  = URL.createObjectURL(blob)
       const cd   = res.headers.get('Content-Disposition') ?? ''
-      const name = cd.match(/filename="(.+)"/)?.[1] ?? 'export'
+      const name = cd.match(/filename="(.+)"/)?.[1] ?? 'export.xlsx'
       const a    = document.createElement('a')
       a.href = url; a.download = name; a.click()
       URL.revokeObjectURL(url)
+    } catch {
+      alert('Export ไม่สำเร็จ — เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
     } finally { setLoading(false) }
   }
 

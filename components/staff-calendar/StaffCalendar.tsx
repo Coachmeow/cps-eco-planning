@@ -8,7 +8,6 @@ import { canPlan } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
 import CalendarCell from './CalendarCell'
 import AssignmentPopup from './AssignmentPopup'
-import ExportButton from '@/components/ExportButton'
 import Avatar from '@/components/Avatar'
 import EmployeeCard from '@/components/EmployeeCard'
 import type { Employee, TeamCode, StaffAssignment } from '@/lib/types'
@@ -52,6 +51,7 @@ export default function StaffCalendar() {
   const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
   const [viewing, setViewing] = useState<Employee | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment, moveAssignment } =
     useStaffCalendar(year, month)
@@ -66,6 +66,19 @@ export default function StaffCalendar() {
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
   const totalConflicts = conflicts.staffConflicts.size
+
+  // Export PDF สีเหมือนปฏิทิน — โหลด lib/ฟอนต์เฉพาะตอนกด (lazy) ไม่ถ่วง bundle หน้าแรก
+  async function handleExportPdf() {
+    setExporting(true)
+    try {
+      const { exportStaffPdf } = await import('@/lib/pdf/staffPdf')
+      exportStaffPdf({ year, month, employees: filteredEmployees, calendarData, days, holidayMap, conflicts })
+    } catch (e) {
+      alert('สร้าง PDF ไม่สำเร็จ: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ FIELD, estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
   function renderRowCells(emp: Employee): ReactNode[] {
@@ -129,7 +142,10 @@ export default function StaffCalendar() {
               {code}
             </button>
           ))}
-          <ExportButton href={`/api/export/staff?year=${year}&month=${month}`} label="Export Excel" />
+          <button onClick={handleExportPdf} disabled={exporting}
+            className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50 transition-colors">
+            {exporting ? '⏳ กำลังสร้าง...' : '📄 Export PDF'}
+          </button>
         </div>
       </div>
 
