@@ -35,8 +35,6 @@ const STATUS_LABEL: Record<string, string> = {
 const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const thaiDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
-const DAYS_PER_BLOCK = 16   // แบ่งเดือนเป็นบล็อก ~16 วัน/หน้า ให้อ่านออกบน A4 แนวนอน
-
 export interface ExportStaffPdfArgs {
   year: number
   month: number
@@ -117,7 +115,7 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
   const { year, month, employees, calendarData, days, holidayMap, conflicts } = args
   const staffConflicts = conflicts.staffConflicts
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' })
   // ลงทะเบียนฟอนต์ไทย
   doc.addFileToVFS('Sarabun-Regular.ttf', SARABUN_REGULAR_B64)
   doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal')
@@ -126,6 +124,7 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
   doc.setFont('Sarabun', 'normal')
 
   const pageW = doc.internal.pageSize.getWidth()
+  const nDays = days.length
 
   // คำนวณรวมวันสนามต่อคน (ทั้งเดือน)
   const fieldDaysOf = (empId: number): number => {
@@ -138,74 +137,62 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
     return sum
   }
 
-  // แบ่งวันเป็นบล็อก
-  const blocks: [number, number][] = []
-  for (let s = 0; s < days.length; s += DAYS_PER_BLOCK) blocks.push([s, Math.min(s + DAYS_PER_BLOCK, days.length)])
+  // หัวกระดาษ
+  doc.setFont('Sarabun', 'bold'); doc.setFontSize(13); doc.setTextColor(30, 41, 59)
+  doc.text(`แผนงานพนักงาน — ${thaiMonths[month]} ${year + 543}`, 8, 10)
 
-  blocks.forEach(([blockStart, blockEnd], bi) => {
-    if (bi > 0) doc.addPage()
+  // head: พนักงาน / ทีม / วันที่ 1..N / รวมสนาม
+  const dayHead: CellDef[] = []
+  for (let i = 0; i < nDays; i++) {
+    const dow = days[i].getDay()
+    const isHol = holidayMap.has(toDateKey(days[i]))
+    const headText: RGB = (isHol || dow === 0) ? [220, 38, 38] : WHITE
+    dayHead.push({ content: `${days[i].getDate()}\n${isHol ? 'ห' : thaiDays[dow]}`, styles: { textColor: headText } })
+  }
+  const head: RowInput[] = [[
+    { content: 'พนักงาน' }, { content: 'ทีม' },
+    ...dayHead,
+    { content: 'รวม\nสนาม' } as CellDef,
+  ]]
 
-    // หัวกระดาษ
-    doc.setFont('Sarabun', 'bold'); doc.setFontSize(13); doc.setTextColor(30, 41, 59)
-    doc.text(`แผนงานพนักงาน — ${thaiMonths[month]} ${year + 543}`, 8, 10)
-    doc.setFont('Sarabun', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139)
-    doc.text(`วันที่ ${blockStart + 1}–${blockEnd} · หน้า ${bi + 1}/${blocks.length}`, 8, 15)
-
-    // head: พนักงาน / ทีม / วันที่... / (รวม เฉพาะบล็อกสุดท้าย)
-    const dayHead: CellDef[] = []
-    for (let i = blockStart; i < blockEnd; i++) {
-      const dow = days[i].getDay()
-      const isHol = holidayMap.has(toDateKey(days[i]))
-      const headText: RGB = (isHol || dow === 0) ? [220, 38, 38] : WHITE
-      dayHead.push({ content: `${days[i].getDate()}\n${isHol ? 'ห' : thaiDays[dow]}`, styles: { textColor: headText } })
+  // body
+  const body: RowInput[] = employees.map(emp => {
+    const dayMap = calendarData.get(emp.id)
+    const row: CellDef[] = [
+      { content: `${emp.nickname ?? emp.fullName.split(' ')[0]}${emp.isSubLeader ? ' *' : ''}`,
+        styles: { halign: 'left', fontStyle: emp.isSubLeader ? 'bold' : 'normal' } },
+      { content: `${emp.primaryTeam.code}${emp.subTeam ? `\n${emp.subTeam.name}` : ''}`,
+        styles: { fontSize: 5.5 } },
+    ]
+    let i = 0
+    while (i < nDays) {
+      const { cell, span } = buildDayCell(emp, dayMap, days, i, nDays, holidayMap, staffConflicts)
+      row.push(cell)
+      i += span
     }
-    const isLast = bi === blocks.length - 1
-    const head: RowInput[] = [[
-      { content: 'พนักงาน' }, { content: 'ทีม' },
-      ...dayHead,
-      ...(isLast ? [{ content: 'รวม\nสนาม' } as CellDef] : []),
-    ]]
+    const fd = fieldDaysOf(emp.id)
+    row.push({ content: fd > 0 ? String(fd) : '—', styles: { fontStyle: 'bold', textColor: [4, 120, 87] } })
+    return row
+  })
 
-    // body
-    const body: RowInput[] = employees.map(emp => {
-      const dayMap = calendarData.get(emp.id)
-      const row: CellDef[] = [
-        { content: `${emp.nickname ?? emp.fullName.split(' ')[0]}${emp.isSubLeader ? ' *' : ''}`,
-          styles: { halign: 'left', fontStyle: emp.isSubLeader ? 'bold' : 'normal' } },
-        { content: `${emp.primaryTeam.code}${emp.subTeam ? `\n${emp.subTeam.name}` : ''}`,
-          styles: { fontSize: 5.5 } },
-      ]
-      let i = blockStart
-      while (i < blockEnd) {
-        const { cell, span } = buildDayCell(emp, dayMap, days, i, blockEnd, holidayMap, staffConflicts)
-        row.push(cell)
-        i += span
-      }
-      if (isLast) {
-        const fd = fieldDaysOf(emp.id)
-        row.push({ content: fd > 0 ? String(fd) : '—', styles: { fontStyle: 'bold', textColor: [4, 120, 87] } })
-      }
-      return row
-    })
+  // ทุกวันในตารางเดียว (A3 แนวนอน) — คอลัมน์วันกว้างเท่ากันเต็มหน้า
+  const dayColWidth = (pageW - 8 - 8 - 24 - 12 - 10) / nDays
+  const dayColStyles: Record<number, { cellWidth: number }> = {}
+  for (let c = 0; c < nDays; c++) dayColStyles[2 + c] = { cellWidth: dayColWidth }
 
-    const dayColWidth = (pageW - 8 - 8 - 24 - 12 - (isLast ? 10 : 0)) / (blockEnd - blockStart)
-    const dayColStyles: Record<number, { cellWidth: number }> = {}
-    for (let c = 0; c < (blockEnd - blockStart); c++) dayColStyles[2 + c] = { cellWidth: dayColWidth }
-
-    autoTable(doc, {
-      head, body,
-      startY: 18,
-      margin: { left: 8, right: 8, top: 18 },
-      theme: 'grid',
-      styles: { font: 'Sarabun', fontStyle: 'normal', fontSize: 6, cellPadding: 0.7, halign: 'center', valign: 'middle', overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1 },
-      headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 6, halign: 'center' },
-      columnStyles: {
-        0: { cellWidth: 24, halign: 'left' },
-        1: { cellWidth: 12 },
-        ...dayColStyles,
-        ...(isLast ? { [2 + (blockEnd - blockStart)]: { cellWidth: 10 } } : {}),
-      },
-    })
+  autoTable(doc, {
+    head, body,
+    startY: 14,
+    margin: { left: 8, right: 8, top: 14 },
+    theme: 'grid',
+    styles: { font: 'Sarabun', fontStyle: 'normal', fontSize: 6, cellPadding: 0.7, halign: 'center', valign: 'middle', overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1 },
+    headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 6, halign: 'center' },
+    columnStyles: {
+      0: { cellWidth: 24, halign: 'left' },
+      1: { cellWidth: 12 },
+      ...dayColStyles,
+      [2 + nDays]: { cellWidth: 10 },
+    },
   })
 
   doc.save(`staff_${year}-${String(month).padStart(2, '0')}.pdf`)
