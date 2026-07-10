@@ -88,6 +88,29 @@ export default function AssignmentPopup({
     return 'ถูกจองแล้ว: ' + Array.from(bySite.entries()).map(([c, ds]) => `${c} (${ds.join(', ')})`).join(' · ')
   }
 
+  // เครื่องที่ส่งซ่อม/Cal ในช่วงวันที่เลือก → maint[equipmentId] = สถานะ (บล็อกช่วงที่อยู่ศูนย์ / เผื่อเลื่อนถ้าจองหลังกำหนดรับกลับ)
+  interface MaintRow { equipmentId: number; state: 'blocked' | 'tentative'; type?: string; sentDate?: string; expectedDate?: string | null; returnedDate?: string | null }
+  const [maintEq, setMaintEq] = useState<Map<number, MaintRow>>(new Map())
+  useEffect(() => {
+    if (!pickerOpen) return
+    fetch(`/api/equipment-assignments/maintenance?start=${date}&days=${estimatedDays}`)
+      .then(r => r.json())
+      .then((rows: MaintRow[]) => setMaintEq(new Map(rows.map(r => [r.equipmentId, r]))))
+      .catch(() => {})
+  }, [pickerOpen, date, estimatedDays])
+
+  // ถ้าเครื่องที่เลือกไว้กลายเป็น "บล็อก" (เปลี่ยนวัน) → เอาออกจากรายการที่เลือก
+  useEffect(() => {
+    setEquipIds(prev => prev.filter(id => maintEq.get(id)?.state !== 'blocked'))
+  }, [maintEq])
+
+  const fmtShort = (d?: string | null) => d ? new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '—'
+  const maintTitle = (m: MaintRow) => {
+    const what = m.type === 'CALIBRATION' ? 'ส่ง Cal' : 'ส่งซ่อม'
+    if (m.state === 'tentative') return `⏳ ${what} ${fmtShort(m.sentDate)} · คาดรับกลับ ${fmtShort(m.expectedDate)} — จองได้แต่เผื่อเลื่อน`
+    return `⛔ ไม่ว่าง: ${what} ${fmtShort(m.sentDate)}${m.expectedDate ? ` – คาดรับ ${fmtShort(m.expectedDate)}` : ' (ไม่มีกำหนดรับกลับ)'}`
+  }
+
   // รถที่แนบไปด้วย
   interface VehItem { id: number; licensePlate: string; name: string | null; vehicleType: string | null }
   const [vehList,    setVehList]    = useState<VehItem[]>([])
@@ -543,13 +566,13 @@ export default function AssignmentPopup({
             <div className="p-4">
               <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ / หมวด..."
                 className="mb-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:bg-white focus:outline-none" />
-              <p className="mb-2 text-[11px] text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-amber-400 align-middle" /> = ถูกจองช่วงวันนี้แล้ว (ชี้เมาส์ดูไซต์) · สี = ไซต์ที่จองไว้</p>
+              <p className="mb-2 text-[11px] text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-amber-400 align-middle" /> ถูกจองแล้ว · <span className="text-slate-300 line-through">🔒 ส่งซ่อม/Cal</span> · <span className="text-orange-600">⏳ คาดรับกลับ (เผื่อเลื่อน)</span> — ชี้เมาส์ดูรายละเอียด</p>
               <div className="space-y-2">
                 {(() => {
                   const q = equipSearch.trim().toLowerCase()
                   const groups = new Map<number, { code: string; name: string; items: EqItem[] }>()
                   for (const eq of equipList) {
-                    if (eq.status !== 'ACTIVE') continue   // ซ่อม/Cal/เสีย/ปลดระวาง → จองไม่ได้
+                    if (eq.status === 'RETIRED') continue   // ปลดระวาง → จองไม่ได้ (ส่งซ่อม/Cal เช็คตามช่วงวันจริงด้านล่าง)
                     if (q && !(`${eq.internalNo ?? ''} ${eq.serialNo ?? ''} ${eq.type.code} ${eq.type.name}`.toLowerCase().includes(q))) continue
                     if (!groups.has(eq.typeId)) groups.set(eq.typeId, { code: eq.type.code, name: eq.type.name, items: [] })
                     groups.get(eq.typeId)!.items.push(eq)
@@ -560,8 +583,9 @@ export default function AssignmentPopup({
                   return arr.map(([typeId, g]) => {
                     const expanded = equipExpanded.has(typeId) || !!q
                     const ids = g.items.map(e => e.id)
+                    const selectableIds = g.items.filter(e => maintEq.get(e.id)?.state !== 'blocked').map(e => e.id)
                     const selCount = ids.filter(id => equipIds.includes(id)).length
-                    const allSel = selCount === ids.length
+                    const allSel = selectableIds.length > 0 && selectableIds.every(id => equipIds.includes(id))
                     return (
                       <div key={typeId} className="overflow-hidden rounded-lg border border-slate-200">
                         <button type="button" onClick={() => setEquipExpanded(prev => { const n = new Set(prev); n.has(typeId) ? n.delete(typeId) : n.add(typeId); return n })}
@@ -574,19 +598,30 @@ export default function AssignmentPopup({
                         </button>
                         {expanded && (
                           <div className="px-3 py-2">
-                            <button type="button" onClick={() => setEquipIds(prev => allSel ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])}
+                            <button type="button" onClick={() => setEquipIds(prev => allSel ? prev.filter(id => !selectableIds.includes(id)) : [...new Set([...prev, ...selectableIds])])}
                               className="mb-2 text-[11px] font-medium text-sky-600 hover:underline">{allSel ? 'เอาออกทั้งหมด' : 'เลือกทั้งหมด'}</button>
                             <div className="grid grid-cols-2 gap-1.5">
                               {g.items.map(eq => {
                                 const sel = equipIds.includes(eq.id)
                                 const busy = busyEq.get(eq.id)
+                                const maint = maintEq.get(eq.id)
+                                const blocked = maint?.state === 'blocked'
+                                const tentative = maint?.state === 'tentative'
                                 return (
                                   <button key={eq.id} type="button"
-                                    title={busy ? busyTitle(busy) : undefined}
-                                    onClick={() => setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id])}
-                                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${sel ? 'border-slate-600 bg-slate-700 text-white' : busy ? 'border-amber-300 bg-amber-50 text-slate-600 hover:bg-amber-100' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                    disabled={blocked}
+                                    title={maint ? maintTitle(maint) : busy ? busyTitle(busy) : undefined}
+                                    onClick={() => { if (blocked) return; setEquipIds(prev => sel ? prev.filter(i => i !== eq.id) : [...prev, eq.id]) }}
+                                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                      blocked ? 'border-slate-200 bg-slate-100 text-slate-300 line-through cursor-not-allowed'
+                                      : sel ? 'border-slate-600 bg-slate-700 text-white'
+                                      : tentative ? 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100'
+                                      : busy ? 'border-amber-300 bg-amber-50 text-slate-600 hover:bg-amber-100'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                    {blocked && <span className="text-[10px]">🔒</span>}
+                                    {tentative && !sel && <span className="text-[10px]">⏳</span>}
                                     {sel && <span className="text-[10px]">✓</span>}
-                                    {busy && !sel && <span className={`h-2 w-2 shrink-0 rounded-full ${siteDotClass(busy[0].siteColor)}`} />}
+                                    {busy && !sel && !blocked && !tentative && <span className={`h-2 w-2 shrink-0 rounded-full ${siteDotClass(busy[0].siteColor)}`} />}
                                     <span className="truncate">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                                   </button>
                                 )

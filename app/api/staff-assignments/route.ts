@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStaffConflict } from '@/lib/conflicts'
 import { requireRole, forbidden } from '@/lib/auth'
+import { maintStateForWindow, overlappingEventWhere, type MaintEvent } from '@/lib/equipmentAvailability'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -83,10 +84,26 @@ export async function POST(req: NextRequest) {
   // แนบเครื่องมือ → สร้างจองเครื่อง (ไซต์/วันเดียวกัน) ผูกกับงานคนนี้
   if (status === 'FIELD' && siteId && Array.isArray(equipmentIds) && equipmentIds.length > 0) {
     const days = Math.min(Math.floor(Number(estimatedDays)) || 1, 20)
-    // แนบได้เฉพาะเครื่องพร้อมใช้ — ข้ามเครื่องซ่อม/Cal/เสีย/ปลดระวาง
+    // แนบได้ถ้าเครื่องว่างในช่วงวันที่จอง — บล็อกเฉพาะช่วงส่งซ่อม/Cal ที่ทับ (จองหลังวันรับกลับได้)
     const wantIds = equipmentIds.map((v: unknown) => parseInt(String(v))).filter(Boolean)
-    const activeEq = await prisma.equipment.findMany({ where: { id: { in: wantIds }, status: 'ACTIVE' }, select: { id: true } })
-    const activeSet = new Set(activeEq.map(e => e.id))
+    const bEnd = new Date(date); bEnd.setDate(bEnd.getDate() + days - 1)
+    const [eqRows, evRows] = await Promise.all([
+      prisma.equipment.findMany({ where: { id: { in: wantIds } }, select: { id: true, status: true } }),
+      prisma.equipmentEvent.findMany({
+        where: { equipmentId: { in: wantIds }, ...overlappingEventWhere(date, bEnd) },
+        select: { equipmentId: true, sentDate: true, expectedDate: true, returnedDate: true },
+      }),
+    ])
+    const evByEq = new Map<number, MaintEvent[]>()
+    for (const e of evRows) {
+      if (!evByEq.has(e.equipmentId)) evByEq.set(e.equipmentId, [])
+      evByEq.get(e.equipmentId)!.push({ sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate })
+    }
+    const activeSet = new Set(
+      eqRows
+        .filter(e => e.status !== 'RETIRED' && maintStateForWindow(evByEq.get(e.id) ?? [], date, bEnd).state !== 'blocked')
+        .map(e => e.id)
+    )
     for (const rawEqId of equipmentIds) {
       const eqId = parseInt(String(rawEqId))
       if (!eqId || !activeSet.has(eqId)) continue
