@@ -12,6 +12,7 @@ interface Props {
   teams:        ServiceTeam[]
   allEmployees:        Employee[]
   employeeAssignments?: StaffAssignment[]   // ทั้งเดือนของพนักงานคนนี้ (ใช้หาวันลูกของงานหลายวัน)
+  initialDays?:        number                // จำนวนวันเริ่มต้น (จากการเลือกช่วงวันในปฏิทิน)
   canEdit?:            boolean
   onSave:              (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:            (id: number) => Promise<void>
@@ -34,6 +35,7 @@ const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
 export default function AssignmentPopup({
   employee, date, assignments, sites, teams, allEmployees,
   employeeAssignments = [],
+  initialDays,
   canEdit = true,
   onSave, onDelete, onMove, onClose,
 }: Props) {
@@ -42,7 +44,7 @@ export default function AssignmentPopup({
   const [status,        setStatus]        = useState<AssignmentStatus>('FIELD')
   const [siteId,        setSiteId]        = useState('')
   const [serviceTypeId, setServiceTypeId] = useState(String(employee.primaryTeamId))
-  const [estimatedDays, setEstimatedDays] = useState('1')
+  const [estimatedDays, setEstimatedDays] = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
   const [notes,         setNotes]         = useState('')
   const [companions,    setCompanions]    = useState<number[]>([])
   const [showOthers,    setShowOthers]    = useState(false)
@@ -194,6 +196,11 @@ export default function AssignmentPopup({
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
   })
+  // ป้ายช่วงวันในหัว popup (เมื่อเลือกช่วง > 1 วัน)
+  const endLabel = Number(estimatedDays) > 1
+    ? new Date(new Date(date + 'T00:00:00').getTime() + (Math.ceil(Number(estimatedDays)) - 1) * 86400000)
+        .toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+    : null
 
   // companion lists
   const sameTeam  = allEmployees.filter(e => e.primaryTeamId === employee.primaryTeamId && e.id !== employee.id)
@@ -266,7 +273,7 @@ export default function AssignmentPopup({
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-slate-800">{employee.nickname ?? employee.fullName}</p>
-            <p className="text-xs text-slate-400">{dateLabel}</p>
+            <p className="text-xs text-slate-400">{dateLabel}{endLabel && <span className="text-sky-500 font-medium"> – {endLabel} · {estimatedDays} วัน</span>}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
         </div>
@@ -394,7 +401,7 @@ export default function AssignmentPopup({
                 <label className="block text-xs text-slate-500 mb-1">จำนวนวัน</label>
                 <select value={estimatedDays} onChange={(e) => setEstimatedDays(e.target.value)}
                   className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
-                  {['0.5', ...Array.from({ length: 20 }, (_, i) => String(i + 1))].map((v) => (
+                  {['0.5', ...Array.from({ length: 31 }, (_, i) => String(i + 1))].map((v) => (
                     <option key={v} value={v}>{v} วัน</option>
                   ))}
                 </select>

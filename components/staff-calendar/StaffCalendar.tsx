@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -49,9 +49,12 @@ export default function StaffCalendar() {
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
-  const [popup, setPopup] = useState<{ employee: Employee; dateKey: string } | null>(null)
+  const [popup, setPopup] = useState<{ employee: Employee; dateKey: string; initialDays?: number } | null>(null)
   const [viewing, setViewing] = useState<Employee | null>(null)
   const [exporting, setExporting] = useState(false)
+  // เลือกช่วงวันแบบ 2 คลิก: คลิกวันเริ่ม → คลิกวันสิ้นสุด (แถวเดียวกัน) → เปิด popup พร้อมจำนวนวัน
+  const [rangeStart, setRangeStart] = useState<{ empId: number; idx: number; dateKey: string } | null>(null)
+  const [rangeHover, setRangeHover] = useState<number | null>(null)
 
   const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment, moveAssignment } =
     useStaffCalendar(year, month)
@@ -80,6 +83,28 @@ export default function StaffCalendar() {
     }
   }
 
+  // จัดการคลิกช่อง: ช่องที่มีงานแล้ว → เปิด popup ทันที ; ช่องว่าง → คลิก 1 = วันเริ่ม, คลิก 2 (แถวเดียวกัน) = วันสิ้นสุด
+  function handleCellClick(emp: Employee, idx: number, dateKey: string, hasAssign: boolean) {
+    if (!canEdit || hasAssign) { setRangeStart(null); setRangeHover(null); setPopup({ employee: emp, dateKey }); return }
+    if (!rangeStart || rangeStart.empId !== emp.id) {
+      setRangeStart({ empId: emp.id, idx, dateKey }); setRangeHover(idx)   // คลิกแรก / เปลี่ยนแถว → ตั้งวันเริ่มใหม่
+      return
+    }
+    // คลิกที่สอง (แถวเดียวกัน) → เปิด popup ช่วง [lo, hi]
+    const lo = Math.min(rangeStart.idx, idx)
+    const hi = Math.max(rangeStart.idx, idx)
+    setPopup({ employee: emp, dateKey: toDateKey(days[lo]), initialDays: hi - lo + 1 })
+    setRangeStart(null); setRangeHover(null)
+  }
+
+  // Esc = ยกเลิกการเลือกช่วง ; เปลี่ยนเดือน = ล้างการเลือก
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setRangeStart(null); setRangeHover(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month, teamFilter])
+
   // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ FIELD, estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
   function renderRowCells(emp: Employee): ReactNode[] {
     const dayMap = calendarData.get(emp.id)
@@ -107,11 +132,18 @@ export default function StaffCalendar() {
         if (conflicts.staffConflicts.has(`${emp.id}-${toDateKey(days[i + k])}`)) { isConflict = true; break }
       }
 
+      const idx = i
+      const rowActive = rangeStart?.empId === emp.id
+      const isStart   = rowActive && rangeStart!.idx === idx
+      const inRange   = rowActive && rangeHover != null && dayAssign.length === 0 &&
+                        idx >= Math.min(rangeStart!.idx, rangeHover) && idx <= Math.max(rangeStart!.idx, rangeHover)
       cells.push(
         <CalendarCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span} employee={emp}
-          onClick={() => setPopup({ employee: emp, dateKey })}
+          isRangeStart={isStart} inRange={inRange && !isStart}
+          onMouseEnter={rowActive ? () => setRangeHover(idx) : undefined}
+          onClick={() => handleCellClick(emp, idx, dateKey, dayAssign.length > 0)}
         />
       )
       i += span
@@ -148,6 +180,14 @@ export default function StaffCalendar() {
           </button>
         </div>
       </div>
+
+      {rangeStart && (
+        <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
+          <span className="font-medium">📍 เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
+          <span className="text-sky-500">— คลิกวันสิ้นสุดในแถวเดียวกัน (คลิกช่องเดิม = 1 วัน)</span>
+          <button onClick={() => { setRangeStart(null); setRangeHover(null) }} className="ml-auto rounded px-2 py-0.5 text-sky-600 hover:bg-sky-100">ยกเลิก (Esc)</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
@@ -219,6 +259,7 @@ export default function StaffCalendar() {
       {popup && (
         <AssignmentPopup
           employee={popup.employee} date={popup.dateKey}
+          initialDays={popup.initialDays}
           assignments={calendarData.get(popup.employee.id)?.get(popup.dateKey) ?? []}
           employeeAssignments={Array.from(calendarData.get(popup.employee.id)?.values() ?? []).flat()}
           sites={sites} teams={teams}

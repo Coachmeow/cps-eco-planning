@@ -45,10 +45,13 @@ interface Props {
   isHoliday?:  boolean
   employee:    Employee
   colSpan?:    number   // >1 = งานหลายวัน merge เป็นช่องเดียว
-  onClick:     () => void
+  isRangeStart?: boolean  // ช่องที่เลือกเป็นวันเริ่มของช่วง (click แรก)
+  inRange?:      boolean  // ช่องที่อยู่ในช่วงที่กำลังเลือก (preview ก่อน click ที่สอง)
+  onClick:      () => void
+  onMouseEnter?: () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, employee, onClick }: Props) {
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, employee, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
   const base  = cellStyle(assignments, isConflict, employee)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0
@@ -66,14 +69,19 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
     .map(a => `${a.status !== 'FIELD' ? (STATUS_LABEL[a.status] ?? a.status) : (a.site?.code ?? '')}: ${a.notes}`)
     .join('\n')
 
+  // ไฮไลต์ตอนเลือกช่วงวัน: วันเริ่ม = วงแหวนเข้ม ; ในช่วง preview = วงแหวนอ่อน+ฟ้าจาง
+  const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
+                 : inRange      ? 'ring-1 ring-inset ring-sky-300 bg-sky-50' : ''
+
   return (
     <td
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       colSpan={colSpan}
       title={noteText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
-        transition-colors ${base} ${extra}`}
+        transition-colors ${base} ${extra} ${rangeCls}`}
     >
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">
