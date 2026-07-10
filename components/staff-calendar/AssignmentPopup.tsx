@@ -53,14 +53,19 @@ export default function AssignmentPopup({
   const [showAdd,       setShowAdd]        = useState(assignments.length === 0)
 
   // เครื่องมือ/รถที่แนบกับงานที่มีอยู่ (ต่อ staffAssignment ตัวแม่) → โชว์ในรายการที่มีอยู่
-  interface Attach { equipment: { id: number; label: string; type: string | null }[]; vehicles: { id: number; plate: string; name: string | null }[] }
+  interface Attach {
+    equipment: { id: number; label: string; type: string | null }[]
+    vehicles:  { id: number; plate: string; name: string | null }[]
+    siteEquipment: { id: number; label: string; type: string | null }[]   // จองแยกที่ไซต์
+    siteVehicles:  { id: number; plate: string; name: string | null }[]
+  }
   const [attach, setAttach] = useState<Map<number, Attach>>(new Map())
   useEffect(() => {
     const parentIds = [...new Set(assignments.map(a => a.parentId ?? a.id))]
     if (parentIds.length === 0) { setAttach(new Map()); return }
     Promise.all(parentIds.map(pid =>
       fetch(`/api/staff-assignments/${pid}/attachments`).then(r => r.json())
-        .then(d => [pid, d as Attach] as const).catch(() => [pid, { equipment: [], vehicles: [] } as Attach] as const)
+        .then(d => [pid, d as Attach] as const).catch(() => [pid, { equipment: [], vehicles: [], siteEquipment: [], siteVehicles: [] } as Attach] as const)
     )).then(entries => setAttach(new Map(entries)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
@@ -281,17 +286,36 @@ export default function AssignmentPopup({
   const totalPeople = 1 + companions.length
 
   // badge เครื่องมือ/รถ ที่แนบกับงาน (parentId) — โชว์ในรายการที่มีอยู่
+  // กลุ่ม 1 (ผูกกับงาน) = badge เทาทึบ ; กลุ่ม 2 (จองแยกที่ไซต์) = badge ขอบประ + ป้าย "จองแยก"
   function renderAttach(parentId: number) {
     const a = attach.get(parentId)
-    if (!a || (a.equipment.length === 0 && a.vehicles.length === 0)) return null
+    if (!a) return null
+    const hasLinked = a.equipment.length > 0 || a.vehicles.length > 0
+    const hasSite   = a.siteEquipment.length > 0 || a.siteVehicles.length > 0
+    if (!hasLinked && !hasSite) return null
     return (
-      <div className="mt-1 flex flex-wrap gap-1">
-        {a.equipment.map(e => (
-          <span key={`e${e.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🔧 {e.label}</span>
-        ))}
-        {a.vehicles.map(v => (
-          <span key={`v${v.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🚗 {v.plate}</span>
-        ))}
+      <div className="mt-1 space-y-1">
+        {hasLinked && (
+          <div className="flex flex-wrap gap-1">
+            {a.equipment.map(e => (
+              <span key={`e${e.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🔧 {e.label}</span>
+            ))}
+            {a.vehicles.map(v => (
+              <span key={`v${v.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🚗 {v.plate}</span>
+            ))}
+          </div>
+        )}
+        {hasSite && (
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-[9px] font-medium text-amber-600">⚟ จองแยกที่ไซต์:</span>
+            {a.siteEquipment.map(e => (
+              <span key={`se${e.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">🔧 {e.label}</span>
+            ))}
+            {a.siteVehicles.map(v => (
+              <span key={`sv${v.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">🚗 {v.plate}</span>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
