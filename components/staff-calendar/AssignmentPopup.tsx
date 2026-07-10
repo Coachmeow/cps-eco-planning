@@ -49,6 +49,21 @@ export default function AssignmentPopup({
   const [companions,    setCompanions]    = useState<number[]>([])
   const [showOthers,    setShowOthers]    = useState(false)
   const [saving,        setSaving]        = useState(false)
+  // ช่องมีงานอยู่แล้ว → ซ่อนฟอร์มเพิ่มรายการใหม่ไว้ก่อน (กดปุ่มถึงจะโชว์) ; ช่องว่าง → โชว์ฟอร์มเลย
+  const [showAdd,       setShowAdd]        = useState(assignments.length === 0)
+
+  // เครื่องมือ/รถที่แนบกับงานที่มีอยู่ (ต่อ staffAssignment ตัวแม่) → โชว์ในรายการที่มีอยู่
+  interface Attach { equipment: { id: number; label: string; type: string | null }[]; vehicles: { id: number; plate: string; name: string | null }[] }
+  const [attach, setAttach] = useState<Map<number, Attach>>(new Map())
+  useEffect(() => {
+    const parentIds = [...new Set(assignments.map(a => a.parentId ?? a.id))]
+    if (parentIds.length === 0) { setAttach(new Map()); return }
+    Promise.all(parentIds.map(pid =>
+      fetch(`/api/staff-assignments/${pid}/attachments`).then(r => r.json())
+        .then(d => [pid, d as Attach] as const).catch(() => [pid, { equipment: [], vehicles: [] } as Attach] as const)
+    )).then(entries => setAttach(new Map(entries)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date])
 
   // เครื่องมือที่แนบไปด้วย
   interface EqItem { id: number; internalNo: string | null; serialNo: string | null; typeId: number; status: string; type: { id: number; code: string; name: string } }
@@ -265,6 +280,22 @@ export default function AssignmentPopup({
 
   const totalPeople = 1 + companions.length
 
+  // badge เครื่องมือ/รถ ที่แนบกับงาน (parentId) — โชว์ในรายการที่มีอยู่
+  function renderAttach(parentId: number) {
+    const a = attach.get(parentId)
+    if (!a || (a.equipment.length === 0 && a.vehicles.length === 0)) return null
+    return (
+      <div className="mt-1 flex flex-wrap gap-1">
+        {a.equipment.map(e => (
+          <span key={`e${e.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🔧 {e.label}</span>
+        ))}
+        {a.vehicles.map(v => (
+          <span key={`v${v.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🚗 {v.plate}</span>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
       <div ref={ref} className="w-96 rounded-lg border border-slate-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto">
@@ -308,6 +339,7 @@ export default function AssignmentPopup({
                         : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
                     </div>
                     {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    {renderAttach(a.parentId ?? a.id)}
                   </div>
                 )
               }
@@ -342,6 +374,7 @@ export default function AssignmentPopup({
                       )
                     })}
                   </div>
+                  {renderAttach(a.id)}
                 </div>
               )
             })}
@@ -353,8 +386,18 @@ export default function AssignmentPopup({
           <div className="px-4 py-3 text-xs text-slate-400">👁 โหมดดูอย่างเดียว — ไม่มีสิทธิ์แก้ไขแผนงาน</div>
         )}
 
-        {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน) ── */}
-        {canEdit && (
+        {/* ปุ่ม Expand: มีงานอยู่แล้วแต่ยังไม่กางฟอร์ม → กดเพื่อเพิ่มรายการใหม่ (จองซ้อนวัน) */}
+        {canEdit && !showAdd && (
+          <div className="px-4 py-3">
+            <button onClick={() => setShowAdd(true)}
+              className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-sky-400 hover:text-sky-600 transition-colors">
+              + เพิ่มรายการใหม่ (จองซ้อนวัน) ▾
+            </button>
+          </div>
+        )}
+
+        {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน + กางฟอร์มแล้ว) ── */}
+        {canEdit && showAdd && (
         <div className="px-4 py-3 space-y-3">
           <p className="text-xs font-medium text-slate-500">เพิ่มรายการใหม่</p>
 
@@ -465,7 +508,7 @@ export default function AssignmentPopup({
         )}
 
         {/* ── Companion section ── */}
-        {canEdit && displayed.length > 0 && (
+        {canEdit && showAdd && displayed.length > 0 && (
           <div className="border-t border-slate-100 px-4 pb-3 pt-2">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium text-slate-500">👥 คนร่วมงาน</p>
@@ -546,7 +589,7 @@ export default function AssignmentPopup({
         )}
 
         {/* ── Save button → เปิดหน้าสรุป ── */}
-        {canEdit && (
+        {canEdit && showAdd && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
           <button
             onClick={() => { if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return } setConfirmOpen(true) }}

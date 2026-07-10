@@ -258,6 +258,7 @@ export default function StaffCalendar() {
 
       {popup && (
         <AssignmentPopup
+          key={`${popup.employee.id}-${popup.dateKey}`}
           employee={popup.employee} date={popup.dateKey}
           initialDays={popup.initialDays}
           assignments={calendarData.get(popup.employee.id)?.get(popup.dateKey) ?? []}
