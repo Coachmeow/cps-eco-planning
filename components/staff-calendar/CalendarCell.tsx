@@ -2,6 +2,7 @@
 
 import type { StaffAssignment, Employee } from '@/lib/types'
 import { teamCellClass } from '@/lib/teamColors'
+import { LEAVE_ABBR, LEAVE_LABEL } from '@/lib/leaveTypes'
 
 // Cross-team badge ring color to complement the site color (subtle ring inside cell)
 const TEAM_RING: Record<string, string> = {
@@ -27,7 +28,7 @@ function cellStyle(
       return teamCellClass(team, 1)
     }
     case 'OFFICE':   return 'bg-slate-50 text-slate-500'
-    case 'LEAVE':    return 'bg-slate-100 text-slate-400'
+    case 'LEAVE':    return 'bg-slate-100 text-slate-900'   // เทาสีเดียว ตัวหนังสือดำ
     case 'HOLIDAY':  return 'bg-white text-slate-300'
     case 'CAL':      return 'bg-amber-50 text-amber-600'
     default:         return 'bg-white text-slate-600'
@@ -35,7 +36,13 @@ function cellStyle(
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  OFFICE: 'S', LEAVE: 'B', HOLIDAY: 'V', CAL: 'Cal', TRAINING: 'TR',
+  OFFICE: 'S', LEAVE: 'ลา', HOLIDAY: 'V', CAL: 'Cal', TRAINING: 'TR',
+}
+
+// ตัวย่อในช่อง: งานลา → ใช้ตัวย่อประเภทลา (ป/ป✓/ก/พร/ลจ) ; สถานะอื่นตาม STATUS_LABEL
+function statusAbbr(a: StaffAssignment): string {
+  if (a.status === 'LEAVE') return a.leaveType ? (LEAVE_ABBR[a.leaveType] ?? 'ลา') : 'ลา'
+  return STATUS_LABEL[a.status] ?? a.status
 }
 
 interface Props {
@@ -63,11 +70,16 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
   const displayAssign = primary ?? crossTeam[0]
   const merged = colSpan > 1
 
-  // หมายเหตุ → tooltip เมื่อ hover
-  const noteText = assignments
-    .filter(a => a.notes)
-    .map(a => `${a.status !== 'FIELD' ? (STATUS_LABEL[a.status] ?? a.status) : (a.site?.code ?? '')}: ${a.notes}`)
-    .join('\n')
+  // tooltip: ชื่อเต็มประเภทลา (กันงงตัวย่อ) + หมายเหตุ
+  const leaveText = assignments
+    .filter(a => a.status === 'LEAVE' && a.leaveType)
+    .map(a => LEAVE_LABEL[a.leaveType!] ?? 'ลา')
+  const noteText = [
+    ...leaveText,
+    ...assignments
+      .filter(a => a.notes)
+      .map(a => `${a.status !== 'FIELD' ? statusAbbr(a) : (a.site?.code ?? '')}: ${a.notes}`),
+  ].join('\n')
 
   // ไฮไลต์ตอนเลือกช่วงวัน: วันเริ่ม = วงแหวนเข้ม ; ในช่วง preview = วงแหวนอ่อน+ฟ้าจาง
   const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
@@ -90,7 +102,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
           {displayAssign && (
             <span className="font-semibold">
               {displayAssign.status !== 'FIELD'
-                ? (STATUS_LABEL[displayAssign.status] ?? displayAssign.status)
+                ? statusAbbr(displayAssign)
                 : (displayAssign.site?.code ?? '—')}
               {merged && <span className="ml-1 text-[9px] font-normal opacity-60">({Number(displayAssign.estimatedDays)} วัน)</span>}
             </span>

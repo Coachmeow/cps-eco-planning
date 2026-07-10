@@ -177,6 +177,7 @@ model StaffAssignment {
   isCrossTeam   Boolean          @default(false)
   estimatedDays Decimal          @default(1) @db.Decimal(4, 1)
   status        AssignmentStatus @default(FIELD)
+  leaveType     String?          // ประเภทลา (เมื่อ status=LEAVE): SICK/SICK_CERT/PERSONAL/VACATION/UNPAID
   notes         String?
   isLocked      Boolean          @default(false)
   parentId      Int?

@@ -31,9 +31,11 @@ export async function POST(req: NextRequest) {
   const {
     employeeId, assignedDate, siteId, serviceTypeId,
     estimatedDays = 1, status = 'FIELD', notes, isLocked = false,
+    leaveType,           // ประเภทลา (เมื่อ status=LEAVE)
     equipmentIds = [],   // เครื่องมือที่แนบไปกับงานคนนี้ (ผูก staffAssignmentId)
     vehicleIds = [],     // รถที่แนบไปกับงานคนนี้
   } = body
+  const leaveTypeVal = status === 'LEAVE' ? (leaveType || null) : null
 
   if (!employeeId || !assignedDate) {
     return NextResponse.json({ error: 'employeeId และ assignedDate จำเป็น' }, { status: 400 })
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
     data: {
       employeeId, assignedDate: date,
       siteId: siteId ?? null, serviceTypeId: serviceTypeId ?? null,
-      isCrossTeam, estimatedDays, status, notes, isLocked,
+      isCrossTeam, estimatedDays, status, leaveType: leaveTypeVal, notes, isLocked,
     },
     include: { employee: true, site: true, serviceType: true },
   })
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
         data: {
           employeeId, assignedDate: nextDate,
           siteId: siteId ?? null, serviceTypeId: serviceTypeId ?? null,
-          isCrossTeam, estimatedDays: 0, status, notes, isLocked,
+          isCrossTeam, estimatedDays: 0, status, leaveType: leaveTypeVal, notes, isLocked,
           parentId: created.id,
         },
         include: { employee: true, site: true, serviceType: true },

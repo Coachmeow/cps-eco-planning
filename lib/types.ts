@@ -62,6 +62,7 @@ export interface StaffAssignment {
   isCrossTeam: boolean
   estimatedDays: number
   status: AssignmentStatus
+  leaveType: string | null
   notes: string | null
   isLocked: boolean
   parentId: number | null

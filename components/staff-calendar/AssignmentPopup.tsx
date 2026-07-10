@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
+import { LEAVE_TYPES, LEAVE_LABEL } from '@/lib/leaveTypes'
 
 interface Props {
   employee:     Employee
@@ -26,7 +27,7 @@ const fmtDay = (d: string) =>
 const STATUS_OPTIONS: { value: AssignmentStatus; label: string }[] = [
   { value: 'FIELD',    label: 'ภาคสนาม (Field)' },
   { value: 'OFFICE',   label: 'สำนักงาน (S)' },
-  { value: 'LEAVE',    label: 'ลา (B)' },
+  { value: 'LEAVE',    label: 'ลา' },
   { value: 'HOLIDAY',  label: 'วันหยุด (V)' },
   { value: 'CAL',      label: 'ส่ง Calibrate' },
   { value: 'TRAINING', label: 'อบรม' },
@@ -43,6 +44,7 @@ export default function AssignmentPopup({
 
   const [status,        setStatus]        = useState<AssignmentStatus>('FIELD')
   const [siteId,        setSiteId]        = useState('')
+  const [leaveType,     setLeaveType]     = useState('')
   const [serviceTypeId, setServiceTypeId] = useState(String(employee.primaryTeamId))
   const [estimatedDays, setEstimatedDays] = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
   const [notes,         setNotes]         = useState('')
@@ -259,6 +261,7 @@ export default function AssignmentPopup({
 
   async function handleSave() {
     if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
+    if (status === 'LEAVE' && !leaveType) { alert('กรุณาเลือกประเภทการลา'); return }
     setSaving(true)
     const base = {
       assignedDate:  date,
@@ -266,6 +269,7 @@ export default function AssignmentPopup({
       serviceTypeId: serviceTypeId ? parseInt(serviceTypeId) : undefined,
       estimatedDays: parseFloat(estimatedDays),
       status,
+      leaveType: status === 'LEAVE' ? leaveType : undefined,
       notes: notes || undefined,
     }
     // เครื่องมือ/รถ แนบเฉพาะงานภาคสนามที่เลือกไซต์แล้ว — ติดไปกับงานของคนหลัก
@@ -433,6 +437,19 @@ export default function AssignmentPopup({
               {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
+
+          {/* ประเภทลา — เด้งเมื่อเลือกสถานะ "ลา" */}
+          {status === 'LEAVE' && (
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">ประเภทการลา</label>
+              <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
+                className={`w-full rounded border px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 ${leaveType ? 'border-slate-200 focus:ring-slate-300' : 'border-red-300 focus:ring-red-300'}`}>
+                <option value="">— เลือกประเภทการลา —</option>
+                {LEAVE_TYPES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              {!leaveType && <p className="mt-1 text-xs text-red-500">เลือกประเภทการลา</p>}
+            </div>
+          )}
 
           {status === 'FIELD' && (
             <>
@@ -616,8 +633,12 @@ export default function AssignmentPopup({
         {canEdit && showAdd && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
           <button
-            onClick={() => { if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return } setConfirmOpen(true) }}
-            disabled={saving || (status === 'FIELD' && !siteId)}
+            onClick={() => {
+              if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
+              if (status === 'LEAVE' && !leaveType) { alert('กรุณาเลือกประเภทการลา'); return }
+              setConfirmOpen(true)
+            }}
+            disabled={saving || (status === 'FIELD' && !siteId) || (status === 'LEAVE' && !leaveType)}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
           >
             ตรวจสอบและบันทึก{totalPeople > 1 ? ` (${totalPeople} คน)` : ''} ›
@@ -777,7 +798,7 @@ export default function AssignmentPopup({
               <p className="text-sm font-semibold text-slate-800">ตรวจสอบก่อนบันทึก</p>
             </div>
             <div className="space-y-2 px-5 py-4 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">สถานะ</span><span className="text-slate-700">{STATUS_OPTIONS.find(o => o.value === status)?.label}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">สถานะ</span><span className="text-slate-700">{status === 'LEAVE' && leaveType ? LEAVE_LABEL[leaveType] : STATUS_OPTIONS.find(o => o.value === status)?.label}</span></div>
               {status === 'FIELD' && <>
                 <div className="flex justify-between"><span className="text-slate-400">ไซต์งาน</span><span className="font-medium text-slate-700">{sites.find(s => String(s.id) === siteId)?.code ?? '—'}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">ประเภทงาน</span><span className="text-slate-700">{teams.find(t => String(t.id) === serviceTypeId)?.code ?? '—'}</span></div>

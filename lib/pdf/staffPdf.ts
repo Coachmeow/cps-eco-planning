@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable'
 import type { CellDef, RowInput } from 'jspdf-autotable'
 import { toDateKey } from '@/lib/dateKey'
 import { SARABUN_REGULAR_B64, SARABUN_BOLD_B64 } from './sarabunFont'
+import { LEAVE_ABBR } from '@/lib/leaveTypes'
 import type { Employee, StaffAssignment, CalendarData, ConflictSet } from '@/lib/types'
 
 type RGB = [number, number, number]
@@ -87,9 +88,11 @@ function buildDayCell(
   // ข้อความในช่อง
   let text = ''
   if (display) {
-    text = display.status !== 'FIELD'
-      ? (STATUS_LABEL[display.status] ?? display.status)
-      : (display.site?.code ?? '—')
+    text = display.status === 'LEAVE'
+      ? (display.leaveType ? (LEAVE_ABBR[display.leaveType] ?? 'ลา') : 'ลา')
+      : display.status !== 'FIELD'
+        ? (STATUS_LABEL[display.status] ?? display.status)
+        : (display.site?.code ?? '—')
     if (span > 1) text += ` (${Number(display.estimatedDays)} วัน)`
   }
   for (const a of crossTeam) {
