@@ -166,6 +166,7 @@ export interface VehicleBooking {
   site: Site | null
   destination: string | null
   staffAssignmentId: number | null
+  staffAssignment?: { serviceType: ServiceTeam | null } | null   // ทีมของงาน (จองผ่านแผนพนักงาน) → ใช้ลงสีทีม
   driverId: number | null
   driver: Employee | null
   driverName: string | null

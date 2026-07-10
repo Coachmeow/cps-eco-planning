@@ -20,6 +20,13 @@ function getDaysInMonth(year: number, month: number): Date[] {
 const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const thaiDays   = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
+// legend สีทีม (โทนเดียวกับปุ่มกรองทีมในแผนพนักงาน) — ดูอย่างเดียว
+const TEAM_LEGEND: [string, string][] = [
+  ['ST', 'bg-blue-100 text-blue-700'], ['AMB', 'bg-teal-100 text-teal-700'],
+  ['WP', 'bg-purple-100 text-purple-700'], ['WT', 'bg-cyan-100 text-cyan-700'],
+  ['CEMS', 'bg-orange-100 text-orange-700'], ['LOG', 'bg-gray-100 text-gray-600'],
+]
+
 export default function VehicleCalendar() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
@@ -80,6 +87,13 @@ export default function VehicleCalendar() {
         {conflicts.size > 0 && (
           <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {conflicts.size} conflict</span>
         )}
+        <div className="ml-auto flex items-center gap-1 flex-wrap">
+          <span className="text-[10px] text-slate-400">สีทีมที่ใช้รถ:</span>
+          {TEAM_LEGEND.map(([code, cls]) => (
+            <span key={code} className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{code}</span>
+          ))}
+          <span className="ml-1 text-[10px] text-slate-400">· ไม่ระบุคนขับ = สีตามประเภท</span>
+        </div>
       </div>
 
       {loading ? (

@@ -2,11 +2,19 @@
 
 import type { VehicleBooking } from '@/lib/types'
 import { PURPOSE_META } from '@/lib/vehiclePurpose'
+import { teamCellClass } from '@/lib/teamColors'
+
+// ทีมที่ใช้รถ: งานจากแผนพนักงาน = ทีมของงาน (รองรับ cross-team) ; จองตรง = ทีมของคนขับ
+function bookingTeam(b: VehicleBooking): string | undefined {
+  return b.staffAssignment?.serviceType?.code ?? b.driver?.primaryTeam?.code
+}
 
 function cellStyle(bookings: VehicleBooking[], isConflict: boolean): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (bookings.length === 0) return 'bg-white hover:bg-slate-50'
-  return PURPOSE_META[bookings[0].purpose]?.cell ?? 'bg-slate-50'
+  const team = bookingTeam(bookings[0])
+  if (team) return teamCellClass(team, 1)                        // สีทีมเดียวกับแผนพนักงาน
+  return PURPOSE_META[bookings[0].purpose]?.cell ?? 'bg-slate-50' // ไม่รู้ทีม → สีตามประเภทเดิม
 }
 
 interface Props {

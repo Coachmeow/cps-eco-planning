@@ -11,7 +11,12 @@ export async function GET(req: NextRequest) {
 
   const bookings = await prisma.vehicleBooking.findMany({
     where:   { assignedDate: { gte: startDate, lte: endDate } },
-    include: { vehicle: true, site: true, driver: true },
+    include: {
+      vehicle: true, site: true,
+      // ทีมที่ใช้รถ → ลงสีช่องปฏิทินตามทีม (งานจากแผนพนักงาน = ทีมของงาน ; จองตรง = ทีมคนขับ)
+      driver: { include: { primaryTeam: true } },
+      staffAssignment: { select: { serviceType: true } },
+    },
     orderBy: [{ vehicleId: 'asc' }, { assignedDate: 'asc' }],
   })
   return NextResponse.json(bookings)
