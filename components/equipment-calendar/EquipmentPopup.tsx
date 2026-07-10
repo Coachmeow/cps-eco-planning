@@ -10,6 +10,7 @@ interface Props {
   sites:        Site[]
   allEquipment:         Equipment[]
   equipmentAssignments?: EquipmentAssignment[]   // ทั้งเดือนของเครื่องนี้ (ใช้หาวันลูกของงานหลายวัน)
+  initialDays?:         number                   // จำนวนวันเริ่มต้น (จากการเลือกช่วงวันในปฏิทิน)
   canEdit?:             boolean
   onSave:               (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:             (id: number) => Promise<void>
@@ -19,8 +20,7 @@ interface Props {
 const fmtDay = (d: string) =>
   new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
-const DAY_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
-                     '11', '12', '13', '14', '15', '16', '17', '18', '19', '20']
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1))
 
 const SITE_DOT: Record<string, string> = {
   emerald: 'bg-emerald-400', sky: 'bg-sky-400', violet: 'bg-violet-400',
@@ -32,13 +32,15 @@ const SITE_DOT: Record<string, string> = {
 export default function EquipmentPopup({
   equipment, date, assignments, sites, allEquipment,
   equipmentAssignments = [],
+  initialDays,
   canEdit = true,
   onSave, onDelete, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
   const [siteId,     setSiteId]     = useState('')
-  const [days,       setDays]       = useState('1')
+  const [days,       setDays]       = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
+  const [showAdd,    setShowAdd]    = useState(assignments.length === 0)   // มีจองแล้ว → ซ่อนฟอร์มจองใหม่
   const [notes,      setNotes]      = useState('')
   const [companions, setCompanions] = useState<number[]>([])
   const [search,     setSearch]     = useState('')
@@ -219,8 +221,18 @@ export default function EquipmentPopup({
             </div>
           )}
 
-          {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน + เครื่องพร้อมใช้) ── */}
-          {canEdit && bookable && (
+          {/* ปุ่ม Expand: มีจองอยู่แล้วแต่ยังไม่กางฟอร์ม → กดเพื่อจองเพิ่ม (ซ้อนวัน) */}
+          {canEdit && bookable && !showAdd && (
+            <div className="px-4 py-3">
+              <button onClick={() => setShowAdd(true)}
+                className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-sky-400 hover:text-sky-600 transition-colors">
+                + จองเพิ่ม (ซ้อนวัน) ▾
+              </button>
+            </div>
+          )}
+
+          {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน + เครื่องพร้อมใช้ + กางฟอร์มแล้ว) ── */}
+          {canEdit && bookable && showAdd && (
           <div className="px-4 py-3 space-y-3 border-b border-slate-100">
             {/* Site dropdown */}
             <div>
@@ -265,7 +277,7 @@ export default function EquipmentPopup({
           )}
 
           {/* ── Companion section ── */}
-          {canEdit && bookable && (
+          {canEdit && bookable && showAdd && (
           <div className="px-4 py-3">
             {/* Section header */}
             <div className="mb-2 flex items-center justify-between">
@@ -359,7 +371,7 @@ export default function EquipmentPopup({
         </div>
 
         {/* ── Save button (fixed at bottom) ── */}
-        {canEdit && bookable && (
+        {canEdit && bookable && showAdd && (
         <div className="shrink-0 border-t border-slate-100 px-4 pb-4 pt-3">
           <button onClick={handleSave} disabled={saving || !siteId}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">

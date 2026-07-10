@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -34,7 +34,10 @@ export default function EquipmentCalendar() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null)
   const [showRental, setShowRental] = useState(true)
-  const [popup, setPopup] = useState<{ equipment: Equipment; dateKey: string } | null>(null)
+  const [popup, setPopup] = useState<{ equipment: Equipment; dateKey: string; initialDays?: number } | null>(null)
+  // เลือกช่วงวันแบบ 2 คลิก (คลิกวันเริ่ม → วันสิ้นสุด แถวเดียวกัน)
+  const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
+  const [rangeHover, setRangeHover] = useState<number | null>(null)
 
   const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignments, removeAssignment } =
     useEquipmentCalendar(year, month, selectedTypeId)
@@ -57,6 +60,21 @@ export default function EquipmentCalendar() {
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
+
+  // คลิกช่อง: มีจองแล้ว → เปิด popup ทันที ; ช่องว่าง → คลิก 1 = วันเริ่ม, คลิก 2 (แถวเดิม) = วันสิ้นสุด
+  function handleCellClick(eq: Equipment, idx: number, dateKey: string, hasBooking: boolean) {
+    if (!canEdit || hasBooking) { setRangeStart(null); setRangeHover(null); setPopup({ equipment: eq, dateKey }); return }
+    if (!rangeStart || rangeStart.rowId !== eq.id) { setRangeStart({ rowId: eq.id, idx, dateKey }); setRangeHover(idx); return }
+    const lo = Math.min(rangeStart.idx, idx), hi = Math.max(rangeStart.idx, idx)
+    setPopup({ equipment: eq, dateKey: toDateKey(days[lo]), initialDays: hi - lo + 1 })
+    setRangeStart(null); setRangeHover(null)
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setRangeStart(null); setRangeHover(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month, selectedTypeId, showRental])
 
   // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
   function renderRowCells(eq: Equipment): ReactNode[] {
@@ -83,12 +101,19 @@ export default function EquipmentCalendar() {
         if (conflicts.equipmentConflicts.has(`${eq.id}-${toDateKey(days[i + k])}`)) { isConflict = true; break }
       }
 
+      const idx = i
+      const rowActive = rangeStart?.rowId === eq.id
+      const isStart   = rowActive && rangeStart!.idx === idx
+      const inRange   = rowActive && rangeHover != null && dayAssign.length === 0 &&
+                        idx >= Math.min(rangeStart!.idx, rangeHover) && idx <= Math.max(rangeStart!.idx, rangeHover)
       cells.push(
         <EquipmentCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span}
           team={eq.type.primaryTeam?.code ?? 'ST'}
-          onClick={() => setPopup({ equipment: eq, dateKey })}
+          isRangeStart={isStart} inRange={inRange && !isStart}
+          onMouseEnter={rowActive ? () => setRangeHover(idx) : undefined}
+          onClick={() => handleCellClick(eq, idx, dateKey, dayAssign.length > 0)}
         />
       )
       i += span
@@ -122,6 +147,14 @@ export default function EquipmentCalendar() {
           <ExportButton href={`/api/export/equipment?year=${year}&month=${month}`} label="Export Excel" />
         </div>
       </div>
+
+      {rangeStart && (
+        <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
+          <span className="font-medium">📍 เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
+          <span className="text-sky-500">— คลิกวันสิ้นสุดในแถวเดียวกัน (คลิกช่องเดิม = 1 วัน)</span>
+          <button onClick={() => { setRangeStart(null); setRangeHover(null) }} className="ml-auto rounded px-2 py-0.5 text-sky-600 hover:bg-sky-100">ยกเลิก (Esc)</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
@@ -188,7 +221,8 @@ export default function EquipmentCalendar() {
 
       {popup && (
         <EquipmentPopup
-          equipment={popup.equipment} date={popup.dateKey}
+          key={`${popup.equipment.id}-${popup.dateKey}`}
+          equipment={popup.equipment} date={popup.dateKey} initialDays={popup.initialDays}
           assignments={calendarData.get(popup.equipment.id)?.get(popup.dateKey) ?? []}
           equipmentAssignments={Array.from(calendarData.get(popup.equipment.id)?.values() ?? []).flat()}
           sites={sites}

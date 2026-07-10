@@ -11,23 +11,25 @@ interface Props {
   vehicleBookings: VehicleBooking[]   // ทั้งเดือนของรถคันนี้ (หาวันลูกของงานหลายวัน)
   sites:        Site[]
   employees:    Employee[]
+  initialDays?: number
   canEdit?:     boolean
   onSave:       (payload: Record<string, unknown>) => Promise<void>
   onDelete:     (id: number) => Promise<void>
   onClose:      () => void
 }
 
-const DAY_OPTIONS = Array.from({ length: 20 }, (_, i) => String(i + 1))
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1))
 const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
 export default function VehiclePopup({
-  vehicle, date, bookings, vehicleBookings, sites, employees, canEdit = true, onSave, onDelete, onClose,
+  vehicle, date, bookings, vehicleBookings, sites, employees, initialDays, canEdit = true, onSave, onDelete, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [purpose,     setPurpose]     = useState<VehiclePurpose>('FIELD')
   const [siteId,      setSiteId]      = useState('')
   const [destination, setDestination] = useState('')
-  const [days,        setDays]        = useState('1')
+  const [days,        setDays]        = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
+  const [showAdd,     setShowAdd]     = useState(bookings.length === 0)   // มีจองแล้ว → ซ่อนฟอร์มจองใหม่
   const [driverId,    setDriverId]    = useState('')
   const [driverName,  setDriverName]  = useState('')
   const [notes,       setNotes]       = useState('')
@@ -113,8 +115,18 @@ export default function VehiclePopup({
           </div>
         )}
 
+        {/* ปุ่ม Expand: มีจองอยู่แล้วแต่ยังไม่กางฟอร์ม → กดเพื่อจองเพิ่ม (ซ้อนวัน) */}
+        {canEdit && !showAdd && (
+          <div className="px-4 py-3">
+            <button onClick={() => setShowAdd(true)}
+              className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-sky-400 hover:text-sky-600 transition-colors">
+              + จองเพิ่ม (ซ้อนวัน) ▾
+            </button>
+          </div>
+        )}
+
         {/* Form */}
-        {canEdit && (
+        {canEdit && showAdd && (
         <div className="px-4 py-3 space-y-3">
           <p className="text-xs font-medium text-slate-500">จองใหม่</p>
           <div>

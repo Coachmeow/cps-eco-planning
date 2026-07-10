@@ -23,7 +23,10 @@ interface Props {
   dayOfWeek:  number
   isHoliday?: boolean
   colSpan?:   number
+  isRangeStart?: boolean
+  inRange?:      boolean
   onClick:    () => void
+  onMouseEnter?: () => void
 }
 
 function label(b: VehicleBooking): string {
@@ -31,23 +34,26 @@ function label(b: VehicleBooking): string {
   return b.destination ?? PURPOSE_META[b.purpose]?.label ?? '—'
 }
 
-export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday, colSpan = 1, onClick }: Props) {
+export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday, colSpan = 1, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
   const base = cellStyle(bookings, isConflict)
   const isSun = dayOfWeek === 0
   const extra = bookings.length === 0
     ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : '' : ''
   const merged = colSpan > 1
   const first = bookings[0]
+  const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
+                 : inRange      ? 'ring-1 ring-inset ring-sky-300 bg-sky-50' : ''
 
   const noteText = bookings.filter(b => b.notes).map(b => `${label(b)}: ${b.notes}`).join('\n')
 
   return (
     <td
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       colSpan={colSpan}
       title={noteText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-b
-        border-slate-300 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra}`}
+        border-slate-300 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${rangeCls}`}
     >
       {bookings.length > 0 && first && (
         <div className="flex flex-col items-center gap-px leading-tight">

@@ -17,15 +17,20 @@ interface Props {
   isHoliday?:  boolean
   colSpan?:    number
   team:        string
+  isRangeStart?: boolean
+  inRange?:      boolean
   onClick:     () => void
+  onMouseEnter?: () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, team, onClick }: Props) {
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, team, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
   const base  = cellStyle(assignments, isConflict, team)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0
     ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : '' : ''   // เสาร์ = วันทำงานปกติ
   const merged = colSpan > 1
+  const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
+                 : inRange      ? 'ring-1 ring-inset ring-sky-300 bg-sky-50' : ''
 
   // หมายเหตุ → tooltip เมื่อ hover
   const noteText = assignments
@@ -36,11 +41,12 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
   return (
     <td
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       colSpan={colSpan}
       title={noteText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[80px]'} cursor-pointer border-r border-b
         border-slate-300 px-1 py-0.5 text-center text-xs align-middle
-        transition-colors ${base} ${extra}`}
+        transition-colors ${base} ${extra} ${rangeCls}`}
     >
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import { useVehicleCalendar } from '@/hooks/useVehicleCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -31,7 +31,9 @@ export default function VehicleCalendar() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
-  const [popup, setPopup] = useState<{ vehicle: Vehicle; dateKey: string } | null>(null)
+  const [popup, setPopup] = useState<{ vehicle: Vehicle; dateKey: string; initialDays?: number } | null>(null)
+  const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
+  const [rangeHover, setRangeHover] = useState<number | null>(null)
 
   const { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking } =
     useVehicleCalendar(year, month)
@@ -43,6 +45,21 @@ export default function VehicleCalendar() {
 
   function prevMonth() { if (month === 1) { setYear(y => y - 1); setMonth(12) } else setMonth(m => m - 1) }
   function nextMonth() { if (month === 12) { setYear(y => y + 1); setMonth(1) } else setMonth(m => m + 1) }
+
+  // คลิกช่อง: มีจองแล้ว → เปิด popup ทันที ; ช่องว่าง → คลิก 1 = วันเริ่ม, คลิก 2 (แถวเดิม) = วันสิ้นสุด
+  function handleCellClick(v: Vehicle, idx: number, dateKey: string, hasBooking: boolean) {
+    if (!canEdit || hasBooking) { setRangeStart(null); setRangeHover(null); setPopup({ vehicle: v, dateKey }); return }
+    if (!rangeStart || rangeStart.rowId !== v.id) { setRangeStart({ rowId: v.id, idx, dateKey }); setRangeHover(idx); return }
+    const lo = Math.min(rangeStart.idx, idx), hi = Math.max(rangeStart.idx, idx)
+    setPopup({ vehicle: v, dateKey: toDateKey(days[lo]), initialDays: hi - lo + 1 })
+    setRangeStart(null); setRangeHover(null)
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setRangeStart(null); setRangeHover(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month])
 
   function renderRowCells(v: Vehicle): ReactNode[] {
     const dayMap = calendarData.get(v.id)
@@ -65,10 +82,17 @@ export default function VehicleCalendar() {
       for (let k = 0; k < span; k++) {
         if (conflicts.has(`${v.id}-${toDateKey(days[i + k])}`)) { isConflict = true; break }
       }
+      const idx = i
+      const rowActive = rangeStart?.rowId === v.id
+      const isStart   = rowActive && rangeStart!.idx === idx
+      const inRange   = rowActive && rangeHover != null && dayBookings.length === 0 &&
+                        idx >= Math.min(rangeStart!.idx, rangeHover) && idx <= Math.max(rangeStart!.idx, rangeHover)
       cells.push(
         <VehicleCell key={dateKey} bookings={dayBookings} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span}
-          onClick={() => setPopup({ vehicle: v, dateKey })} />
+          isRangeStart={isStart} inRange={inRange && !isStart}
+          onMouseEnter={rowActive ? () => setRangeHover(idx) : undefined}
+          onClick={() => handleCellClick(v, idx, dateKey, dayBookings.length > 0)} />
       )
       i += span
     }
@@ -95,6 +119,14 @@ export default function VehicleCalendar() {
           <span className="ml-1 text-[10px] text-slate-400">· ไม่ระบุคนขับ = สีตามประเภท</span>
         </div>
       </div>
+
+      {rangeStart && (
+        <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
+          <span className="font-medium">📍 เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
+          <span className="text-sky-500">— คลิกวันสิ้นสุดในแถวเดียวกัน (คลิกช่องเดิม = 1 วัน)</span>
+          <button onClick={() => { setRangeStart(null); setRangeHover(null) }} className="ml-auto rounded px-2 py-0.5 text-sky-600 hover:bg-sky-100">ยกเลิก (Esc)</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
@@ -138,7 +170,8 @@ export default function VehicleCalendar() {
 
       {popup && (
         <VehiclePopup
-          vehicle={popup.vehicle} date={popup.dateKey}
+          key={`${popup.vehicle.id}-${popup.dateKey}`}
+          vehicle={popup.vehicle} date={popup.dateKey} initialDays={popup.initialDays}
           bookings={calendarData.get(popup.vehicle.id)?.get(popup.dateKey) ?? []}
           vehicleBookings={Array.from(calendarData.get(popup.vehicle.id)?.values() ?? []).flat()}
           sites={sites} employees={employees} canEdit={canEdit}
