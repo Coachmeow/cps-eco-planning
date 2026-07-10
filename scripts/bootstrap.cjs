@@ -142,6 +142,35 @@ async function main() {
     }
     console.log(`📸 รูปพนักงาน: อัปเดต ${upd} · ตรงอยู่แล้ว ${same} · ไม่พบชื่อ ${miss}`)
   }
+
+  // 7) ลบพนักงานที่ลาออก: ศศิยาพัชร์ ไตรยสุทธิ์ (เคลียร์ FK ให้ครบก่อนลบ — idempotent, รันซ้ำ = ข้าม)
+  try {
+    const gone = await prisma.employee.findFirst({ where: { fullName: { contains: 'ศศิยาพัชร์' } }, select: { id: true, fullName: true } })
+    if (gone) {
+      const eid = gone.id
+      // ตัดสายเครื่องมือ/รถ ที่ผูกกับงานของเธอ ก่อนลบงาน
+      const asgn = await prisma.staffAssignment.findMany({ where: { employeeId: eid }, select: { id: true } })
+      const asgnIds = asgn.map((a) => a.id)
+      if (asgnIds.length) {
+        await prisma.equipmentAssignment.updateMany({ where: { staffAssignmentId: { in: asgnIds } }, data: { staffAssignmentId: null } })
+        await prisma.vehicleBooking.updateMany({ where: { staffAssignmentId: { in: asgnIds } }, data: { staffAssignmentId: null } })
+      }
+      await prisma.cemsPartRequest.deleteMany({ where: { requesterId: eid } })
+      await prisma.vehicleBooking.updateMany({ where: { driverId: eid }, data: { driverId: null } })
+      await prisma.vehicleTrip.updateMany({ where: { driverId: eid }, data: { driverId: null } })
+      await prisma.vehicleLog.updateMany({ where: { driverId: eid }, data: { driverId: null } })
+      await prisma.staffAssignment.deleteMany({ where: { employeeId: eid, parentId: { not: null } } })
+      await prisma.staffAssignment.deleteMany({ where: { employeeId: eid } })
+      await prisma.employeeSiteAccess.deleteMany({ where: { employeeId: eid } })
+      await prisma.user.deleteMany({ where: { employeeId: eid } })
+      await prisma.employee.delete({ where: { id: eid } })
+      console.log(`🗑️ ลบพนักงานลาออก: ${gone.fullName} (id ${eid}) เรียบร้อย`)
+    } else {
+      console.log('🗑️ ไม่พบ ศศิยาพัชร์ (ลบไปแล้ว) — ข้าม')
+    }
+  } catch (e) {
+    console.error('   ⚠ ลบ ศศิยาพัชร์ ไม่สำเร็จ:', e.message)
+  }
 }
 
 main()
