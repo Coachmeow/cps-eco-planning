@@ -15,6 +15,7 @@ export interface CardEmployee {
   hasPhoto?: boolean
   birthDate?: string | null
   startDate?: string | null
+  eduLevel?: string | null
   eduField?: string | null
   eduInstitute?: string | null
 }
@@ -45,7 +46,7 @@ export default function EmployeeCard({ employee, onClose }: { employee: CardEmpl
   }, [onClose])
 
   const teamCls = TEAM_COLOR[employee.primaryTeam.code] ?? 'bg-slate-100 text-slate-600'
-  const edu = [employee.eduField, employee.eduInstitute].filter(Boolean).join(' · ')
+  const edu = [employee.eduLevel, employee.eduField, employee.eduInstitute].filter(Boolean).join(' · ')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -70,7 +71,7 @@ export default function EmployeeCard({ employee, onClose }: { employee: CardEmpl
           <Row label="เบอร์โทร"    value={employee.phone || '—'} />
           <Row label="วันเกิด"     value={fmtThaiDate(employee.birthDate)}  sub={calcAge(employee.birthDate)} />
           <Row label="วันเริ่มงาน" value={fmtThaiDate(employee.startDate)}  sub={calcDuration(employee.startDate)} />
-          <Row label="การศึกษา (ป.ตรี)" value={edu || '—'} />
+          <Row label="การศึกษา" value={edu || '—'} />
           <Row label="ทีม"         value={`${employee.primaryTeam.code} — ${employee.primaryTeam.name}`} />
         </div>
       </div>

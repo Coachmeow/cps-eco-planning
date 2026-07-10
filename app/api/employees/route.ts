@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
         photoUrl:      body.photoUrl     || null,
         birthDate:     body.birthDate     ? new Date(body.birthDate) : null,
         startDate:     body.startDate     ? new Date(body.startDate) : null,
+        eduLevel:      body.eduLevel     || null,
         eduField:      body.eduField     || null,
         eduInstitute:  body.eduInstitute || null,
         subTeamId:     body.subTeamId != null && body.subTeamId !== '' ? parseInt(String(body.subTeamId)) : null,

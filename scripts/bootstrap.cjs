@@ -171,6 +171,31 @@ async function main() {
   } catch (e) {
     console.error('   ⚠ ลบ ศศิยาพัชร์ ไม่สำเร็จ:', e.message)
   }
+
+  // 8) นำเข้าวุฒิการศึกษา/สาขา/สถาบัน/วันเกิด/วันเข้างาน จาก Excel (match ตาม fullName)
+  //    เซ็ตเฉพาะ field ที่ยังว่าง — ไม่ทับข้อมูลที่แก้ไว้แล้ว (อายุงานคำนวณจาก startDate เอง)
+  let info = []
+  try { info = require('./employee-info-seed.json') } catch { info = [] }
+  if (info.length > 0) {
+    const norm = (s) => s.replace(/^(นางสาว|นาง|นาย)/, '').replace(/\s+/g, '').trim()
+    const emps = await prisma.employee.findMany({
+      select: { id: true, fullName: true, eduLevel: true, eduField: true, eduInstitute: true, birthDate: true, startDate: true },
+    })
+    let upd = 0, miss = 0
+    for (const row of info) {
+      let emp = emps.find((e) => e.fullName === row.fullName)
+      if (!emp) { const c = emps.filter((e) => norm(e.fullName) === norm(row.fullName)); if (c.length === 1) emp = c[0] }
+      if (!emp) { miss++; console.log(`   ⚠ ไม่พบพนักงาน (ข้อมูล): ${row.fullName}`); continue }
+      const data = {}
+      if (!emp.eduLevel     && row.eduLevel)     data.eduLevel     = row.eduLevel
+      if (!emp.eduField     && row.eduField)     data.eduField     = row.eduField
+      if (!emp.eduInstitute && row.eduInstitute) data.eduInstitute = row.eduInstitute
+      if (!emp.birthDate    && row.birthDate)    data.birthDate    = new Date(row.birthDate)
+      if (!emp.startDate    && row.startDate)    data.startDate    = new Date(row.startDate)
+      if (Object.keys(data).length) { await prisma.employee.update({ where: { id: emp.id }, data }); upd++ }
+    }
+    console.log(`🎓 ข้อมูลพนักงาน: อัปเดต ${upd} · ไม่พบชื่อ ${miss}`)
+  }
 }
 
 main()

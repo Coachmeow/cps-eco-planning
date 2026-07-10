@@ -17,6 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.photoUrl      !== undefined) data.photoUrl      = body.photoUrl || null
     if (body.birthDate     !== undefined) data.birthDate     = body.birthDate ? new Date(body.birthDate) : null
     if (body.startDate     !== undefined) data.startDate     = body.startDate ? new Date(body.startDate) : null
+    if (body.eduLevel      !== undefined) data.eduLevel      = body.eduLevel || null
     if (body.eduField      !== undefined) data.eduField      = body.eduField || null
     if (body.eduInstitute  !== undefined) data.eduInstitute  = body.eduInstitute || null
     if (body.subTeamId     !== undefined) data.subTeamId     = body.subTeamId != null && body.subTeamId !== '' ? parseInt(String(body.subTeamId)) : null

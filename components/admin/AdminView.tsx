@@ -32,7 +32,7 @@ interface EqType   { id: number; code: string; name: string; primaryTeamId: numb
 interface SubTeamRow { id: number; teamId: number; name: string; sortOrder: number; team?: { code: string }; _count?: { members: number } }
 interface Employee {
   id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
-  phone?: string | null; hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduField?: string | null; eduInstitute?: string | null
+  phone?: string | null; hasPhoto?: boolean; birthDate?: string | null; startDate?: string | null; eduLevel?: string | null; eduField?: string | null; eduInstitute?: string | null
   subTeamId?: number | null; subTeam?: { id: number; name: string } | null; subTeamOrder?: number; isSubLeader?: boolean
   inPlanner?: boolean
 }
@@ -285,7 +285,7 @@ function EmployeesSection() {
   const [subTeams,  setSubTeams]  = useState<SubTeamRow[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing]     = useState<Employee | null>(null)
-  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
+  const [form, setForm]           = useState({ fullName: '', nickname: '', primaryTeamId: '', phone: '', birthDate: '', startDate: '', eduLevel: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
   const [photo, setPhoto]         = useState<string | null>(null)   // data URL ใหม่ (ถ้าอัปโหลด)
   const [photoTouched, setPhotoTouched] = useState(false)
   const [saving, setSaving]       = useState(false)
@@ -308,7 +308,7 @@ function EmployeesSection() {
   useEffect(() => { load() }, [load])
 
   function openAdd() {
-    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
+    setForm({ fullName: '', nickname: '', primaryTeamId: String(teams[0]?.id ?? ''), phone: '', birthDate: '', startDate: '', eduLevel: '', eduField: '', eduInstitute: '', subTeamId: '', subTeamOrder: '', isSubLeader: false, inPlanner: true })
     setPhoto(null); setPhotoTouched(false)
     setEditing(null); setModal('add')
   }
@@ -316,7 +316,7 @@ function EmployeesSection() {
     setForm({
       fullName: e.fullName, nickname: e.nickname ?? '', primaryTeamId: String(e.primaryTeamId), phone: e.phone ?? '',
       birthDate: e.birthDate?.slice(0, 10) ?? '', startDate: e.startDate?.slice(0, 10) ?? '',
-      eduField: e.eduField ?? '', eduInstitute: e.eduInstitute ?? '',
+      eduLevel: e.eduLevel ?? '', eduField: e.eduField ?? '', eduInstitute: e.eduInstitute ?? '',
       subTeamId: e.subTeamId != null ? String(e.subTeamId) : '',
       subTeamOrder: e.subTeamOrder != null && e.subTeamOrder !== 999 ? String(e.subTeamOrder) : '',
       isSubLeader: !!e.isSubLeader,
@@ -505,7 +505,8 @@ function EmployeesSection() {
               <Input label="วันเกิด" value={form.birthDate} onChange={f('birthDate')} type="date" />
               <Input label="วันเริ่มงาน" value={form.startDate} onChange={f('startDate')} type="date" />
             </div>
-            <Input label="การศึกษา ป.ตรี — สาขา" value={form.eduField} onChange={f('eduField')} placeholder="วิศวกรรมสิ่งแวดล้อม" />
+            <Input label="วุฒิการศึกษา" value={form.eduLevel} onChange={f('eduLevel')} placeholder="ป.ตรี (วท.บ) / ปวส. / ต่ำกว่า ปวส." />
+            <Input label="สาขา/คณะ" value={form.eduField} onChange={f('eduField')} placeholder="วิศวกรรมสิ่งแวดล้อม" />
             <Input label="สถาบัน" value={form.eduInstitute} onChange={f('eduInstitute')} placeholder="ม.ขอนแก่น" />
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>

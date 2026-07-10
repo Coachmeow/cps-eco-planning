@@ -26,6 +26,7 @@ export interface Employee {
   hasPhoto?: boolean
   birthDate?: string | null
   startDate?: string | null
+  eduLevel?: string | null
   eduField?: string | null
   eduInstitute?: string | null
   subTeamId?: number | null

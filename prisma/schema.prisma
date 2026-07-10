@@ -93,6 +93,7 @@ model Employee {
   photoUrl      String?     // base64 data URL หรือ URL ภายนอก
   birthDate     DateTime?   @db.Date
   startDate     DateTime?   @db.Date
+  eduLevel      String?     // วุฒิการศึกษา (ป.ตรี (วท.บ), ปวส., ต่ำกว่า ปวส.)
   eduField      String?     // สาขา/คณะ
   eduInstitute  String?     // สถาบัน
   // ทีมย่อย (optional) — หัวหน้าอยู่บนสุด, เรียงตาม subTeam.sortOrder แล้ว subTeamOrder
