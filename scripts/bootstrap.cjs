@@ -120,20 +120,27 @@ async function main() {
     console.log(`📥 อะไหล่ CEMS มีอยู่แล้ว ${partCount} รายการ (ข้ามการนำเข้า)`)
   }
 
-  // 6) นำเข้ารูปพนักงานจากไฟล์ที่ถ่ายไว้ (match ตาม fullName — เซ็ตเฉพาะคนที่ยังไม่มีรูป)
-  //    idempotent: รันซ้ำได้ ไม่ทับรูปที่ตั้งไว้แล้ว ; ชื่อที่ไม่ตรง/ลาออก = ข้าม
+  // 6) นำเข้ารูปพนักงานจากไฟล์ที่ถ่ายไว้ (match ตาม fullName — รูปชุดนี้เป็นรูปหลัก จึงทับให้ตรง seed)
+  //    idempotent: อัปเดตเฉพาะเมื่อรูปต่างจาก seed (รันซ้ำ = no-op) ; ชื่อไม่ตรง = ข้าม+log
   let photos = []
   try { photos = require('./employee-photos-seed.json') } catch { photos = [] }
   if (photos.length > 0) {
-    let set = 0, skip = 0, miss = 0
+    const norm = (s) => s.replace(/^(นางสาว|นาง|นาย)/, '').replace(/\s+/g, '').trim()
+    const allEmp = await prisma.employee.findMany({ select: { id: true, fullName: true, photoUrl: true } })
+    let upd = 0, same = 0, miss = 0
     for (const ph of photos) {
-      const emp = await prisma.employee.findFirst({ where: { fullName: ph.fullName }, select: { id: true, photoUrl: true } })
+      // exact ก่อน ; ถ้าไม่เจอลอง normalized (ตัดคำนำหน้า/ช่องว่าง) แบบ unique
+      let emp = allEmp.find((e) => e.fullName === ph.fullName)
+      if (!emp) {
+        const cands = allEmp.filter((e) => norm(e.fullName) === norm(ph.fullName))
+        if (cands.length === 1) emp = cands[0]
+      }
       if (!emp) { miss++; console.log(`   ⚠ ไม่พบพนักงาน: ${ph.fullName}`); continue }
-      if (emp.photoUrl) { skip++; continue }
+      if (emp.photoUrl === ph.dataUrl) { same++; continue }
       await prisma.employee.update({ where: { id: emp.id }, data: { photoUrl: ph.dataUrl } })
-      set++
+      upd++
     }
-    console.log(`📸 รูปพนักงาน: ตั้งใหม่ ${set} · มีอยู่แล้วข้าม ${skip} · ไม่พบชื่อ ${miss}`)
+    console.log(`📸 รูปพนักงาน: อัปเดต ${upd} · ตรงอยู่แล้ว ${same} · ไม่พบชื่อ ${miss}`)
   }
 }
 
