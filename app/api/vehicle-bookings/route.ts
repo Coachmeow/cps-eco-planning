@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     include: {
       vehicle: true, site: true,
       // ทีมที่ใช้รถ → ลงสีช่องปฏิทินตามทีม (งานจากแผนพนักงาน = ทีมของงาน ; จองตรง = ทีมคนขับ)
-      driver: { include: { primaryTeam: true } },
+      driver: { include: { primaryTeam: true }, omit: { photoUrl: true } },
       staffAssignment: { select: { serviceType: true } },
     },
     orderBy: [{ vehicleId: 'asc' }, { assignedDate: 'asc' }],

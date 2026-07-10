@@ -4,10 +4,18 @@ import { requireRole, forbidden } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const all = req.nextUrl.searchParams.get('all') === 'true' // admin: รวมคนที่ปิดการใช้งานด้วย
-  const employees = await prisma.employee.findMany({
-    where:   all ? {} : { isActive: true, inPlanner: true },
-    include: { primaryTeam: true, siteAccess: true, subTeam: true },
-  })
+  const where = all ? {} : { isActive: true, inPlanner: true }
+  // omit photoUrl → ไม่ให้ DB ดึง base64 ก้อนใหญ่มาทุก query (รูปโหลดผ่าน /photo แยก)
+  // hasPhoto หาแยกด้วย query id เท่านั้น (เบา) เพื่อบอกว่ามีรูปไหม
+  const [employees, withPhoto] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      omit:    { photoUrl: true },
+      include: { primaryTeam: true, siteAccess: true, subTeam: true },
+    }),
+    prisma.employee.findMany({ where: { ...where, photoUrl: { not: null } }, select: { id: true } }),
+  ])
+  const photoIds = new Set(withPhoto.map((e) => e.id))
   // เรียง: ทีม → ทีมย่อย (ไม่มีทีมย่อย=ท้าย) → หัวหน้าอยู่บน → ลำดับในทีมย่อย → ชื่อ
   employees.sort((a, b) => {
     if (a.primaryTeam.sortOrder !== b.primaryTeam.sortOrder) return a.primaryTeam.sortOrder - b.primaryTeam.sortOrder
@@ -19,8 +27,7 @@ export async function GET(req: NextRequest) {
     if (a.subTeamOrder !== b.subTeamOrder) return a.subTeamOrder - b.subTeamOrder
     return a.fullName.localeCompare(b.fullName, 'th')
   })
-  // strip base64 photoUrl ออกจาก payload (รูปโหลดผ่าน /photo) แต่ส่ง hasPhoto บอกว่ามีรูปไหม
-  const out = employees.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))
+  const out = employees.map((e) => ({ ...e, hasPhoto: photoIds.has(e.id) }))
   return NextResponse.json(out)
 }
 

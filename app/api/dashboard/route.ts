@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
   const crossContrib = await Promise.all(
     crossRaw.map(async (row) => {
       const emp = await prisma.employee.findUnique({
-        where: { id: row.employeeId }, include: { primaryTeam: true },
+        where: { id: row.employeeId }, select: { fullName: true, nickname: true, primaryTeam: { select: { code: true } } },
       })
       return {
         employeeId:    row.employeeId,
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
   const personUtil = (await Promise.all(
     personGroups.map(async (g) => {
       const emp = await prisma.employee.findUnique({
-        where: { id: g.employeeId }, include: { primaryTeam: true },
+        where: { id: g.employeeId }, select: { fullName: true, nickname: true, primaryTeam: { select: { code: true } } },
       })
       const fieldDays = Number(g._sum.estimatedDays ?? 0)
       const utilPct   = workdays > 0 ? Math.round((fieldDays / workdays) * 100) : 0

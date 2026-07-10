@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const assignments = await prisma.staffAssignment.findMany({
     where: { assignedDate: { gte: startDate, lte: endDate } },
     include: {
-      employee:    { include: { primaryTeam: true } },
+      employee:    { include: { primaryTeam: true }, omit: { photoUrl: true } },
       site:        true,
       serviceType: true,
     },
