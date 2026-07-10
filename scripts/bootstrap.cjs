@@ -119,6 +119,22 @@ async function main() {
   } else {
     console.log(`📥 อะไหล่ CEMS มีอยู่แล้ว ${partCount} รายการ (ข้ามการนำเข้า)`)
   }
+
+  // 6) นำเข้ารูปพนักงานจากไฟล์ที่ถ่ายไว้ (match ตาม fullName — เซ็ตเฉพาะคนที่ยังไม่มีรูป)
+  //    idempotent: รันซ้ำได้ ไม่ทับรูปที่ตั้งไว้แล้ว ; ชื่อที่ไม่ตรง/ลาออก = ข้าม
+  let photos = []
+  try { photos = require('./employee-photos-seed.json') } catch { photos = [] }
+  if (photos.length > 0) {
+    let set = 0, skip = 0, miss = 0
+    for (const ph of photos) {
+      const emp = await prisma.employee.findFirst({ where: { fullName: ph.fullName }, select: { id: true, photoUrl: true } })
+      if (!emp) { miss++; console.log(`   ⚠ ไม่พบพนักงาน: ${ph.fullName}`); continue }
+      if (emp.photoUrl) { skip++; continue }
+      await prisma.employee.update({ where: { id: emp.id }, data: { photoUrl: ph.dataUrl } })
+      set++
+    }
+    console.log(`📸 รูปพนักงาน: ตั้งใหม่ ${set} · มีอยู่แล้วข้าม ${skip} · ไม่พบชื่อ ${miss}`)
+  }
 }
 
 main()
