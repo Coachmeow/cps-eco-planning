@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 interface Comp { id: number; gas: string; concentration: number; unit: string }
-interface ReadingRow { id: number; pressure: number; readingDate: string; reader: string | null; notes: string | null }
+interface ReadingRow { id: number; pressure: number; readingDate: string; reader: string | null; purpose: string | null; usageLocation: string | null; notes: string | null }
 interface PageData {
   id: number; cylinderNo: string; brand: string | null; size: string | null
   initialPressure: number; currentPressure: number; lowThreshold: number | null; initialWeight: number | null
@@ -41,6 +41,8 @@ export default function CemsGasPublicPage() {
   const [pressure, setPressure] = useState('')
   const [markEmpty, setMarkEmpty] = useState(false)
   const [reader, setReader] = useState('')
+  const [purpose, setPurpose] = useState('')
+  const [usageLocation, setUsageLocation] = useState('')
   const [notes, setNotes] = useState('')
 
   const load = useCallback((tryPin?: string) => {
@@ -76,7 +78,7 @@ export default function CemsGasPublicPage() {
     setSubmitting(true); setErr('')
     const r = await fetch(`/api/public/cems-gas/${token}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...(pin ? { 'x-cems-pin': pin } : {}) },
-      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, reader: reader || undefined, notes: notes || undefined }),
+      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined }),
     })
     setSubmitting(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
@@ -111,7 +113,7 @@ export default function CemsGasPublicPage() {
         <div className="mb-3 text-5xl">✅</div>
         <p className="text-lg font-bold text-slate-800">บันทึกแล้ว</p>
         <p className="mt-1 text-sm text-slate-500">{data.cylinderNo}</p>
-        <button onClick={() => { setDone(false); setPressure(''); setMarkEmpty(false); setNotes(''); load(pin || undefined) }}
+        <button onClick={() => { setDone(false); setPressure(''); setMarkEmpty(false); setPurpose(''); setUsageLocation(''); setNotes(''); load(pin || undefined) }}
           className="mt-5 rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white">เสร็จสิ้น</button>
       </div>
     </Center>
@@ -157,8 +159,10 @@ export default function CemsGasPublicPage() {
             <input type="checkbox" checked={markEmpty} onChange={e => setMarkEmpty(e.target.checked)} className="h-4 w-4" />
             ถังนี้หมดแล้ว (มาร์คเป็น “หมด”)
           </label>
+          <div><label className={lbl}>วัตถุประสงค์ใช้งาน</label><input value={purpose} onChange={e => setPurpose(e.target.value)} className={inp} placeholder="เช่น สอบเทียบ zero/span" /></div>
+          <div><label className={lbl}>สถานที่ใช้งาน</label><input value={usageLocation} onChange={e => setUsageLocation(e.target.value)} className={inp} placeholder="เช่น SKK3 / คลัง" /></div>
           <div><label className={lbl}>ผู้อ่าน</label><input value={reader} onChange={e => setReader(e.target.value)} className={inp} /></div>
-          <div><label className={lbl}>หมายเหตุ</label><input value={notes} onChange={e => setNotes(e.target.value)} className={inp} placeholder="เช่น ใช้สอบเทียบเครื่อง..." /></div>
+          <div><label className={lbl}>หมายเหตุ</label><input value={notes} onChange={e => setNotes(e.target.value)} className={inp} placeholder="อื่น ๆ" /></div>
 
           {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
           <button onClick={submit} disabled={submitting}
@@ -173,9 +177,15 @@ export default function CemsGasPublicPage() {
           {data.readings.length === 0 ? <p className="py-2 text-center text-xs text-slate-300">ยังไม่มี</p> : (
             <div className="space-y-1.5">
               {data.readings.map(rd => (
-                <div key={rd.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-1.5 text-xs">
-                  <span className="font-semibold text-slate-600">{rd.pressure} psi {rd.notes && <span className="font-normal text-slate-400">· {rd.notes}</span>}</span>
-                  <span className="text-slate-400">{rd.reader && `${rd.reader} · `}{fmtD(rd.readingDate)}</span>
+                <div key={rd.id} className="rounded-lg border border-slate-100 px-3 py-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-600">{rd.pressure} psi</span>
+                    <span className="text-slate-400">{rd.reader && `${rd.reader} · `}{fmtD(rd.readingDate)}</span>
+                  </div>
+                  {(rd.purpose || rd.usageLocation) && (
+                    <p className="mt-0.5 text-slate-500">{rd.purpose && <>🎯 {rd.purpose}</>}{rd.purpose && rd.usageLocation && ' · '}{rd.usageLocation && <>📍 {rd.usageLocation}</>}</p>
+                  )}
+                  {rd.notes && <p className="mt-0.5 text-slate-400">📝 {rd.notes}</p>}
                 </div>
               ))}
             </div>

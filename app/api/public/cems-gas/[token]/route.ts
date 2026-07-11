@@ -44,7 +44,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   await prisma.$transaction(async (tx) => {
     if (hasPressure) {
       await tx.cemsGasReading.create({
-        data: { cylinderId: c.id, pressure, readingDate, reader: body.reader || null, notes: body.notes || null },
+        data: {
+          cylinderId: c.id, pressure, readingDate,
+          reader:        body.reader        || null,
+          purpose:       body.purpose       || null,
+          usageLocation: body.usageLocation || null,
+          notes:         body.notes         || null,
+        },
       })
     }
     const cylData: Record<string, unknown> = {}

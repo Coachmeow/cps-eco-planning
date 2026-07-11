@@ -12,7 +12,7 @@ interface GasRow {
   status: 'ACTIVE' | 'EMPTY' | 'RETURNED'; notes: string | null
   components: Comp[]; pct: number; kgRemaining: number | null
 }
-interface ReadingRow { id: number; pressure: number; readingDate: string; reader: string | null; notes: string | null }
+interface ReadingRow { id: number; pressure: number; readingDate: string; reader: string | null; purpose: string | null; usageLocation: string | null; notes: string | null }
 
 const GAS_STATUS: Record<string, { label: string; chip: string }> = {
   ACTIVE:   { label: 'ใช้งานได้', chip: 'bg-emerald-100 text-emerald-700' },
@@ -284,6 +284,8 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
 function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => void; onSaved: () => void }) {
   const [pressure, setPressure] = useState('')
   const [reader, setReader] = useState('')
+  const [purpose, setPurpose] = useState('')
+  const [usageLocation, setUsageLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(todayKey())
   const [saving, setSaving] = useState(false)
@@ -298,7 +300,7 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
     setSaving(true); setErr('')
     const r = await fetch(`/api/cems/gas/${row.id}/readings`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pressure, reader: reader || undefined, notes: notes || undefined, readingDate: date }),
+      body: JSON.stringify({ pressure, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined, readingDate: date }),
     })
     setSaving(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
@@ -323,8 +325,12 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
             {willEmpty && ' · ต่ำกว่าเกณฑ์ → จะมาร์คถังหมดอัตโนมัติ'}
           </p>
         )}
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="วัตถุประสงค์ใช้งาน" value={purpose} onChange={setPurpose} placeholder="เช่น สอบเทียบ zero/span" />
+          <Input label="สถานที่ใช้งาน" value={usageLocation} onChange={setUsageLocation} placeholder="เช่น SKK3 / คลัง" />
+        </div>
         <Input label="ผู้อ่าน" value={reader} onChange={setReader} />
-        <Input label="หมายเหตุ" value={notes} onChange={setNotes} placeholder="เช่น ใช้สอบเทียบเครื่อง SKK3" />
+        <Input label="หมายเหตุ" value={notes} onChange={setNotes} placeholder="อื่น ๆ" />
         {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
@@ -357,13 +363,22 @@ function HistoryModal({ row, onClose }: { row: GasRow; onClose: () => void }) {
           {readings.map(rd => {
             const pct = row.initialPressure > 0 ? Math.round((rd.pressure / row.initialPressure) * 100) : 0
             return (
-              <div key={rd.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-700">{rd.pressure} psi</span>
-                  <span className="text-slate-400">≈ {pct}%</span>
-                  {rd.notes && <span className="text-slate-500">· {rd.notes}</span>}
+              <div key={rd.id} className="rounded-lg border border-slate-100 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">{rd.pressure} psi</span>
+                    <span className="text-slate-400">≈ {pct}%</span>
+                  </div>
+                  <span className="text-slate-400">{rd.reader && `${rd.reader} · `}{fmtDate(rd.readingDate)}</span>
                 </div>
-                <span className="text-slate-400">{rd.reader && `${rd.reader} · `}{fmtDate(rd.readingDate)}</span>
+                {(rd.purpose || rd.usageLocation) && (
+                  <p className="mt-0.5 text-slate-500">
+                    {rd.purpose && <>🎯 {rd.purpose}</>}
+                    {rd.purpose && rd.usageLocation && ' · '}
+                    {rd.usageLocation && <>📍 {rd.usageLocation}</>}
+                  </p>
+                )}
+                {rd.notes && <p className="mt-0.5 text-slate-400">📝 {rd.notes}</p>}
               </div>
             )
           })}

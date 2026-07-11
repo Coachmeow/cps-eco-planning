@@ -30,7 +30,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const autoEmpty = cyl.lowThreshold != null && pressure <= cyl.lowThreshold
   await prisma.$transaction(async (tx) => {
     await tx.cemsGasReading.create({
-      data: { cylinderId: cid, pressure, readingDate, reader: body.reader || null, notes: body.notes || null },
+      data: {
+        cylinderId: cid, pressure, readingDate,
+        reader:        body.reader        || null,
+        purpose:       body.purpose       || null,
+        usageLocation: body.usageLocation || null,
+        notes:         body.notes         || null,
+      },
     })
     await tx.cemsGasCylinder.update({
       where: { id: cid },

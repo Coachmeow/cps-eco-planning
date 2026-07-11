@@ -635,11 +635,13 @@ model CemsGasReading {
   id          Int             @id @default(autoincrement())
   cylinderId  Int
   cylinder    CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
-  pressure    Float                            // psi ที่อ่านได้
-  readingDate DateTime        @db.Date
-  reader      String?
-  notes       String?
-  createdAt   DateTime        @default(now())
+  pressure      Float                          // psi ที่อ่านได้
+  readingDate   DateTime      @db.Date
+  reader        String?
+  purpose       String?                        // วัตถุประสงค์การใช้งาน (สอบเทียบ/ตรวจเช็ค...)
+  usageLocation String?                        // สถานที่ใช้งาน
+  notes         String?
+  createdAt     DateTime      @default(now())
 
   @@index([cylinderId, readingDate])
   @@map("cems_gas_readings")
