@@ -33,9 +33,18 @@ const fmtD = (d: string) => new Date(d).toLocaleDateString('th-TH', { day: 'nume
 const inp = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-800 focus:border-slate-500 focus:outline-none'
 const lbl = 'mb-1 block text-sm font-medium text-slate-600'
 
+const PIN_LEN = 6
+const REMEMBER_MS = 7 * 24 * 60 * 60 * 1000 // จำรหัส 7 วัน
+const PIN_KEY = 'cemsqr_pin'
+function readSavedPin(): string | null {
+  try { const o = JSON.parse(localStorage.getItem(PIN_KEY) || 'null'); if (o && o.exp > Date.now()) return o.p } catch {}
+  return null
+}
+function saveSavedPin(p: string) { try { localStorage.setItem(PIN_KEY, JSON.stringify({ p, exp: Date.now() + REMEMBER_MS })) } catch {} }
+function clearSavedPin() { try { localStorage.removeItem(PIN_KEY) } catch {} }
+
 export default function CemsAnalyzerPublicPage() {
   const { token } = useParams<{ token: string }>()
-  const pinKey = `cemsqr_pin`
   const [pin, setPin] = useState('')
   const [needPin, setNeedPin] = useState(false)
   const [pinInput, setPinInput] = useState('')
@@ -55,28 +64,33 @@ export default function CemsAnalyzerPublicPage() {
 
   function resetForm() { setSymptom(''); setAction(''); setSiteId(''); setVendor(''); setReceiver(''); setNotes(''); setErr('') }
 
-  // โหลดข้อมูล พร้อมส่งรหัสรวมทาง header (ถ้ามี)
+  // โหลดข้อมูล พร้อมส่งรหัสรวมทาง header (ถ้ามี) — จัดการ error เอง
   const load = useCallback((tryPin?: string) => {
     const headers: Record<string, string> = {}
     if (tryPin) headers['x-cems-pin'] = tryPin
     return fetch(`/api/public/cems-analyzer/${token}`, { headers }).then(async r => {
-      if (r.status === 401) { setNeedPin(true); setData(null); return false }
+      if (r.status === 429) { setNeedPin(true); setData(null); setErr('ลองผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่'); return false }
+      if (r.status === 401) { setNeedPin(true); setData(null); if (tryPin) { setErr('รหัสไม่ถูกต้อง'); clearSavedPin() } return false }
       if (!r.ok) { setErr('ไม่พบเครื่อง หรือ QR ไม่ถูกต้อง'); return false }
-      setNeedPin(false); setData(await r.json()); if (tryPin) setPin(tryPin)
+      setNeedPin(false); setErr(''); setData(await r.json()); if (tryPin) setPin(tryPin)
       return true
     }).catch(() => { setErr('เชื่อมต่อไม่ได้'); return false })
   }, [token])
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(pinKey) : null
+    const saved = typeof window !== 'undefined' ? readSavedPin() : null
     load(saved || undefined)
-  }, [load, pinKey])
+  }, [load])
 
-  async function submitPin() {
-    if (!pinInput) return
-    const ok = await load(pinInput)
-    if (ok) { try { sessionStorage.setItem(pinKey, pinInput) } catch {} setPinInput('') }
-    else setErr('รหัสไม่ถูกต้อง')
+  // auto-submit เมื่อครบ 6 หลัก (ไม่ต้องกดปุ่ม)
+  async function trySubmitPin(code: string) {
+    const ok = await load(code)
+    if (ok) { saveSavedPin(code); setPinInput('') }
+  }
+  function onPinChange(v: string) {
+    const digits = v.replace(/\D/g, '').slice(0, PIN_LEN)
+    setPinInput(digits); setErr('')
+    if (digits.length === PIN_LEN) trySubmitPin(digits)
   }
 
   async function submit() {
@@ -108,12 +122,15 @@ export default function CemsAnalyzerPublicPage() {
         <div className="mb-3 text-5xl">🔒</div>
         <p className="text-lg font-bold text-slate-800">ใส่รหัสเข้าใช้งาน</p>
         <p className="mt-1 mb-4 text-sm text-slate-400">หน้าอัปเดตเครื่อง CEMS · เฉพาะเจ้าหน้าที่</p>
-        <input type="password" inputMode="numeric" value={pinInput} autoFocus
-          onChange={e => { setPinInput(e.target.value); setErr('') }}
-          onKeyDown={e => { if (e.key === 'Enter') submitPin() }}
-          className={`${inp} text-center tracking-widest`} placeholder="รหัสรวม" />
+        <input type="password" inputMode="numeric" autoComplete="off" value={pinInput} autoFocus
+          maxLength={PIN_LEN}
+          onChange={e => onPinChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && pinInput) trySubmitPin(pinInput) }}
+          className={`${inp} text-center text-2xl tracking-[0.5em]`} placeholder="••••••" />
         {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
-        <button onClick={submitPin} className="mt-4 w-full rounded-xl bg-slate-700 py-3 text-base font-semibold text-white hover:bg-slate-800">เข้าใช้งาน</button>
+        <button onClick={() => pinInput && trySubmitPin(pinInput)}
+          className="mt-4 w-full rounded-xl bg-slate-700 py-3 text-base font-semibold text-white hover:bg-slate-800">เข้าใช้งาน</button>
+        <p className="mt-3 text-[11px] text-slate-400">ใส่รหัส {PIN_LEN} หลัก · จำไว้ 7 วันในเครื่องนี้</p>
       </div>
     </Center>
   )
