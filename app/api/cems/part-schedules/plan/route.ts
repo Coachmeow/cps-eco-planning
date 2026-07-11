@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
     stockMap.set(t.partId, (stockMap.get(t.partId) ?? 0) + (t.type === 'OUT' ? -q : q))
   }
 
-  const anchorOf = (s: typeof schedules[number]) => s.nextDueDate ?? s.lastReplacedDate ?? null
+  // anchor = nextDueDate เท่านั้น (= วันเปลี่ยนล่าสุด + interval) → ไล่ไปข้างหน้า ไม่ลงแผนย้อนหลัง
+  const anchorOf = (s: typeof schedules[number]) => s.nextDueDate ?? null
   const belongsToSite = (s: typeof schedules[number]) =>
     siteId != null && (s.siteId === siteId || (s.analyzer && (s.analyzer.currentSiteId === siteId || s.analyzer.homeSiteId === siteId)))
   const targetLabel = (s: typeof schedules[number]) => s.analyzer ? s.analyzer.tag : (s.site?.code ? `${s.site.code} (ใช้ร่วม)` : 'ไซต์')

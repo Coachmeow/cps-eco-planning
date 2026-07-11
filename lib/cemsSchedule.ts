@@ -15,25 +15,25 @@ export function computeNextDue(mode: string, intervalMonths: number | null, last
   return addMonths(lastReplacedDate, intervalMonths)
 }
 
-/** รายการวันถึงกำหนดของแผนหนึ่ง ที่ตกอยู่ในปี year (ค.ศ.) — ไล่จาก anchor ทั้งไปข้างหน้า/ถอยหลังทีละ interval */
+/** รายการวันถึงกำหนดของแผนหนึ่ง ที่ตกอยู่ในปี year (ค.ศ.)
+ *  ไล่ "ไปข้างหน้าเท่านั้น" จาก anchor (= nextDueDate) — ไม่นับย้อนหลัง/ไม่ลงแผนก่อนวันเปลี่ยน
+ *  anchor ควรเป็น nextDueDate (= วันเปลี่ยนล่าสุด + interval) ; ถ้าไม่มี anchor = ยังคำนวณแผนไม่ได้ */
 export function occurrencesInYear(
   year: number,
   intervalMonths: number | null,
   anchor: Date | null,
 ): Date[] {
-  if (!intervalMonths || intervalMonths <= 0) return []
+  if (!intervalMonths || intervalMonths <= 0 || !anchor) return []
   const yStart = Date.UTC(year, 0, 1)
   const yEnd = Date.UTC(year, 11, 31)
-  // ถ้าไม่มี anchor → สมมติถึงกำหนดครั้งแรกต้นปี
-  let cur = anchor ? new Date(anchor) : new Date(Date.UTC(year, 0, 1))
-  // ถอยหลังให้ไม่เกินต้นปี
+  let cur = new Date(anchor)
   let guard = 0
-  while (cur.getTime() > yStart && guard++ < 240) cur = addMonths(cur, -intervalMonths)
-  // เดินไปข้างหน้าเก็บที่อยู่ในปี
+  // เดินไปข้างหน้าจนถึงต้นปีที่ขอ (ไม่ถอยหลังต่ำกว่า anchor)
+  while (cur.getTime() < yStart && guard++ < 600) cur = addMonths(cur, intervalMonths)
   const out: Date[] = []
   guard = 0
-  while (cur.getTime() <= yEnd && guard++ < 240) {
-    if (cur.getTime() >= yStart) out.push(new Date(cur))
+  while (cur.getTime() <= yEnd && guard++ < 600) {
+    out.push(new Date(cur))
     cur = addMonths(cur, intervalMonths)
   }
   return out
