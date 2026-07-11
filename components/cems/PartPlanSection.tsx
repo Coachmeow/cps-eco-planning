@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from './ui'
+import PartWithdrawForm, { type WithdrawSchedule, type WithdrawEmployee } from './PartWithdrawForm'
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
@@ -14,7 +15,7 @@ interface Plan {
   year: number
   rows: Row[]
   onCondition: { scheduleId: number; partCode: string; partName: string; target: string; qtyPerReplace: number }[]
-  upcoming: { scheduleId: number; partCode: string; partName: string; target: string; dueDate: string; overdue: boolean }[]
+  upcoming: { scheduleId: number; partId: number; partCode: string; partName: string; target: string; dueDate: string; overdue: boolean }[]
   shortage: { partId: number; code: string; name: string; unit: string | null; need: number; stock: number; diff: number }[]
 }
 interface Schedule {
@@ -32,11 +33,15 @@ const CELL_CLS: Record<string, string> = {
 
 const emptyForm = { partId: '', targetType: 'analyzer' as 'analyzer' | 'site', analyzerId: '', siteId: '', mode: 'TIME_BASE', intervalMonths: '12', qtyPerReplace: '1', lastReplacedDate: '', notes: '' }
 
+interface WithdrawTarget { partId: number; scheduleId: number; analyzerId?: number; siteId?: number }
+
 export default function PartPlanSection() {
   const now = new Date()
   const [sites, setSites] = useState<Site[]>([])
   const [parts, setParts] = useState<Part[]>([])
   const [analyzers, setAnalyzers] = useState<Analyzer[]>([])
+  const [employees, setEmployees] = useState<WithdrawEmployee[]>([])
+  const [withdraw, setWithdraw] = useState<WithdrawTarget | null>(null)
   const [siteId, setSiteId] = useState('')
   const [year, setYear] = useState(now.getFullYear())
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -57,10 +62,12 @@ export default function PartPlanSection() {
       fetch('/api/cems/sites').then(r => r.json()),
       fetch('/api/cems/parts').then(r => r.json()),
       fetch('/api/cems/analyzers').then(r => r.json()),
-    ]).then(([s, p, a]) => {
+      fetch('/api/cems/employees').then(r => r.json()),
+    ]).then(([s, p, a, e]) => {
       setSites(Array.isArray(s) ? s : [])
       setParts(Array.isArray(p) ? p : [])
       setAnalyzers(Array.isArray(a) ? a : [])
+      setEmployees(Array.isArray(e) ? e : [])
       if (Array.isArray(s) && s.length && !siteId) setSiteId(String(s[0].id))
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,6 +136,7 @@ export default function PartPlanSection() {
   }
 
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
+  const dueScheduleIds = new Set((plan?.upcoming ?? []).map(u => u.scheduleId))
 
   return (
     <div className="space-y-3.5">
@@ -164,11 +172,12 @@ export default function PartPlanSection() {
                   <th className="sticky left-0 z-10 min-w-[150px] bg-slate-50 px-3 py-2 text-left font-semibold text-slate-600">อะไหล่ · รอบ</th>
                   {THAI_MONTHS.map(m => <th key={m} className="w-[40px] px-1 py-2 font-medium text-slate-400">{m}</th>)}
                   <th className="w-[46px] px-2 py-2 font-semibold text-slate-600">รวม</th>
+                  <th className="w-[70px] px-2 py-2 font-semibold text-slate-600"></th>
                 </tr>
               </thead>
               <tbody>
                 {plan.rows.length === 0 && (
-                  <tr><td colSpan={14} className="px-3 py-6 text-center text-slate-300">{allSites ? 'ยังไม่มีแผน Time-base' : 'ยังไม่มีแผน Time-base ของไซต์นี้'}</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-6 text-center text-slate-300">{allSites ? 'ยังไม่มีแผน Time-base' : 'ยังไม่มีแผน Time-base ของไซต์นี้'}</td></tr>
                 )}
                 {!allSites && plan.rows.map(r => (
                   <tr key={r.scheduleId} className="border-t border-slate-100 hover:bg-slate-50/50">
@@ -183,6 +192,11 @@ export default function PartPlanSection() {
                       </td>
                     })}
                     <td className="px-2 text-center font-semibold text-slate-600">{r.total || '—'}</td>
+                    <td className="px-2 text-center">
+                      {dueScheduleIds.has(r.scheduleId) && (
+                        <Btn small onClick={() => setWithdraw({ partId: r.partId, scheduleId: r.scheduleId })}>เบิก</Btn>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {allSites && (() => {
@@ -224,6 +238,7 @@ export default function PartPlanSection() {
                             </td>
                           })}
                           <td className="px-2 text-center font-semibold text-slate-600">{total || '—'}</td>
+                          <td></td>
                         </tr>
                         {open && g.items.map(r => (
                           <tr key={r.scheduleId} className="border-t border-slate-50 bg-slate-50/50">
@@ -238,6 +253,11 @@ export default function PartPlanSection() {
                               </td>
                             })}
                             <td className="px-2 text-center text-[11px] font-medium text-slate-500">{r.total || '—'}</td>
+                            <td className="px-2 text-center">
+                              {dueScheduleIds.has(r.scheduleId) && (
+                                <Btn small onClick={() => setWithdraw({ partId: r.partId, scheduleId: r.scheduleId })}>เบิก</Btn>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </Fragment>
@@ -292,7 +312,10 @@ export default function PartPlanSection() {
                   {plan.upcoming.map(u => (
                     <div key={u.scheduleId} className="flex items-center justify-between gap-2 text-[11px]">
                       <span className="text-slate-700">{u.partCode} <span className="text-slate-400">· {u.target}</span></span>
-                      <span className={u.overdue ? 'font-semibold text-red-600' : 'text-slate-500'}>{fmtDate(u.dueDate)}{u.overdue && ' · เลยกำหนด'}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className={u.overdue ? 'font-semibold text-red-600' : 'text-slate-500'}>{fmtDate(u.dueDate)}{u.overdue && ' · เลยกำหนด'}</span>
+                        <Btn small onClick={() => setWithdraw({ partId: u.partId, scheduleId: u.scheduleId })}>เบิกตามแผน</Btn>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -380,6 +403,55 @@ export default function PartPlanSection() {
           </div>
         </Modal>
       )}
+
+      {withdraw && (
+        <WithdrawModal
+          target={withdraw}
+          parts={parts}
+          sites={sites}
+          analyzers={analyzers}
+          employees={employees}
+          onClose={() => setWithdraw(null)}
+          onDone={() => { setWithdraw(null); loadPlan() }}
+        />
+      )}
     </div>
+  )
+}
+
+function WithdrawModal({ target, parts, sites, analyzers, employees, onClose, onDone }: {
+  target: WithdrawTarget; parts: Part[]; sites: Site[]; analyzers: Analyzer[]; employees: WithdrawEmployee[]
+  onClose: () => void; onDone: () => void
+}) {
+  const [schedules, setSchedules] = useState<WithdrawSchedule[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/cems/part-schedules/for-part?partId=${target.partId}`)
+      .then(r => r.json()).then(d => setSchedules(Array.isArray(d) ? d : []))
+      .catch(() => setSchedules([]))
+      .finally(() => setLoading(false))
+  }, [target.partId])
+
+  const part = parts.find(p => p.id === target.partId)
+  if (!part) return null
+
+  return (
+    <Modal title={`เบิกอะไหล่ · ${part.code}`} onClose={onClose}>
+      {loading ? <p className="py-4 text-center text-sm text-slate-400">กำลังโหลด...</p> : (
+        <PartWithdrawForm
+          part={part}
+          employees={employees}
+          sites={sites.map(s => ({ id: s.id, code: s.code }))}
+          analyzers={analyzers.map(a => ({ id: a.id, tag: a.tag, currentSiteId: a.currentSite?.id ?? null }))}
+          schedules={schedules}
+          submitUrl="/api/cems/part-requests"
+          extraBody={{ partId: target.partId }}
+          prefill={{ mode: 'PLANNED', scheduleId: target.scheduleId, analyzerId: target.analyzerId, siteId: target.siteId }}
+          onDone={onDone}
+        />
+      )}
+    </Modal>
   )
 }

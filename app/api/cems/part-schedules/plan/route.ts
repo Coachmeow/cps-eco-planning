@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   type Cell = { qty: number; state: 'plan' | 'overdue' | 'done' }
   const rows: { scheduleId: number; partId: number; partCode: string; partName: string; unit: string | null; target: string; intervalMonths: number | null; qtyPerReplace: number; months: Record<number, Cell>; total: number }[] = []
   const onCondition: { scheduleId: number; partCode: string; partName: string; target: string; qtyPerReplace: number }[] = []
-  const upcoming: { scheduleId: number; partCode: string; partName: string; target: string; dueDate: string; overdue: boolean }[] = []
+  const upcoming: { scheduleId: number; partId: number; partCode: string; partName: string; target: string; dueDate: string; overdue: boolean }[] = []
 
   // ── สรุปพอ/ขาด (รวมทุกไซต์) ──
   const needMap = new Map<number, number>()
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
         // ใกล้/เลยกำหนด
         if (s.nextDueDate) {
           const due = new Date(s.nextDueDate).getTime()
-          if (due <= monthEndMs) upcoming.push({ scheduleId: s.id, partCode: s.part.code, partName: s.part.name, target: targetLabel(s), dueDate: s.nextDueDate.toISOString().slice(0, 10), overdue: due < todayMs })
+          if (due <= monthEndMs) upcoming.push({ scheduleId: s.id, partId: s.partId, partCode: s.part.code, partName: s.part.name, target: targetLabel(s), dueDate: s.nextDueDate.toISOString().slice(0, 10), overdue: due < todayMs })
         }
       }
     } else if (s.mode === 'ON_CONDITION' && belongsToSite(s)) {
