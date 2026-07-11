@@ -459,7 +459,8 @@ model CemsAnalyzerEvent {
   action     String?       // สิ่งที่ทำ/ผลรับคืน
   siteId     Int?          // MOVE: ไปไซต์ไหน (null = กลับหน่วยงาน) / ISSUE: แจ้งจากไซต์ไหน
   site       CemsSite?     @relation("EvtSite", fields: [siteId], references: [id])
-  vendor     String?
+  vendor     String?       // REPAIR: สถานที่/บริษัทที่ส่งซ่อม
+  receiver   String?       // REPAIR: ชื่อผู้รับเครื่องฝั่งผู้ซ่อม
   reporter   String?
   notes      String?
   createdAt  DateTime      @default(now())

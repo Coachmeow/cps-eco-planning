@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
         action:   body.action   || null,
         siteId,
         vendor:   body.vendor   || null,
+        receiver: body.receiver || null,
         reporter: body.reporter || null,
         notes:    body.notes    || null,
       },

@@ -7,7 +7,7 @@ import type { CemsSiteRow } from '@/components/cems/CemsSitesSection'
 
 interface EventRow {
   id: number; type: string; eventDate: string; symptom: string | null; action: string | null
-  site: { code: string } | null; vendor: string | null; reporter: string | null; notes: string | null; createdAt: string
+  site: { code: string } | null; vendor: string | null; receiver: string | null; reporter: string | null; notes: string | null; createdAt: string
 }
 interface Detail {
   id: number; tag: string; brand: string | null; model: string | null; serialNo: string | null
@@ -25,7 +25,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
   const [qr, setQr] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]     = useState(false)
-  const [evForm, setEvForm]     = useState({ type: 'REPAIR', eventDate: new Date().toLocaleDateString('en-CA'), symptom: '', action: '', siteId: '', vendor: '', reporter: '', notes: '' })
+  const [evForm, setEvForm]     = useState({ type: 'REPAIR', eventDate: new Date().toLocaleDateString('en-CA'), symptom: '', action: '', siteId: '', vendor: '', receiver: '', reporter: '', notes: '' })
 
   const load = useCallback(() => {
     fetch(`/api/cems/analyzers/${analyzerId}`).then(r => r.json()).then(setA).catch(() => {})
@@ -82,7 +82,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
     setSaving(false)
     if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'บันทึกไม่สำเร็จ'); return }
     setShowForm(false)
-    setEvForm({ type: 'REPAIR', eventDate: new Date().toLocaleDateString('en-CA'), symptom: '', action: '', siteId: '', vendor: '', reporter: '', notes: '' })
+    setEvForm({ type: 'REPAIR', eventDate: new Date().toLocaleDateString('en-CA'), symptom: '', action: '', siteId: '', vendor: '', receiver: '', reporter: '', notes: '' })
     load()
   }
 
@@ -166,7 +166,10 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
                     </div>
                   )}
                   {(evForm.type === 'REPAIR' || evForm.type === 'RETURN') && (
-                    <Input label="Vendor / ผู้ซ่อม" value={evForm.vendor} onChange={ef('vendor')} placeholder="บ. ..." />
+                    <Input label="Vendor / สถานที่ส่งซ่อม" value={evForm.vendor} onChange={ef('vendor')} placeholder="บ. ..." />
+                  )}
+                  {evForm.type === 'REPAIR' && (
+                    <Input label="ผู้รับเครื่อง (ฝั่งผู้ซ่อม)" value={evForm.receiver} onChange={ef('receiver')} placeholder="เช่น คุณสมชาย" />
                   )}
                   <Input label="หมายเหตุ" value={evForm.notes} onChange={ef('notes')} placeholder="..." />
                   <div className="flex justify-end"><Btn onClick={saveEvent}>{saving ? 'กำลังบันทึก...' : 'บันทึกประวัติ'}</Btn></div>
@@ -188,7 +191,8 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
                         </div>
                         {ev.symptom && <p className="mt-1 text-slate-600">อาการ: {ev.symptom}</p>}
                         {ev.action && <p className="mt-0.5 text-slate-600">ทำ: {ev.action}</p>}
-                        {(ev.vendor || ev.reporter) && <p className="mt-0.5 text-slate-400">{ev.vendor && `Vendor: ${ev.vendor}`}{ev.vendor && ev.reporter && ' · '}{ev.reporter && `ผู้แจ้ง: ${ev.reporter}`}</p>}
+                        {(ev.vendor || ev.receiver) && <p className="mt-0.5 text-slate-400">{ev.vendor && `ส่งซ่อม: ${ev.vendor}`}{ev.vendor && ev.receiver && ' · '}{ev.receiver && `ผู้รับ: ${ev.receiver}`}</p>}
+                        {ev.reporter && <p className="mt-0.5 text-slate-400">ผู้แจ้ง: {ev.reporter}</p>}
                         {ev.notes && <p className="mt-0.5 text-amber-600">📝 {ev.notes}</p>}
                       </div>
                     )
