@@ -584,3 +584,63 @@ model CemsPartSchedule {
   @@index([analyzerId])
   @@map("cems_part_schedules")
 }
+
+// ── CEMS เฟส 3: แก๊สมาตรฐาน (Standard Gas / Cal gas) ──────────
+
+enum CemsGasStatus {
+  ACTIVE   // ใช้งานได้ มีของ
+  EMPTY    // หมดแล้ว (ความดันต่ำเกินใช้)
+  RETURNED // ส่งคืนซัพพลายเออร์
+}
+
+// ถังแก๊สมาตรฐาน — หลายองค์ประกอบต่อถัง ; ความดัน psi ↔ น้ำหนัก kg แปรผันตรง (แก๊สอัด)
+model CemsGasCylinder {
+  id              Int           @id @default(autoincrement())
+  cylinderNo      String        @unique          // เลขถัง/serial
+  brand           String?                        // ผู้ผลิต/ซัพพลายเออร์
+  size            String?                        // ขนาดถัง เช่น 47L, 10L
+  initialPressure Float                          // ความดันเต็มถัง (psi)
+  currentPressure Float                          // ความดันปัจจุบัน (psi)
+  lowThreshold    Float?                         // ต่ำกว่านี้เตือนใกล้หมด (psi)
+  initialWeight   Float?                         // น้ำหนักแก๊สเต็มถัง (kg) → คำนวณ kg คงเหลือ
+  receivedDate    DateTime?     @db.Date         // วันรับเข้า → อายุใช้งาน
+  expiryDate      DateTime?     @db.Date         // วันหมดอายุแก๊ส (cal gas มี shelf-life)
+  location        String?                        // ที่เก็บ/ไซต์ที่ใช้
+  status          CemsGasStatus @default(ACTIVE)
+  qrToken         String?       @unique
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  components CemsGasComponent[]
+  readings   CemsGasReading[]
+
+  @@map("cems_gas_cylinders")
+}
+
+// องค์ประกอบแก๊สในถัง (SO2 500 ppm, NO 400 ppm, ...) — ค้นถังตามชนิดแก๊สได้
+model CemsGasComponent {
+  id            Int             @id @default(autoincrement())
+  cylinderId    Int
+  cylinder      CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
+  gas           String                           // SO2, NO, NO2, CO, CO2, O2, N2, CH4, H2S ...
+  concentration Float
+  unit          String          @default("ppm")  // ppm / % / mg/m3
+
+  @@index([cylinderId])
+  @@map("cems_gas_components")
+}
+
+// บันทึกการอ่านความดัน (จาก QR หน้างาน / ในระบบ) → อัปเดต currentPressure + เก็บ log
+model CemsGasReading {
+  id          Int             @id @default(autoincrement())
+  cylinderId  Int
+  cylinder    CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
+  pressure    Float                            // psi ที่อ่านได้
+  readingDate DateTime        @db.Date
+  reader      String?
+  notes       String?
+  createdAt   DateTime        @default(now())
+
+  @@index([cylinderId, readingDate])
+  @@map("cems_gas_readings")
+}

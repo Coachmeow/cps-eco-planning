@@ -93,7 +93,7 @@ export default function Sidebar() {
   }, [])
 
   // ไม่แสดง sidebar บนหน้า login / หน้า QR public (/m โลจบุ๊ครถ, /a เครื่อง CEMS)
-  if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/') || path.startsWith('/p/')) return null
+  if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/') || path.startsWith('/p/') || path.startsWith('/g/')) return null
 
   const role = me?.role
   const groups = NAV

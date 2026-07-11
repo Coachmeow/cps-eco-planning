@@ -6,6 +6,7 @@ import AnalyzerSection from '@/components/cems/AnalyzerSection'
 import CemsSitesSection from '@/components/cems/CemsSitesSection'
 import PartsSection from '@/components/cems/PartsSection'
 import PartPlanSection from '@/components/cems/PartPlanSection'
+import GasSection from '@/components/cems/GasSection'
 
 type CemsTab = 'analyzers' | 'sites' | 'parts' | 'plan' | 'gas'
 
@@ -29,7 +30,7 @@ export default function CemsPage() {
     { key: 'sites',     label: '🏭 ไซต์ CEMS',       ready: true },
     { key: 'parts',     label: '🔩 Stock อะไหล่',    ready: true },
     { key: 'plan',      label: '📅 แผนเปลี่ยนอะไหล่', ready: true },
-    { key: 'gas',       label: '🧪 Standard Gas',    ready: false },
+    { key: 'gas',       label: '🧪 Standard Gas',    ready: true },
   ]
 
   return (
@@ -53,6 +54,7 @@ export default function CemsPage() {
         {tab === 'sites'     && <CemsSitesSection />}
         {tab === 'parts'     && <PartsSection />}
         {tab === 'plan'      && <PartPlanSection />}
+        {tab === 'gas'       && <GasSection />}
       </div>
     </div>
   )
