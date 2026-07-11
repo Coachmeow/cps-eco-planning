@@ -37,6 +37,15 @@ export async function POST(req: NextRequest) {
 
   const replaceType = ['PLANNED', 'BREAKDOWN', 'OTHER'].includes(body.replaceType) ? body.replaceType : null
 
+  // scheduleId ต้องเป็นแผนของอะไหล่ชิ้นนี้จริง (กัน client ส่ง id แผนของอะไหล่อื่นมาสวม)
+  let scheduleId: number | null = null
+  if (body.scheduleId) {
+    const sid = parseInt(String(body.scheduleId))
+    const sched = await prisma.cemsPartSchedule.findFirst({ where: { id: sid, partId }, select: { id: true } })
+    if (!sched) return NextResponse.json({ error: 'แผนที่เลือกไม่ถูกต้อง' }, { status: 400 })
+    scheduleId = sched.id
+  }
+
   const reqRow = await prisma.cemsPartRequest.create({
     data: {
       partId, qty, requesterId,
@@ -45,7 +54,7 @@ export async function POST(req: NextRequest) {
       analyzerId: body.analyzerId ? parseInt(String(body.analyzerId)) : null,
       quoteNo:    body.quoteNo    || null,
       note:       body.note       || null,
-      scheduleId: body.scheduleId ? parseInt(String(body.scheduleId)) : null,
+      scheduleId,
       replaceType,
     },
   })
