@@ -10,14 +10,25 @@ function withCalc<T extends { initialPressure: number; currentPressure: number; 
   return { ...c, pct, kgRemaining }
 }
 
-// รายการถังแก๊สมาตรฐาน (พร้อมองค์ประกอบ + % คงเหลือ)
+// รายการถังแก๊สมาตรฐาน (พร้อมองค์ประกอบ + % คงเหลือ + การใช้งานล่าสุด)
 export async function GET() {
   if (!await requireCems()) return forbidden()
   const cylinders = await prisma.cemsGasCylinder.findMany({
-    include: { components: { orderBy: { id: 'asc' } } },
+    include: {
+      components: { orderBy: { id: 'asc' } },
+      // reading ล่าสุดที่ระบุวัตถุประสงค์/สถานที่ใช้งาน → โชว์บนแถวตาราง
+      readings: {
+        where: { OR: [{ purpose: { not: null } }, { usageLocation: { not: null } }] },
+        orderBy: [{ readingDate: 'desc' }, { id: 'desc' }], take: 1,
+        select: { purpose: true, usageLocation: true, readingDate: true },
+      },
+    },
     orderBy: [{ status: 'asc' }, { cylinderNo: 'asc' }],
   })
-  return NextResponse.json(cylinders.map(withCalc))
+  return NextResponse.json(cylinders.map(c => {
+    const { readings, ...rest } = c
+    return { ...withCalc(rest), lastUse: readings[0] ?? null }
+  }))
 }
 
 interface CompInput { gas?: string; concentration?: unknown; unit?: string }

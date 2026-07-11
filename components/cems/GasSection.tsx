@@ -11,6 +11,7 @@ interface GasRow {
   receivedDate: string | null; expiryDate: string | null; location: string | null
   status: 'ACTIVE' | 'EMPTY' | 'RETURNED'; notes: string | null
   components: Comp[]; pct: number; kgRemaining: number | null
+  lastUse: { purpose: string | null; usageLocation: string | null; readingDate: string } | null
 }
 interface ReadingRow { id: number; pressure: number; readingDate: string; reader: string | null; purpose: string | null; usageLocation: string | null; notes: string | null }
 
@@ -66,7 +67,7 @@ export default function GasSection() {
     if (statusFilter && c.status !== statusFilter) return false
     const q = search.trim().toLowerCase()
     if (!q) return true
-    const hay = `${c.cylinderNo} ${c.brand ?? ''} ${c.location ?? ''} ${c.components.map(x => x.gas).join(' ')}`.toLowerCase()
+    const hay = `${c.cylinderNo} ${c.brand ?? ''} ${c.location ?? ''} ${c.components.map(x => x.gas).join(' ')} ${c.lastUse?.purpose ?? ''} ${c.lastUse?.usageLocation ?? ''}`.toLowerCase()
     return hay.includes(q)
   })
 
@@ -105,12 +106,13 @@ export default function GasSection() {
             <th className="px-3 py-2 text-left font-medium">คงเหลือ (psi)</th>
             <th className="px-3 py-2 text-right font-medium">kg</th>
             <th className="px-3 py-2 text-left font-medium">อายุ / หมดอายุ</th>
+            <th className="px-3 py-2 text-left font-medium">ใช้งานล่าสุด</th>
             <th className="px-3 py-2 text-center font-medium">สถานะ</th>
             <th className="px-3 py-2" />
           </tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-300">
+            {loading && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">
               {rows.length === 0 ? 'ยังไม่มีถังแก๊ส — กด "+ เพิ่มถังแก๊ส"' : 'ไม่พบถังตามเงื่อนไข'}
             </td></tr>}
             {filtered.map(c => {
@@ -141,6 +143,15 @@ export default function GasSection() {
                   <td className="px-3 py-2 align-top text-xs">
                     <p className="text-slate-500">{ageText(c.receivedDate)}</p>
                     {exp && <p className={exp.cls}>{exp.text}</p>}
+                  </td>
+                  <td className="max-w-[180px] px-3 py-2 align-top text-xs">
+                    {c.lastUse && (c.lastUse.purpose || c.lastUse.usageLocation) ? (
+                      <>
+                        {c.lastUse.purpose && <p className="text-slate-600">🎯 {c.lastUse.purpose}</p>}
+                        {c.lastUse.usageLocation && <p className="text-slate-500">📍 {c.lastUse.usageLocation}</p>}
+                        <p className="text-[10px] text-slate-300">{fmtDate(c.lastUse.readingDate)}</p>
+                      </>
+                    ) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2 text-center align-top">
                     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${GAS_STATUS[c.status].chip}`}>{GAS_STATUS[c.status].label}</span>
