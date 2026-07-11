@@ -106,13 +106,14 @@ export default function GasSection() {
             <th className="px-3 py-2 text-left font-medium">คงเหลือ (psi)</th>
             <th className="px-3 py-2 text-right font-medium">kg</th>
             <th className="px-3 py-2 text-left font-medium">อายุ / หมดอายุ</th>
+            <th className="px-3 py-2 text-left font-medium">ที่เก็บ/ไซต์</th>
             <th className="px-3 py-2 text-left font-medium">ใช้งานล่าสุด</th>
             <th className="px-3 py-2 text-center font-medium">สถานะ</th>
             <th className="px-3 py-2" />
           </tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">
+            {loading && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">
               {rows.length === 0 ? 'ยังไม่มีถังแก๊ส — กด "+ เพิ่มถังแก๊ส"' : 'ไม่พบถังตามเงื่อนไข'}
             </td></tr>}
             {filtered.map(c => {
@@ -144,6 +145,7 @@ export default function GasSection() {
                     <p className="text-slate-500">{ageText(c.receivedDate)}</p>
                     {exp && <p className={exp.cls}>{exp.text}</p>}
                   </td>
+                  <td className="px-3 py-2 align-top text-xs text-slate-500">{c.location || <span className="text-slate-300">—</span>}</td>
                   <td className="max-w-[180px] px-3 py-2 align-top text-xs">
                     {c.lastUse && (c.lastUse.purpose || c.lastUse.usageLocation) ? (
                       <>
