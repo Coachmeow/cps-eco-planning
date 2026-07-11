@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const year   = parseInt(sp.get('year') ?? String(new Date().getFullYear()))
   const siteId = sp.get('siteId') ? parseInt(sp.get('siteId')!) : null
 
-  const [schedules, txns] = await Promise.all([
+  const [schedules, txns, allSites] = await Promise.all([
     prisma.cemsPartSchedule.findMany({
       where: { isActive: true },
       include: {
@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
       },
     }),
     prisma.cemsPartTxn.groupBy({ by: ['partId', 'type'], _sum: { qty: true } }),
+    prisma.cemsSite.findMany({ select: { id: true, code: true } }),
   ])
+  const siteCode = new Map(allSites.map(s => [s.id, s.code]))
 
   // stock ปัจจุบันต่ออะไหล่
   const stockMap = new Map<number, number>()
@@ -31,9 +33,20 @@ export async function GET(req: NextRequest) {
 
   // anchor = nextDueDate เท่านั้น (= วันเปลี่ยนล่าสุด + interval) → ไล่ไปข้างหน้า ไม่ลงแผนย้อนหลัง
   const anchorOf = (s: typeof schedules[number]) => s.nextDueDate ?? null
+  // siteId = null → โหมดทุกไซต์ (รวมทุกแผน)
   const belongsToSite = (s: typeof schedules[number]) =>
-    siteId != null && (s.siteId === siteId || (s.analyzer && (s.analyzer.currentSiteId === siteId || s.analyzer.homeSiteId === siteId)))
-  const targetLabel = (s: typeof schedules[number]) => s.analyzer ? s.analyzer.tag : (s.site?.code ? `${s.site.code} (ใช้ร่วม)` : 'ไซต์')
+    siteId == null || s.siteId === siteId || (s.analyzer != null && (s.analyzer.currentSiteId === siteId || s.analyzer.homeSiteId === siteId))
+  const schedSiteCode = (s: typeof schedules[number]) =>
+    s.site?.code ?? (s.analyzer ? (siteCode.get(s.analyzer.currentSiteId ?? -1) ?? siteCode.get(s.analyzer.homeSiteId ?? -1) ?? null) : null)
+  const targetLabel = (s: typeof schedules[number]) => {
+    const base = s.analyzer ? s.analyzer.tag : (s.site?.code ? `${s.site.code} (ใช้ร่วม)` : 'ไซต์')
+    // โหมดทุกไซต์: กำกับไซต์ให้แถว analyzer ด้วย
+    if (siteId == null && s.analyzer) {
+      const sc = schedSiteCode(s)
+      return sc ? `${base} · ${sc}` : base
+    }
+    return base
+  }
 
   const todayMs = (() => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) })()
   const monthEndMs = (() => { const d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth() + 1, 0) })()

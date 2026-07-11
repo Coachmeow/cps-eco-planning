@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Fragment } from 'react'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from './ui'
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -9,7 +9,7 @@ interface Site { id: number; code: string; name?: string | null }
 interface Part { id: number; code: string; name: string; unit?: string | null }
 interface Analyzer { id: number; tag: string; currentSite?: { id: number; code: string } | null }
 interface Cell { qty: number; state: 'plan' | 'overdue' | 'done' }
-interface Row { scheduleId: number; partCode: string; partName: string; unit: string | null; target: string; intervalMonths: number | null; qtyPerReplace: number; months: Record<number, Cell>; total: number }
+interface Row { scheduleId: number; partId: number; partCode: string; partName: string; unit: string | null; target: string; intervalMonths: number | null; qtyPerReplace: number; months: Record<number, Cell>; total: number }
 interface Plan {
   year: number
   rows: Row[]
@@ -47,6 +47,9 @@ export default function PartPlanSection() {
   const [editing, setEditing] = useState<Schedule | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  // โหมดทุกไซต์: แถวสรุปต่ออะไหล่ กด ▸ กางดูรายไซต์/เครื่อง (key = partId)
+  const allSites = siteId === 'all'
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
 
   // โหลด master data ครั้งเดียว
   useEffect(() => {
@@ -66,9 +69,10 @@ export default function PartPlanSection() {
   const loadPlan = useCallback(async () => {
     setLoading(true)
     try {
+      const sq = siteId && siteId !== 'all' ? siteId : ''   // 'all' = ไม่ส่ง siteId → API คืนทุกไซต์
       const [pl, sc] = await Promise.all([
-        fetch(`/api/cems/part-schedules/plan?year=${year}${siteId ? `&siteId=${siteId}` : ''}`).then(r => r.json()),
-        fetch(`/api/cems/part-schedules${siteId ? `?siteId=${siteId}` : ''}`).then(r => r.json()),
+        fetch(`/api/cems/part-schedules/plan?year=${year}${sq ? `&siteId=${sq}` : ''}`).then(r => r.json()),
+        fetch(`/api/cems/part-schedules${sq ? `?siteId=${sq}` : ''}`).then(r => r.json()),
       ])
       setPlan(pl); setSchedules(Array.isArray(sc) ? sc : [])
     } catch { /* noop */ }
@@ -76,6 +80,7 @@ export default function PartPlanSection() {
   }, [siteId, year])
 
   useEffect(() => { if (siteId) loadPlan() }, [siteId, year, loadPlan])
+  useEffect(() => { setExpanded(new Set()) }, [siteId, year])
 
   function openAdd() { setEditing(null); setForm({ ...emptyForm, siteId }); setModalOpen(true) }
   function openEdit(s: Schedule) {
@@ -132,7 +137,7 @@ export default function PartPlanSection() {
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-slate-500">ไซต์</span>
           <CustomSelect className="w-44" value={siteId} onChange={setSiteId}
-            options={sites.map(s => ({ value: String(s.id), label: `${s.code}${s.name ? ` — ${s.name}` : ''}` }))} placeholder="เลือกไซต์" />
+            options={[{ value: 'all', label: '🌐 ทุกไซต์' }, ...sites.map(s => ({ value: String(s.id), label: `${s.code}${s.name ? ` — ${s.name}` : ''}` }))]} placeholder="เลือกไซต์" />
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-slate-500">ปี</span>
@@ -163,9 +168,9 @@ export default function PartPlanSection() {
               </thead>
               <tbody>
                 {plan.rows.length === 0 && (
-                  <tr><td colSpan={14} className="px-3 py-6 text-center text-slate-300">ยังไม่มีแผน Time-base ของไซต์นี้</td></tr>
+                  <tr><td colSpan={14} className="px-3 py-6 text-center text-slate-300">{allSites ? 'ยังไม่มีแผน Time-base' : 'ยังไม่มีแผน Time-base ของไซต์นี้'}</td></tr>
                 )}
-                {plan.rows.map(r => (
+                {!allSites && plan.rows.map(r => (
                   <tr key={r.scheduleId} className="border-t border-slate-100 hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5">
                       <div className="font-medium text-slate-700">{r.partCode} <span className="text-slate-400">· {r.target}</span></div>
@@ -180,6 +185,65 @@ export default function PartPlanSection() {
                     <td className="px-2 text-center font-semibold text-slate-600">{r.total || '—'}</td>
                   </tr>
                 ))}
+                {allSites && (() => {
+                  // จัดกลุ่มตามอะไหล่: แถวสรุป (รวม qty ต่อเดือน) + แถวลูกเมื่อ expand
+                  const groups = new Map<number, { partCode: string; partName: string; items: Row[] }>()
+                  for (const r of plan.rows) {
+                    if (!groups.has(r.partId)) groups.set(r.partId, { partCode: r.partCode, partName: r.partName, items: [] })
+                    groups.get(r.partId)!.items.push(r)
+                  }
+                  const rank: Record<string, number> = { overdue: 3, plan: 2, done: 1 }
+                  return [...groups.entries()].sort((a, b) => a[1].partCode.localeCompare(b[1].partCode)).map(([partId, g]) => {
+                    const open = expanded.has(partId)
+                    const sum: Record<number, Cell> = {}
+                    let total = 0
+                    for (const r of g.items) {
+                      total += r.total
+                      for (const [mStr, c] of Object.entries(r.months)) {
+                        const m = Number(mStr)
+                        const cur = sum[m]
+                        sum[m] = { qty: (cur?.qty ?? 0) + c.qty, state: !cur || rank[c.state] > rank[cur.state] ? c.state : cur.state }
+                      }
+                    }
+                    return (
+                      <Fragment key={partId}>
+                        <tr className="border-t border-slate-100 hover:bg-slate-50/50 cursor-pointer"
+                          onClick={() => setExpanded(prev => { const n = new Set(prev); n.has(partId) ? n.delete(partId) : n.add(partId); return n })}>
+                          <td className="sticky left-0 z-10 bg-white px-3 py-1.5">
+                            <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                              <span className={`text-[9px] text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                              {g.partCode}
+                              <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-normal text-slate-500">{g.items.length} แผน</span>
+                            </div>
+                            <div className="pl-4 text-[10px] text-slate-400">{g.partName}</div>
+                          </td>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                            const c = sum[m]
+                            return <td key={m} className="px-1 py-1.5 text-center">
+                              {c && <span className={`inline-block min-w-[22px] rounded px-1 py-0.5 font-semibold ${CELL_CLS[c.state]}`}>{c.qty}</span>}
+                            </td>
+                          })}
+                          <td className="px-2 text-center font-semibold text-slate-600">{total || '—'}</td>
+                        </tr>
+                        {open && g.items.map(r => (
+                          <tr key={r.scheduleId} className="border-t border-slate-50 bg-slate-50/50">
+                            <td className="sticky left-0 z-10 bg-slate-50 px-3 py-1">
+                              <div className="pl-4 text-[11px] text-slate-600">{r.target}</div>
+                              <div className="pl-4 text-[10px] text-slate-400">{r.intervalMonths ? `ทุก ${r.intervalMonths} เดือน` : ''}</div>
+                            </td>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                              const c = r.months[m]
+                              return <td key={m} className="px-1 py-1 text-center">
+                                {c && <span className={`inline-block min-w-[20px] rounded px-1 text-[11px] font-medium ${CELL_CLS[c.state]}`}>{c.qty}</span>}
+                              </td>
+                            })}
+                            <td className="px-2 text-center text-[11px] font-medium text-slate-500">{r.total || '—'}</td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    )
+                  })
+                })()}
               </tbody>
             </table>
           </div>
