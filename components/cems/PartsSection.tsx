@@ -331,20 +331,45 @@ function TxnModal({ part, type, sites, analyzers, onClose, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
+  // โหมดเบิก (เฉพาะ OUT): ตามแผน / ชำรุด / นอกแผน — ผูก schedule เพื่อเลื่อนรอบตอนบันทึก
+  interface SchedOpt { id: number; analyzerId: number | null; siteId: number | null; analyzer: { tag: string } | null; site: { code: string } | null; nextDueDate: string | null; overdue: boolean; dueThisMonth: boolean }
+  const [mode, setMode] = useState<'PLANNED' | 'BREAKDOWN' | 'OTHER'>('OTHER')
+  const [scheds, setScheds] = useState<SchedOpt[]>([])
+  const [pickedSched, setPickedSched] = useState('')
+  useEffect(() => {
+    if (type !== 'OUT') return
+    fetch(`/api/cems/part-schedules/for-part?partId=${part.id}`).then(r => r.json())
+      .then(d => setScheds(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [type, part.id])
+  const dueScheds = scheds.filter(s => s.dueThisMonth || s.overdue)
+  // ชำรุด: หา schedule ของเครื่อง/ไซต์ที่เลือก ; ตามแผน: จากที่เลือกใน picklist
+  const effSchedId = mode === 'PLANNED' ? pickedSched
+    : mode === 'BREAKDOWN' ? (scheds.find(s => (analyzerId && s.analyzerId === parseInt(analyzerId)) || (siteId && s.siteId === parseInt(siteId)))?.id ?? '')
+    : ''
+
   // เครื่องที่ไซต์ที่เลือก ขึ้นก่อน
   const anOpts = [...analyzers].sort((a, b) => {
     const sid = siteId ? parseInt(siteId) : null
     return (a.currentSiteId === sid ? 0 : 1) - (b.currentSiteId === sid ? 0 : 1)
   })
 
+  function pickSchedule(id: string) {
+    setPickedSched(id)
+    const s = scheds.find(x => String(x.id) === id)
+    if (s) { setAnalyzerId(s.analyzerId ? String(s.analyzerId) : ''); setSiteId(s.siteId ? String(s.siteId) : '') }
+  }
+
   async function save() {
     if (!qty || parseFloat(qty) <= 0) { setErr('กรอกจำนวน'); return }
+    if (type === 'OUT' && mode === 'PLANNED' && !pickedSched) { setErr('เลือกแผนที่จะเบิก'); return }
     setSaving(true); setErr('')
     const body: Record<string, unknown> = { partId: part.id, type, qty, txnDate, person: person || undefined, notes: notes || undefined }
     if (type === 'IN') body.unitCost = unitCost || undefined
     else Object.assign(body, {
       siteId: siteId || undefined, manualSite: manualSite || undefined,
       analyzerId: analyzerId || undefined, quoteNo: quoteNo || undefined,
+      replaceType: mode,
+      scheduleId: mode !== 'OTHER' && effSchedId ? effSchedId : undefined,
     })
     const r = await fetch('/api/cems/part-txns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     setSaving(false)
@@ -366,19 +391,49 @@ function TxnModal({ part, type, sites, analyzers, onClose, onSaved }: {
           <Input label="ต้นทุน/หน่วย (บาท)" value={unitCost} onChange={setUnitCost} type="number" placeholder="ราคาล็อตนี้" />
         ) : (
           <>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">ไซต์ที่นำไปใช้</label>
-              <CustomSelect value={siteId} onChange={v => { setSiteId(v); if (v) setManualSite('') }} placeholder="— เลือกไซต์ —"
-                options={[{ value: '', label: '— เลือกไซต์ —' }, ...sites.map(s => ({ value: String(s.id), label: s.code }))]} />
-              <input value={manualSite} onChange={e => { setManualSite(e.target.value); if (e.target.value) setSiteId('') }}
-                placeholder="หรือพิมพ์ชื่อไซต์นอกฐานข้อมูล"
-                className="rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
+            {/* โหมดเบิก — ตามแผน / ชำรุด / นอกแผน */}
+            <div className="flex gap-1">
+              {([['PLANNED', 'ตามแผน'], ['BREAKDOWN', 'ชำรุดก่อนกำหนด'], ['OTHER', 'นอกแผน']] as const).map(([m, l]) => (
+                <button key={m} type="button" onClick={() => { setMode(m); if (m === 'OTHER') setPickedSched('') }}
+                  className={`flex-1 rounded border px-2 py-1.5 text-xs font-medium ${mode === m ? 'border-slate-700 bg-slate-700 text-white' : 'border-slate-200 text-slate-600'}`}>{l}</button>
+              ))}
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">ใช้กับเครื่อง (Analyzer)</label>
-              <CustomSelect value={analyzerId} onChange={setAnalyzerId} placeholder="— ไม่ระบุ —"
-                options={[{ value: '', label: '— ไม่ระบุ —' }, ...anOpts.map(a => ({ value: String(a.id), label: a.tag }))]} />
-            </div>
+
+            {mode === 'PLANNED' ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600">เลือกแผนที่จะเบิก <span className="text-red-500">*</span></label>
+                {dueScheds.length === 0 ? (
+                  <p className="rounded bg-slate-50 px-3 py-2 text-xs text-slate-400">ไม่มีแผนที่ถึง/เลยกำหนดของอะไหล่นี้</p>
+                ) : dueScheds.map(s => (
+                  <label key={s.id} className={`flex cursor-pointer items-center justify-between rounded border px-2.5 py-1.5 text-sm ${pickedSched === String(s.id) ? 'border-slate-600 bg-slate-50' : 'border-slate-200'}`}>
+                    <span className="flex items-center gap-2">
+                      <input type="radio" name="sched" checked={pickedSched === String(s.id)} onChange={() => pickSchedule(String(s.id))} />
+                      <span className="text-slate-700">{s.analyzer?.tag ?? (s.site ? `${s.site.code} (ใช้ร่วม)` : '—')}</span>
+                    </span>
+                    <span className={s.overdue ? 'text-xs font-semibold text-red-600' : 'text-xs text-slate-400'}>{fmtDate(s.nextDueDate)}{s.overdue ? ' · เลยกำหนด' : ''}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-600">{mode === 'BREAKDOWN' ? 'ไซต์ที่ชำรุด' : 'ไซต์ที่นำไปใช้'}</label>
+                  <CustomSelect value={siteId} onChange={v => { setSiteId(v); if (v) setManualSite('') }} placeholder="— เลือกไซต์ —"
+                    options={[{ value: '', label: '— เลือกไซต์ —' }, ...sites.map(s => ({ value: String(s.id), label: s.code }))]} />
+                  {mode === 'OTHER' && <input value={manualSite} onChange={e => { setManualSite(e.target.value); if (e.target.value) setSiteId('') }}
+                    placeholder="หรือพิมพ์ชื่อไซต์นอกฐานข้อมูล"
+                    className="rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-slate-600">{mode === 'BREAKDOWN' ? 'เครื่องที่ชำรุด (Analyzer)' : 'ใช้กับเครื่อง (Analyzer)'}</label>
+                  <CustomSelect value={analyzerId} onChange={setAnalyzerId} placeholder="— ไม่ระบุ —"
+                    options={[{ value: '', label: '— ไม่ระบุ —' }, ...anOpts.map(a => ({ value: String(a.id), label: a.tag }))]} />
+                </div>
+                {mode === 'BREAKDOWN' && (effSchedId
+                  ? <p className="text-xs text-emerald-600">✓ พบแผนของรายการนี้ — จะเลื่อนรอบเมื่อบันทึก</p>
+                  : (analyzerId || siteId) && <p className="text-xs text-slate-400">ไม่มีแผนผูกกับรายการนี้ — ตัดสต็อกอย่างเดียว</p>)}
+              </>
+            )}
             <Input label="เลขใบเสนอราคา" value={quoteNo} onChange={setQuoteNo} placeholder="เช่น QT2026-001" />
           </>
         )}
