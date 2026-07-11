@@ -236,11 +236,11 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
             {comps.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <input list="common-gases" value={c.gas} onChange={e => setComp(i, 'gas', e.target.value)} placeholder="ชนิด (SO2)"
-                  className="w-28 rounded border border-slate-200 px-2 py-1.5 text-sm focus:outline-none" />
+                  className="w-28 rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
                 <input value={String(c.concentration)} onChange={e => setComp(i, 'concentration', e.target.value)} placeholder="ค่า" type="number"
-                  className="w-24 rounded border border-slate-200 px-2 py-1.5 text-sm focus:outline-none" />
+                  className="w-24 rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
                 <select value={c.unit} onChange={e => setComp(i, 'unit', e.target.value)}
-                  className="w-24 rounded border border-slate-200 px-2 py-1.5 text-sm focus:outline-none">
+                  className="w-24 rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300">
                   {GAS_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
                 <button type="button" onClick={() => setComps(cs => cs.length > 1 ? cs.filter((_, j) => j !== i) : cs)}
