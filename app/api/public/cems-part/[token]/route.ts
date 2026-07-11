@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { duePartSchedules } from '@/lib/cemsSchedule'
 
 // stock = Σ IN − Σ OUT ± ADJUST
 async function stockOf(partId: number): Promise<number> {
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   })
   if (!part) return NextResponse.json({ error: 'ไม่พบอะไหล่' }, { status: 404 })
 
-  const [employees, sites, analyzers, stock] = await Promise.all([
+  const [employees, sites, analyzers, stock, schedules] = await Promise.all([
     prisma.employee.findMany({
       where: { isActive: true }, select: { id: true, nickname: true, fullName: true },
       orderBy: [{ primaryTeam: { sortOrder: 'asc' } }, { fullName: 'asc' }],
@@ -26,8 +27,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     prisma.cemsSite.findMany({ select: { id: true, code: true }, orderBy: { code: 'asc' } }),
     prisma.cemsAnalyzer.findMany({ select: { id: true, tag: true, currentSiteId: true }, orderBy: { tag: 'asc' } }),
     stockOf(part.id),
+    duePartSchedules(part.id),
   ])
-  return NextResponse.json({ part: { ...part, stock }, employees, sites, analyzers })
+  return NextResponse.json({ part: { ...part, stock }, employees, sites, analyzers, schedules })
 }
 
 // public — ส่งคำขอเบิก (PENDING) ; ไม่แตะ stock จนกว่า CEMS Admin อนุมัติ
@@ -46,6 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const emp = await prisma.employee.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } })
   if (!emp) return NextResponse.json({ error: 'ผู้เบิกไม่ถูกต้อง' }, { status: 400 })
 
+  const replaceType = ['PLANNED', 'BREAKDOWN', 'OTHER'].includes(body.replaceType) ? body.replaceType : null
+
   const reqRow = await prisma.cemsPartRequest.create({
     data: {
       partId:     part.id,
@@ -56,6 +60,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       analyzerId: body.analyzerId ? parseInt(String(body.analyzerId)) : null,
       quoteNo:    body.quoteNo    || null,
       note:       body.note       || null,
+      scheduleId: body.scheduleId ? parseInt(String(body.scheduleId)) : null,
+      replaceType,
     },
   })
   return NextResponse.json({ ok: true, id: reqRow.id }, { status: 201 })

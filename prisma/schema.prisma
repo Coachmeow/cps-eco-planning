@@ -523,6 +523,9 @@ model CemsPartRequest {
   decidedBy   String?
   rejectReason String?
   txnId       Int?              // OUT txn ที่สร้างตอนอนุมัติ
+  scheduleId  Int?              // ผูกกับแผนเปลี่ยน (ถ้าเบิกตามแผน/ชำรุดก่อนกำหนด)
+  schedule    CemsPartSchedule? @relation(fields: [scheduleId], references: [id])
+  replaceType String?           // 'PLANNED' | 'BREAKDOWN' | 'OTHER' ; null = เบิกแบบเดิม (ไม่ผูกแผน)
 
   @@index([status, createdAt])
   @@map("cems_part_requests")
@@ -572,6 +575,8 @@ model CemsPartSchedule {
   isActive         Boolean          @default(true)
   notes            String?
   createdAt        DateTime         @default(now())
+
+  requests         CemsPartRequest[]
 
   @@index([partId])
   @@index([siteId])

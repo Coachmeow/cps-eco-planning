@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireCems, forbidden } from '@/lib/auth'
 import { toDateKey } from '@/lib/dateKey'
+import { computeNextDue } from '@/lib/cemsSchedule'
 
 // อนุมัติ (สร้าง OUT txn → ตัด stock) หรือ ปฏิเสธ คำขอเบิก
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,10 +38,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (r.qty > stock) return { status: 400, error: `เบิกเกิน stock คงเหลือ (${stock})` }
 
       const person = r.requester.nickname ?? r.requester.fullName
+      const txnDate = new Date(toDateKey(new Date()))
       const txn = await tx.cemsPartTxn.create({
         data: {
           partId: r.partId, type: 'OUT', qty: r.qty,
-          txnDate: new Date(toDateKey(new Date())),
+          txnDate,
           siteId: r.siteId, manualSite: r.manualSite, analyzerId: r.analyzerId,
           quoteNo: r.quoteNo, person, notes: r.note,
         },
@@ -49,6 +51,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id: reqId },
         data: { status: 'APPROVED', txnId: txn.id, decidedBy, decidedAt: new Date() },
       })
+
+      // เบิกตามแผน/ชำรุดก่อนกำหนด → รีเซ็ตรอบ (nextDue = วันเปลี่ยนนี้ + interval) ; นอกแผนไม่แตะแผน
+      if (r.scheduleId && (r.replaceType === 'PLANNED' || r.replaceType === 'BREAKDOWN')) {
+        const sched = await tx.cemsPartSchedule.findUnique({ where: { id: r.scheduleId } })
+        if (sched) {
+          await tx.cemsPartSchedule.update({
+            where: { id: sched.id },
+            data: {
+              lastReplacedDate: txnDate,
+              nextDueDate: computeNextDue(sched.mode, sched.intervalMonths, txnDate),
+            },
+          })
+        }
+      }
       return { status: 200, ok: true }
     })
 

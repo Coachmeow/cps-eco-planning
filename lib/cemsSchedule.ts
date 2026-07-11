@@ -1,3 +1,5 @@
+import { prisma } from './prisma'
+
 // ตัวช่วยคำนวณรอบเปลี่ยนอะไหล่ (Time-base) — ทำงานระดับวัน (UTC) เพราะ field เป็น @db.Date
 export function addMonths(d: Date, n: number): Date {
   const t = new Date(d)
@@ -37,4 +39,43 @@ export function occurrencesInYear(
     cur = addMonths(cur, intervalMonths)
   }
   return out
+}
+
+export interface DueSchedule {
+  id: number
+  analyzerId: number | null
+  siteId: number | null
+  mode: string
+  intervalMonths: number | null
+  nextDueDate: Date | null
+  analyzer: { id: number; tag: string } | null
+  site: { id: number; code: string } | null
+  overdue: boolean
+  dueThisMonth: boolean
+}
+
+/** แผนที่ active ทั้งหมดของอะไหล่ชิ้นหนึ่ง พร้อม flag overdue/dueThisMonth
+ *  ใช้เป็นตัวเลือกในฟอร์มเบิก — "ตามแผน" กรอง dueThisMonth||overdue ; "ชำรุด" ใช้ทั้งหมดหา schedule ของ analyzer/ไซต์ที่เลือก */
+export async function duePartSchedules(partId: number): Promise<DueSchedule[]> {
+  const rows = await prisma.cemsPartSchedule.findMany({
+    where: { partId, isActive: true },
+    include: {
+      analyzer: { select: { id: true, tag: true } },
+      site: { select: { id: true, code: true } },
+    },
+    orderBy: [{ nextDueDate: 'asc' }],
+  })
+  const now = new Date()
+  const todayMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const monthEndMs = Date.UTC(now.getFullYear(), now.getMonth() + 1, 0)
+  return rows.map(s => {
+    const due = s.nextDueDate ? new Date(s.nextDueDate).getTime() : null
+    return {
+      id: s.id, analyzerId: s.analyzerId, siteId: s.siteId, mode: s.mode,
+      intervalMonths: s.intervalMonths, nextDueDate: s.nextDueDate,
+      analyzer: s.analyzer, site: s.site,
+      overdue: due != null && due < todayMs,
+      dueThisMonth: due != null && due <= monthEndMs,
+    }
+  })
 }
