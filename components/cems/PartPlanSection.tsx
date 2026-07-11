@@ -131,7 +131,7 @@ export default function PartPlanSection() {
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1.5">
@@ -260,21 +260,21 @@ export default function PartPlanSection() {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-2.5 md:grid-cols-2">
             {/* Shortage forecast */}
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-700">⚠️ พอ/ขาดสต็อก (รวมทุกไซต์ทั้งปี)</p>
-              {plan.shortage.length === 0 ? <p className="text-xs text-slate-300">ยังไม่มีแผน</p> : (
-                <div className="space-y-1.5">
+            <div className="rounded-lg border border-slate-200 p-2.5">
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-600">⚠️ พอ/ขาดสต็อก (รวมทุกไซต์ทั้งปี)</p>
+              {plan.shortage.length === 0 ? <p className="text-[11px] text-slate-300">ยังไม่มีแผน</p> : (
+                <div className="space-y-1">
                   {plan.shortage.map(p => {
                     const ok = p.diff >= 0
                     return (
-                      <div key={p.partId} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5">
-                        <div>
-                          <div className="text-xs font-medium text-slate-700">{p.code} <span className="text-slate-400">{p.name}</span></div>
+                      <div key={p.partId} className="flex items-center justify-between gap-2 rounded bg-slate-50 px-2 py-1">
+                        <div className="min-w-0">
+                          <div className="truncate text-[11px] font-medium text-slate-700">{p.code} <span className="text-slate-400">{p.name}</span></div>
                           <div className="text-[10px] text-slate-400">ต้องใช้ {p.need} · คงคลัง {p.stock}</div>
                         </div>
-                        <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
                           {ok ? `พอ +${p.diff}` : `ขาด ${Math.abs(p.diff)}`}
                         </span>
                       </div>
@@ -285,12 +285,12 @@ export default function PartPlanSection() {
             </div>
 
             {/* Upcoming / overdue */}
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-700">🔔 ใกล้/เลยกำหนด (เดือนนี้)</p>
-              {plan.upcoming.length === 0 ? <p className="text-xs text-slate-300">ไม่มีรายการ</p> : (
-                <div className="space-y-1.5">
+            <div className="rounded-lg border border-slate-200 p-2.5">
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-600">🔔 ใกล้/เลยกำหนด (เดือนนี้)</p>
+              {plan.upcoming.length === 0 ? <p className="text-[11px] text-slate-300">ไม่มีรายการ</p> : (
+                <div className="space-y-1">
                   {plan.upcoming.map(u => (
-                    <div key={u.scheduleId} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={u.scheduleId} className="flex items-center justify-between gap-2 text-[11px]">
                       <span className="text-slate-700">{u.partCode} <span className="text-slate-400">· {u.target}</span></span>
                       <span className={u.overdue ? 'font-semibold text-red-600' : 'text-slate-500'}>{fmtDate(u.dueDate)}{u.overdue && ' · เลยกำหนด'}</span>
                     </div>
@@ -301,21 +301,21 @@ export default function PartPlanSection() {
           </div>
 
           {/* จัดการแผน */}
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="mb-2 text-sm font-semibold text-slate-700">📋 แผนรอบเปลี่ยนของไซต์นี้</p>
-            {schedules.length === 0 ? <p className="text-xs text-slate-300">ยังไม่มีแผน — กด “+ เพิ่มแผน”</p> : (
+          <div className="rounded-lg border border-slate-200 p-2.5">
+            <p className="mb-1.5 text-[11px] font-semibold text-slate-600">📋 แผนรอบเปลี่ยน{allSites ? '' : 'ของไซต์นี้'}</p>
+            {schedules.length === 0 ? <p className="text-[11px] text-slate-300">ยังไม่มีแผน — กด “+ เพิ่มแผน”</p> : (
               <div className="divide-y divide-slate-100">
                 {schedules.map(s => (
-                  <div key={s.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
-                    <div>
+                  <div key={s.id} className="flex items-center justify-between gap-2 py-1 text-[11px]">
+                    <div className="min-w-0">
                       <span className="font-medium text-slate-700">{s.part.code}</span>
                       <span className="text-slate-400"> · {s.analyzer?.tag ?? (s.site ? `${s.site.code} (ใช้ร่วม)` : '—')}</span>
-                      <span className="ml-2 text-[10px] text-slate-400">
+                      <span className="ml-1.5 text-[10px] text-slate-400">
                         {s.mode === 'TIME_BASE' ? `ทุก ${s.intervalMonths} เดือน · ครั้งละ ${s.qtyPerReplace}` : 'เปลี่ยนเมื่อชำรุด'}
                         {s.lastReplacedDate && ` · ล่าสุด ${fmtDate(s.lastReplacedDate)}`}
                       </span>
                     </div>
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex shrink-0 gap-0.5">
                       <Btn small variant="ghost" onClick={() => openEdit(s)}>แก้</Btn>
                       <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
                     </div>
