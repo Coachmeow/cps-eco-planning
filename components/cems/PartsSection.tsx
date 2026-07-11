@@ -186,11 +186,13 @@ export default function PartsSection() {
                   <td className="px-3 py-2 text-right text-slate-500">{p.value ? money(p.value) : '—'}</td>
                   <td className="px-3 py-2 text-xs text-slate-400">{p.location ?? '—'}</td>
                   <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       <Btn small onClick={() => setTxnModal({ part: p, type: 'IN' })}>+ รับ</Btn>
                       <Btn small variant="ghost" onClick={() => setTxnModal({ part: p, type: 'OUT' })}>− เบิก</Btn>
+                      <span className="mx-0.5 h-4 w-px bg-slate-200" />
                       <Btn small variant="ghost" onClick={() => setQrPart(p)}>QR</Btn>
                       <Btn small variant="ghost" onClick={() => setHistoryPart(p)}>ประวัติ</Btn>
+                      <span className="mx-0.5 h-4 w-px bg-slate-200" />
                       <Btn small variant="ghost" onClick={() => { setEditPart(p); setAddOpen(true) }}>แก้</Btn>
                       <Btn small variant="danger" onClick={() => delPart(p)}>ลบ</Btn>
                     </div>
