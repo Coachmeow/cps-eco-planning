@@ -5,6 +5,7 @@ import { useMe } from '@/hooks/useMe'
 import AnalyzerSection from '@/components/cems/AnalyzerSection'
 import CemsSitesSection from '@/components/cems/CemsSitesSection'
 import PartsSection from '@/components/cems/PartsSection'
+import PartPlanSection from '@/components/cems/PartPlanSection'
 
 type CemsTab = 'analyzers' | 'sites' | 'parts' | 'plan' | 'gas'
 
@@ -27,7 +28,7 @@ export default function CemsPage() {
     { key: 'analyzers', label: '📟 Analyzer',        ready: true },
     { key: 'sites',     label: '🏭 ไซต์ CEMS',       ready: true },
     { key: 'parts',     label: '🔩 Stock อะไหล่',    ready: true },
-    { key: 'plan',      label: '📅 แผนเปลี่ยนอะไหล่', ready: false },
+    { key: 'plan',      label: '📅 แผนเปลี่ยนอะไหล่', ready: true },
     { key: 'gas',       label: '🧪 Standard Gas',    ready: false },
   ]
 
@@ -51,6 +52,7 @@ export default function CemsPage() {
         {tab === 'analyzers' && <AnalyzerSection />}
         {tab === 'sites'     && <CemsSitesSection />}
         {tab === 'parts'     && <PartsSection />}
+        {tab === 'plan'      && <PartPlanSection />}
       </div>
     </div>
   )
