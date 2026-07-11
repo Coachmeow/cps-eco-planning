@@ -417,6 +417,7 @@ model CemsSite {
   events        CemsAnalyzerEvent[] @relation("EvtSite")
   partTxns      CemsPartTxn[]       @relation("PartTxnSite")
   partRequests  CemsPartRequest[]   @relation("ReqSite")
+  partSchedules CemsPartSchedule[]  @relation("SchedSite")
 
   @@map("cems_sites")
 }
@@ -440,9 +441,10 @@ model CemsAnalyzer {
   photoUrl        String?
   notes           String?
 
-  events       CemsAnalyzerEvent[]
-  partTxns     CemsPartTxn[]
-  partRequests CemsPartRequest[]  @relation("ReqAnalyzer")
+  events        CemsAnalyzerEvent[]
+  partTxns      CemsPartTxn[]
+  partRequests  CemsPartRequest[]  @relation("ReqAnalyzer")
+  partSchedules CemsPartSchedule[]
 
   @@map("cems_analyzers")
 }
@@ -487,8 +489,9 @@ model CemsSparePart {
   notes    String?
   qrToken  String? @unique // QR แขวนที่ชั้นเก็บ → สแกนเปิดหน้าขอเบิก
 
-  txns     CemsPartTxn[]
-  requests CemsPartRequest[]
+  txns      CemsPartTxn[]
+  requests  CemsPartRequest[]
+  schedules CemsPartSchedule[]
 
   @@map("cems_spare_parts")
 }
@@ -545,4 +548,33 @@ model CemsPartTxn {
 
   @@index([partId, txnDate])
   @@map("cems_part_txns")
+}
+
+enum CemsScheduleMode {
+  TIME_BASE     // เปลี่ยนตามรอบเวลา ทุก N เดือน
+  ON_CONDITION  // เปลี่ยนเมื่อชำรุดเท่านั้น (ไม่มีรอบ)
+}
+
+// แผนรอบเปลี่ยนอะไหล่ (Time-base) — ผูกราย analyzer (analyzerId) หรือรายไซต์ใช้ร่วม (siteId, analyzerId=null)
+model CemsPartSchedule {
+  id               Int              @id @default(autoincrement())
+  partId           Int
+  part             CemsSparePart    @relation(fields: [partId], references: [id])
+  analyzerId       Int?
+  analyzer         CemsAnalyzer?    @relation(fields: [analyzerId], references: [id])
+  siteId           Int?
+  site             CemsSite?        @relation("SchedSite", fields: [siteId], references: [id])
+  mode             CemsScheduleMode @default(TIME_BASE)
+  intervalMonths   Int?             // เฉพาะ TIME_BASE เช่น 6, 12
+  qtyPerReplace    Int              @default(1) // รายไซต์ใช้ร่วม = จำนวนรวมต่อรอบ
+  lastReplacedDate DateTime?        @db.Date
+  nextDueDate      DateTime?        @db.Date    // = lastReplacedDate + intervalMonths (คำนวณตอนบันทึก)
+  isActive         Boolean          @default(true)
+  notes            String?
+  createdAt        DateTime         @default(now())
+
+  @@index([partId])
+  @@index([siteId])
+  @@index([analyzerId])
+  @@map("cems_part_schedules")
 }
