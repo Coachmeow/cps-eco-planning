@@ -15,6 +15,14 @@ export const teamHex = (code: string) => TEAM_HEX[code] ?? '#94a3b8'
 // สีตามระดับ utilization (status ramp — ห้ามเอาไปใช้เป็น series สี)
 export const utilHex = (pct: number) => (pct >= 80 ? '#ef4444' : pct >= 50 ? '#f59e0b' : '#10b981')
 
+// สีไซต์ (hex เทียบเท่า Tailwind *-400 ใน lib/siteColors.ts — identity เดียวกันทั้งแอป)
+export const SITE_HEX: Record<string, string> = {
+  emerald: '#34d399', sky: '#38bdf8', violet: '#a78bfa', rose: '#fb7185',
+  amber: '#fbbf24', orange: '#fb923c', cyan: '#22d3ee', indigo: '#818cf8',
+  pink: '#f472b6', teal: '#2dd4bf', lime: '#a3e635', red: '#f87171',
+}
+export const siteHex = (color: string | null | undefined) => SITE_HEX[color ?? 'emerald'] ?? SITE_HEX.emerald
+
 // จานสีลำดับ (sequential) สำหรับ heatmap ฯลฯ — เขียวอ่อน→เข้ม
 export const SEQ_GREEN = ['#e6f6ef', '#b8e6d1', '#7dd3ab', '#38b787', '#1f9d6b', '#137a52']
 
