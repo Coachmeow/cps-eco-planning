@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ExportButton from '@/components/ExportButton'
-import type { DashboardData, PersonUtilRow, SiteMandayRow, TeamCapacityRow, TrendPoint } from '@/lib/types'
+import type { DashboardData, PersonUtilRow, SiteMandayRow, TeamCapacityRow } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
+import CapacityDonut from '@/components/dashboard/charts/CapacityDonut'
+import TrendComposed from '@/components/dashboard/charts/TrendComposed'
 
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-blue-400', AMB: 'bg-teal-400', WP: 'bg-purple-400',
@@ -39,62 +41,11 @@ function TeamBadge({ code }: { code: string }) {
 }
 const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-const thaiMonthsShort = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="mb-4 text-sm font-semibold text-slate-700">{title}</h2>
       {children}
-    </div>
-  )
-}
-
-// แนวโน้ม 6 เดือน — แท่ง = man-days, เส้น = util เครื่องมือ % (วาด SVG เอง ไม่พึ่ง lib)
-function TrendChart({ trend }: { trend: TrendPoint[] }) {
-  if (!trend || trend.length === 0) return <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
-  const W = 640, H = 220, padL = 34, padR = 38, padT = 18, padB = 30
-  const plotW = W - padL - padR, plotH = H - padT - padB
-  const n = trend.length, slotW = plotW / n
-  const maxMd = Math.max(...trend.map(t => t.manDays), 1)
-  const cx    = (i: number) => padL + slotW * i + slotW / 2
-  const yMd   = (v: number) => padT + plotH - (v / maxMd) * plotH
-  const yUtil = (v: number) => padT + plotH - (Math.min(v, 100) / 100) * plotH
-  const barW  = slotW * 0.46
-  const linePts = trend.map((t, i) => `${cx(i)},${yUtil(t.eqUtil)}`).join(' ')
-  const baseY = padT + plotH
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-4 text-[11px] text-slate-500">
-        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-300" /> Man-days (วัน-คน)</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-sky-500" /> Util เครื่องมือ %</span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-        {/* gridlines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((g) => (
-          <line key={g} x1={padL} x2={W - padR} y1={padT + plotH * g} y2={padT + plotH * g} stroke="#f1f5f9" strokeWidth={1} />
-        ))}
-        {/* bars: man-days */}
-        {trend.map((t, i) => (
-          <g key={i}>
-            <rect x={cx(i) - barW / 2} y={yMd(t.manDays)} width={barW} height={Math.max(baseY - yMd(t.manDays), 0)} rx={2} fill="#6ee7b7" />
-            {t.manDays > 0 && <text x={cx(i)} y={yMd(t.manDays) - 4} textAnchor="middle" fontSize={10} fill="#475569">{t.manDays}</text>}
-          </g>
-        ))}
-        {/* line: util % */}
-        <polyline points={linePts} fill="none" stroke="#0ea5e9" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {trend.map((t, i) => (
-          <g key={`p${i}`}>
-            <circle cx={cx(i)} cy={yUtil(t.eqUtil)} r={3} fill="#0ea5e9" />
-            <text x={cx(i)} y={yUtil(t.eqUtil) - 7} textAnchor="middle" fontSize={9} fill="#0284c7">{t.eqUtil}%</text>
-          </g>
-        ))}
-        {/* x labels */}
-        {trend.map((t, i) => (
-          <text key={`l${i}`} x={cx(i)} y={H - 10} textAnchor="middle" fontSize={10} fill="#94a3b8">{thaiMonthsShort[t.month]}</text>
-        ))}
-      </svg>
     </div>
   )
 }
@@ -316,9 +267,13 @@ export default function DashboardView() {
             </Card>
           )}
 
+          <Card title="สัดส่วนกำลังคนต่อทีม (Capacity)">
+            <CapacityDonut rows={data.teamCapacity} />
+          </Card>
+
           {/* แนวโน้ม 6 เดือน — card ปกติ อยู่กลุ่ม util/man-day */}
           <Card title="แนวโน้ม 6 เดือน">
-            <TrendChart trend={data.trend} />
+            <TrendComposed trend={data.trend} />
           </Card>
 
           <Card title="Own vs Rental">
