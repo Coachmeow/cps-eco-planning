@@ -1,28 +1,28 @@
 'use client'
 
-// ภาระงานต่อทีม — แท่งซ้อน: กำลังทีมเอง (สีทีม) + แรงเสริมข้ามทีม (ฟ้า) เทียบ demand
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from 'recharts'
-import { teamHex, axisTick, INK, MUTED } from '@/lib/chartTheme'
+// ภาระงานต่อทีม — คอลัมน์แนวตั้งซ้อน: กำลังทีมเอง (สีทีม) + แรงเสริมข้ามทีม (ฟ้า) เทียบ demand
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer } from 'recharts'
+import { teamHex, axisTick, GRID, INK, MUTED } from '@/lib/chartTheme'
 import type { TeamWorkloadRow } from '@/lib/types'
 import React from 'react'
 
 export default function TeamStackChart({ rows }: { rows: TeamWorkloadRow[] }) {
   if (rows.length === 0) return <p className="py-8 text-center text-sm text-slate-300">ยังไม่มีข้อมูล</p>
   const items = rows.map(t => ({ label: t.teamCode, own: t.ownCap, cross: t.crossIn, demand: t.demand }))
-  const h = Math.max(items.length * 34 + 24, 96)
 
   return (
     <>
-      <div style={{ width: '100%', height: h }}>
+      <div style={{ width: '100%', height: 230 }}>
         <ResponsiveContainer>
-          <BarChart data={items} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }} barCategoryGap="30%">
-            <XAxis type="number" hide />
-            <YAxis type="category" dataKey="label" width={56} tick={{ ...axisTick, fill: INK }} tickLine={false} axisLine={false} />
+          <BarChart data={items} margin={{ top: 12, right: 8, left: -18, bottom: 0 }} barCategoryGap="30%">
+            <CartesianGrid vertical={false} stroke={GRID} />
+            <XAxis dataKey="label" tick={{ ...axisTick, fill: INK }} tickLine={false} axisLine={{ stroke: GRID }} />
+            <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
             <Tooltip content={<WorkTip />} cursor={{ fill: 'rgba(148,163,184,.08)' }} />
-            <Bar dataKey="own" stackId="w" name="ทีมเอง" radius={[0, 0, 0, 0]} background={{ fill: '#f1f5f9', radius: 4 }} isAnimationActive={false}>
+            <Bar dataKey="own" stackId="w" name="ทีมเอง" maxBarSize={44} isAnimationActive={false}>
               {items.map((it, i) => <Cell key={i} fill={teamHex(it.label)} />)}
             </Bar>
-            <Bar dataKey="cross" stackId="w" name="แรงเสริมข้ามทีม" fill="#7dd3fc" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+            <Bar dataKey="cross" stackId="w" name="แรงเสริมข้ามทีม" fill="#7dd3fc" radius={[4, 4, 0, 0]} maxBarSize={44} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
