@@ -229,7 +229,7 @@ export default function StaffCalendar() {
                 const { fieldDays, crossTeamDays } = rowSummary(emp.id, calendarData)
                 return (
                     <tr key={emp.id} className="hover:bg-slate-50/50">
-                      <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
+                      <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
                         <button onClick={() => setViewing(emp)} className="flex items-center gap-2 text-left hover:opacity-80">
                           <Avatar employeeId={emp.id} name={emp.nickname ?? emp.fullName} hasPhoto={emp.hasPhoto} size="sm" />
                           <div>
@@ -241,13 +241,13 @@ export default function StaffCalendar() {
                           </div>
                         </button>
                       </td>
-                      <td className="sticky left-[120px] z-10 border-b border-r border-slate-200 bg-white px-2 text-center">
+                      <td className="sticky left-[120px] z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-2 text-center">
                         <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${TEAM_FILTER_COLOR[emp.primaryTeam.code]}`}>{emp.primaryTeam.code}</span>
                         {emp.subTeam && <div className="mt-0.5 text-[9px] text-slate-400">{emp.subTeam.name}</div>}
                       </td>
                       {renderRowCells(emp)}
-                      <td className="border-b border-r border-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
-                      <td className="border-b border-slate-200 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
+                      <td className="border-b border-b-slate-400 border-r border-r-slate-200 px-2 text-center font-medium text-emerald-700">{fieldDays > 0 ? fieldDays : '—'}</td>
+                      <td className="border-b border-b-slate-400 px-2 text-center font-medium text-sky-500">{crossTeamDays > 0 ? crossTeamDays : '—'}</td>
                     </tr>
                 )
               })}

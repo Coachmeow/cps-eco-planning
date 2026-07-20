@@ -91,8 +91,8 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       onMouseEnter={onMouseEnter}
       colSpan={colSpan}
       title={noteText || undefined}
-      className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-b
-        border-slate-300 px-1 py-0.5 text-center text-xs align-middle
+      className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
+        px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra} ${rangeCls}`}
     >
       {assignments.length > 0 && (
