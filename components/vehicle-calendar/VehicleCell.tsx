@@ -13,7 +13,7 @@ function cellStyle(bookings: VehicleBooking[], isConflict: boolean): string {
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (bookings.length === 0) return 'bg-white hover:bg-slate-50'
   const team = bookingTeam(bookings[0])
-  if (team) return teamCellClass(team, 3)                        // สีทีมเดียวกับแผนพนักงาน (เฉด -300)
+  if (team) return teamCellClass(team, 2)                        // สีทีมเดียวกับแผนพนักงาน (เฉด -200)
   return PURPOSE_META[bookings[0].purpose]?.cell ?? 'bg-slate-50' // ไม่รู้ทีม → สีตามประเภทเดิม
 }
 

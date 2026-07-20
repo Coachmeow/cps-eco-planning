@@ -23,9 +23,9 @@ function cellStyle(
   switch (first.status) {
     case 'FIELD': {
       const fieldAssign = assignments.find(a => a.status === 'FIELD')
-      // สีเดียวต่อทีม (เฉด -300 ตัวหนังสือดำ — ทีมขอสีสด) ; hue = ทีมของงาน (serviceType) → cross-team ได้สีทีมอื่น
+      // สีเดียวต่อทีม (เฉด -200 ตัวหนังสือดำ — ทีมขอสีสดแต่ไม่เข้มเกิน) ; hue = ทีมของงาน (serviceType) → cross-team ได้สีทีมอื่น
       const team = fieldAssign?.serviceType?.code ?? employee.primaryTeam.code
-      return teamCellClass(team, 3)
+      return teamCellClass(team, 2)
     }
     case 'OFFICE':   return 'bg-slate-50 text-slate-500'
     case 'LEAVE':    return 'bg-slate-100 text-slate-900'   // เทาสีเดียว ตัวหนังสือดำ

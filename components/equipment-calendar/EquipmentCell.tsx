@@ -7,7 +7,7 @@ function cellStyle(assignments: EquipmentAssignment[], isConflict: boolean, team
   if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
   // สีเดียวต่อทีม (เฉด -100) ; hue = ทีมของเครื่อง (type.primaryTeam)
-  return teamCellClass(team, 3)
+  return teamCellClass(team, 2)
 }
 
 interface Props {
