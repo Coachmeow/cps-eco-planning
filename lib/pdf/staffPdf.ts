@@ -10,14 +10,14 @@ import type { Employee, StaffAssignment, CalendarData, ConflictSet } from '@/lib
 
 type RGB = [number, number, number]
 
-// สีต่อทีม (mirror teamCellClass tier 1 = เฉด -100 bg / -800 text ที่ปฏิทินใช้)
+// สีต่อทีม (mirror teamCellClass tier 3 = เฉด -300 bg / ตัวหนังสือดำ ที่ปฏิทินใช้)
 const TEAM_PDF: Record<string, { bg: RGB; text: RGB }> = {
-  ST:   { bg: [219, 234, 254], text: [30, 64, 175] },   // blue-100 / blue-800
-  AMB:  { bg: [204, 251, 241], text: [17, 94, 89] },     // teal-100 / teal-800
-  WP:   { bg: [243, 232, 255], text: [107, 33, 168] },   // purple-100 / purple-800
-  CEMS: { bg: [255, 237, 213], text: [154, 52, 18] },    // orange-100 / orange-800
-  WT:   { bg: [207, 250, 254], text: [21, 94, 117] },    // cyan-100 / cyan-800
-  LOG:  { bg: [243, 244, 246], text: [55, 65, 81] },     // gray-100 / gray-700
+  ST:   { bg: [147, 197, 253], text: [0, 0, 0] },   // blue-300 / black
+  AMB:  { bg: [94, 234, 212],  text: [0, 0, 0] },   // teal-300 / black
+  WP:   { bg: [216, 180, 254], text: [0, 0, 0] },   // purple-300 / black
+  CEMS: { bg: [253, 186, 116], text: [0, 0, 0] },   // orange-300 / black
+  WT:   { bg: [103, 232, 249], text: [0, 0, 0] },   // cyan-300 / black
+  LOG:  { bg: [209, 213, 219], text: [0, 0, 0] },   // gray-300 / black
 }
 
 const STATUS_BG:   RGB = [241, 245, 249]  // slate-100
