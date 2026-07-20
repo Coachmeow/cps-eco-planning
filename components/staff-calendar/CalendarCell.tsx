@@ -98,9 +98,9 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">
 
-          {/* Main label: site code or status */}
+          {/* Main label: site code or status — น้ำหนัก/ขนาดเท่าชื่อเล่นพนักงาน (text-xs font-medium) */}
           {displayAssign && (
-            <span className="font-semibold">
+            <span className="font-medium">
               {displayAssign.status !== 'FIELD'
                 ? statusAbbr(displayAssign)
                 : (displayAssign.site?.code ?? '—')}
