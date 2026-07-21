@@ -599,6 +599,7 @@ model CemsGasCylinder {
   cylinderNo      String        @unique          // เลขถัง/serial
   brand           String?                        // ผู้ผลิต/ซัพพลายเออร์
   size            String?                        // ขนาดถัง เช่น 47L, 10L
+  originCountry   String?                        // ประเทศผู้ผลิต (ไทย/อเมริกา/อื่นๆ) — ข้อมูลประกอบ
   initialPressure Float                          // ความดันเต็มถัง (psi)
   currentPressure Float                          // ความดันปัจจุบัน (psi)
   lowThreshold    Float?                         // ต่ำกว่านี้เตือนใกล้หมด (psi)

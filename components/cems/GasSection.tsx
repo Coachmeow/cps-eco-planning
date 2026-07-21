@@ -6,7 +6,7 @@ import { Btn, Input, Modal, CustomSelect, fmtDate, ageText } from '@/components/
 
 interface Comp { id?: number; gas: string; concentration: number | string; unit: string }
 interface GasRow {
-  id: number; cylinderNo: string; brand: string | null; size: string | null
+  id: number; cylinderNo: string; brand: string | null; size: string | null; originCountry: string | null
   initialPressure: number; currentPressure: number; lowThreshold: number | null; initialWeight: number | null
   receivedDate: string | null; expiryDate: string | null; location: string | null
   dealerDate: string | null; returnDueDate: string | null
@@ -135,7 +135,7 @@ export default function GasSection() {
                 <tr key={c.id} className={`border-t border-slate-100 hover:bg-slate-50 ${c.status !== 'ACTIVE' ? 'opacity-60' : ''}`}>
                   <td className="px-3 py-2 align-top">
                     <p className="font-mono text-xs font-semibold text-slate-700">{c.cylinderNo}</p>
-                    <p className="text-[11px] text-slate-400">{[c.brand, c.size].filter(Boolean).join(' · ') || '—'}</p>
+                    <p className="text-[11px] text-slate-400">{[c.brand, c.size, c.originCountry].filter(Boolean).join(' · ') || '—'}</p>
                   </td>
                   <td className="max-w-[220px] px-3 py-2 align-top">
                     <div className="flex flex-wrap gap-1">
@@ -231,6 +231,10 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
     status: row?.status ?? 'ACTIVE',
   })
   const [comps, setComps] = useState<Comp[]>(row?.components.map(c => ({ gas: c.gas, concentration: c.concentration, unit: c.unit })) ?? [{ gas: '', concentration: '', unit: 'ppm' }])
+  // ประเทศผู้ผลิต — ไทย/อเมริกา = ค่าคงที่ ; อื่นๆ = พิมพ์เอง
+  const initCountry = row?.originCountry ?? ''
+  const [countryOpt, setCountryOpt] = useState(initCountry === 'ไทย' || initCountry === 'อเมริกา' ? initCountry : initCountry ? 'อื่นๆ' : '')
+  const [countryOther, setCountryOther] = useState(initCountry === 'ไทย' || initCountry === 'อเมริกา' ? '' : initCountry)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -240,8 +244,9 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
     if (!form.cylinderNo.trim()) { setErr('กรอกเลขถัง'); return }
     if (!form.initialPressure || parseFloat(form.initialPressure) <= 0) { setErr('กรอกความดันเต็มถัง (psi)'); return }
     const cleanComps = comps.filter(c => c.gas.trim() && c.concentration !== '')
+    const originCountry = countryOpt === 'อื่นๆ' ? countryOther.trim() : countryOpt
     setSaving(true); setErr('')
-    const body = { ...form, components: cleanComps }
+    const body = { ...form, originCountry, components: cleanComps }
     const r = row
       ? await fetch(`/api/cems/gas/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       : await fetch('/api/cems/gas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -257,6 +262,16 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
           <Input label="เลขถัง" value={form.cylinderNo} onChange={f('cylinderNo')} placeholder="เช่น CYL-001" required />
           <Input label="ยี่ห้อ/ซัพพลายเออร์" value={form.brand} onChange={f('brand')} placeholder="Linde / BIG / Praxair" />
           <Input label="ขนาดถัง" value={form.size} onChange={f('size')} placeholder="47L / 10L" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600">ประเทศผู้ผลิต</label>
+            <CustomSelect value={countryOpt} onChange={setCountryOpt} placeholder="— เลือก —"
+              options={[{ value: '', label: '— ไม่ระบุ —' }, { value: 'ไทย', label: 'ไทย' }, { value: 'อเมริกา', label: 'อเมริกา' }, { value: 'อื่นๆ', label: 'อื่นๆ (พิมพ์เอง)' }]} />
+          </div>
+          {countryOpt === 'อื่นๆ' && (
+            <Input label="ระบุประเทศ" value={countryOther} onChange={setCountryOther} placeholder="เช่น เยอรมนี, ญี่ปุ่น" />
+          )}
         </div>
 
         {/* องค์ประกอบแก๊ส */}

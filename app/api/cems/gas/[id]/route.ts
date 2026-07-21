@@ -17,8 +17,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json()
     const data: Record<string, unknown> = {}
     if (body.cylinderNo != null) data.cylinderNo = String(body.cylinderNo).trim()
-    if ('brand'    in body) data.brand    = body.brand    || null
-    if ('size'     in body) data.size     = body.size     || null
+    if ('brand'         in body) data.brand         = body.brand         || null
+    if ('size'          in body) data.size          = body.size          || null
+    if ('originCountry' in body) data.originCountry = body.originCountry || null
     if ('location' in body) data.location = body.location || null
     if ('notes'    in body) data.notes    = body.notes    || null
     if (body.initialPressure != null && body.initialPressure !== '') data.initialPressure = parseFloat(String(body.initialPressure))

@@ -52,8 +52,9 @@ export async function POST(req: NextRequest) {
     const created = await prisma.cemsGasCylinder.create({
       data: {
         cylinderNo,
-        brand:           body.brand    || null,
-        size:            body.size     || null,
+        brand:           body.brand         || null,
+        size:            body.size          || null,
+        originCountry:   body.originCountry  || null,
         initialPressure, currentPressure,
         lowThreshold:    body.lowThreshold  != null && body.lowThreshold  !== '' ? parseFloat(String(body.lowThreshold))  : null,
         initialWeight:   body.initialWeight != null && body.initialWeight !== '' ? parseFloat(String(body.initialWeight)) : null,
