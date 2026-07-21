@@ -608,6 +608,8 @@ model CemsGasCylinder {
   expiryDate      DateTime?     @db.Date         // วันหมดอายุแก๊ส (cal gas มี shelf-life)
   dealerDate      DateTime?     @db.Date         // วันที่รับถังจาก Dealer ในไทย (เริ่มนับกำหนดส่งคืน)
   returnDueDate   DateTime?     @db.Date         // วันที่ต้องส่งคืนถัง (เกินแล้วเสียค่าเช่า)
+  returnedDate    DateTime?     @db.Date         // วันที่ส่งคืนถังจริง (status=RETURNED)
+  returnedBy      String?                        // ผู้ส่งคืนถัง
   location        String?                        // ที่เก็บ/ไซต์ที่ใช้
   status          CemsGasStatus @default(ACTIVE)
   qrToken         String?       @unique

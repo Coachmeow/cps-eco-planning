@@ -30,6 +30,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if ('expiryDate'    in body) data.expiryDate    = body.expiryDate    ? new Date(body.expiryDate)    : null
     if ('dealerDate'    in body) data.dealerDate    = body.dealerDate    ? new Date(body.dealerDate)    : null
     if ('returnDueDate' in body) data.returnDueDate = body.returnDueDate ? new Date(body.returnDueDate) : null
+    if ('returnedDate'  in body) data.returnedDate  = body.returnedDate  ? new Date(body.returnedDate)  : null
+    if ('returnedBy'    in body) data.returnedBy    = body.returnedBy    || null
     if (body.status && STATUSES.includes(body.status)) data.status = body.status
 
     const comps = Array.isArray(body.components) ? (body.components as CompInput[]) : null

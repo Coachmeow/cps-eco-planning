@@ -30,8 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   const body = await req.json()
   const markEmpty = body.markEmpty === true
+  const markReturned = body.markReturned === true
   const hasPressure = body.pressure != null && body.pressure !== ''
-  if (!markEmpty && !hasPressure) return NextResponse.json({ error: 'กรอกความดัน หรือเลือกมาร์คถังหมด' }, { status: 400 })
+  if (!markEmpty && !markReturned && !hasPressure) return NextResponse.json({ error: 'กรอกความดัน / มาร์คถังหมด / ส่งคืนท่อ' }, { status: 400 })
 
   let pressure = NaN
   if (hasPressure) {
@@ -56,8 +57,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const cylData: Record<string, unknown> = {}
     if (hasPressure) cylData.currentPressure = pressure
     if (markEmpty || autoEmpty) cylData.status = 'EMPTY'
+    // ส่งคืนท่อ → RETURNED + วันที่/ผู้ส่งคืน (ชนะ empty)
+    if (markReturned) {
+      cylData.status = 'RETURNED'
+      cylData.returnedDate = readingDate
+      cylData.returnedBy = body.returnedBy || null
+    }
     if (Object.keys(cylData).length) await tx.cemsGasCylinder.update({ where: { id: c.id }, data: cylData })
   })
 
-  return NextResponse.json({ ok: true, emptied: markEmpty || autoEmpty })
+  return NextResponse.json({ ok: true, emptied: markEmpty || autoEmpty, returned: markReturned })
 }

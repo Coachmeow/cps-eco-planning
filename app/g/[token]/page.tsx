@@ -40,6 +40,8 @@ export default function CemsGasPublicPage() {
 
   const [pressure, setPressure] = useState('')
   const [markEmpty, setMarkEmpty] = useState(false)
+  const [markReturned, setMarkReturned] = useState(false)
+  const [returnedBy, setReturnedBy] = useState('')
   const [reader, setReader] = useState('')
   const [purpose, setPurpose] = useState('')
   const [usageLocation, setUsageLocation] = useState('')
@@ -74,11 +76,11 @@ export default function CemsGasPublicPage() {
 
   async function submit() {
     const hasP = pressure.trim() !== ''
-    if (!hasP && !markEmpty) { setErr('กรอกความดัน หรือเลือกถังหมด'); return }
+    if (!hasP && !markEmpty && !markReturned) { setErr('กรอกความดัน / ถังหมด / ส่งคืนท่อ'); return }
     setSubmitting(true); setErr('')
     const r = await fetch(`/api/public/cems-gas/${token}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...(pin ? { 'x-cems-pin': pin } : {}) },
-      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined }),
+      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, markReturned, returnedBy: markReturned ? (returnedBy || undefined) : undefined, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined }),
     })
     setSubmitting(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
@@ -113,7 +115,7 @@ export default function CemsGasPublicPage() {
         <div className="mb-3 text-5xl">✅</div>
         <p className="text-lg font-bold text-slate-800">บันทึกแล้ว</p>
         <p className="mt-1 text-sm text-slate-500">{data.cylinderNo}</p>
-        <button onClick={() => { setDone(false); setPressure(''); setMarkEmpty(false); setPurpose(''); setUsageLocation(''); setNotes(''); load(pin || undefined) }}
+        <button onClick={() => { setDone(false); setPressure(''); setMarkEmpty(false); setMarkReturned(false); setReturnedBy(''); setPurpose(''); setUsageLocation(''); setNotes(''); load(pin || undefined) }}
           className="mt-5 rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white">เสร็จสิ้น</button>
       </div>
     </Center>
@@ -167,6 +169,15 @@ export default function CemsGasPublicPage() {
             <input type="checkbox" checked={markEmpty} onChange={e => setMarkEmpty(e.target.checked)} className="h-4 w-4" />
             ถังนี้หมดแล้ว (มาร์คเป็น “หมด”)
           </label>
+          <div className={`rounded-lg px-3 py-2.5 ${markReturned ? 'bg-sky-50' : 'bg-slate-50'}`}>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={markReturned} onChange={e => setMarkReturned(e.target.checked)} className="h-4 w-4" />
+              ↩ ส่งคืนท่อแล้ว (มาร์คเป็น “ส่งคืนแล้ว”)
+            </label>
+            {markReturned && (
+              <input value={returnedBy} onChange={e => setReturnedBy(e.target.value)} className={`${inp} mt-2`} placeholder="ชื่อผู้ส่งคืน" />
+            )}
+          </div>
           <div><label className={lbl}>วัตถุประสงค์ใช้งาน</label><input value={purpose} onChange={e => setPurpose(e.target.value)} className={inp} placeholder="เช่น สอบเทียบ zero/span" /></div>
           <div><label className={lbl}>สถานที่ใช้งาน</label><input value={usageLocation} onChange={e => setUsageLocation(e.target.value)} className={inp} placeholder="เช่น SKK3 / คลัง" /></div>
           <div><label className={lbl}>ผู้อ่าน</label><input value={reader} onChange={e => setReader(e.target.value)} className={inp} /></div>

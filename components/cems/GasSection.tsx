@@ -10,6 +10,7 @@ interface GasRow {
   initialPressure: number; currentPressure: number; lowThreshold: number | null; initialWeight: number | null
   receivedDate: string | null; expiryDate: string | null; location: string | null
   dealerDate: string | null; returnDueDate: string | null
+  returnedDate: string | null; returnedBy: string | null
   status: 'ACTIVE' | 'EMPTY' | 'RETURNED'; notes: string | null
   components: Comp[]; pct: number; kgRemaining: number | null
   lastUse: { purpose: string | null; usageLocation: string | null; readingDate: string } | null
@@ -37,14 +38,18 @@ function expiryInfo(expiry: string | null): { text: string; cls: string } | null
   return { text: fmtDate(expiry), cls: 'text-slate-400' }
 }
 
-// กำหนดส่งคืนถัง → นับวันถอยหลัง (เกินแล้วเสียค่าเช่า) — status RETURNED = ส่งคืนแล้ว ไม่เตือน
-function returnInfo(due: string | null, status: string): { text: string; sub: string; cls: string } | null {
-  if (!due) return null
-  if (status === 'RETURNED') return { text: 'ส่งคืนแล้ว', sub: fmtDate(due), cls: 'text-slate-400' }
-  const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86_400_000)
-  if (days < 0)  return { text: `เลยกำหนด ${-days} วัน`, sub: fmtDate(due), cls: 'text-red-600 font-semibold' }
-  if (days <= 30) return { text: `อีก ${days} วัน`,       sub: fmtDate(due), cls: 'text-amber-600 font-semibold' }
-  return { text: `อีก ${days} วัน`, sub: fmtDate(due), cls: 'text-slate-500' }
+// กำหนดส่งคืนถัง → นับวันถอยหลัง (เกินแล้วเสียค่าเช่า) ; ส่งคืนแล้ว = โชว์วันที่/ผู้ส่งคืน
+function returnInfo(c: Pick<GasRow, 'returnDueDate' | 'status' | 'returnedDate' | 'returnedBy'>): { text: string; sub: string; cls: string } | null {
+  if (c.status === 'RETURNED') {
+    const day = c.returnedDate ?? c.returnDueDate
+    if (!day && !c.returnedBy) return { text: 'ส่งคืนแล้ว', sub: '', cls: 'text-sky-600' }
+    return { text: 'ส่งคืนแล้ว', sub: `${day ? fmtDate(day) : ''}${c.returnedBy ? ` · ${c.returnedBy}` : ''}`, cls: 'text-sky-600' }
+  }
+  if (!c.returnDueDate) return null
+  const days = Math.ceil((new Date(c.returnDueDate).getTime() - Date.now()) / 86_400_000)
+  if (days < 0)  return { text: `เลยกำหนด ${-days} วัน`, sub: fmtDate(c.returnDueDate), cls: 'text-red-600 font-semibold' }
+  if (days <= 30) return { text: `อีก ${days} วัน`,       sub: fmtDate(c.returnDueDate), cls: 'text-amber-600 font-semibold' }
+  return { text: `อีก ${days} วัน`, sub: fmtDate(c.returnDueDate), cls: 'text-slate-500' }
 }
 
 export default function GasSection() {
@@ -159,7 +164,7 @@ export default function GasSection() {
                   </td>
                   <td className="px-3 py-2 align-top text-xs">
                     {(() => {
-                      const r = returnInfo(c.returnDueDate, c.status)
+                      const r = returnInfo(c)
                       return r
                         ? <><p className={r.cls}>{r.text}</p><p className="text-[10px] text-slate-300">{r.sub}</p></>
                         : <span className="text-slate-300">—</span>
@@ -342,19 +347,28 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
   const [usageLocation, setUsageLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(todayKey())
+  const [markReturned, setMarkReturned] = useState(false)
+  const [returnedBy, setReturnedBy] = useState('')
+  const [returnedDate, setReturnedDate] = useState(todayKey())
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   const p = parseFloat(pressure)
+  const hasPressure = pressure.trim() !== ''
   const preview = !isNaN(p) && row.initialPressure > 0 ? Math.max(0, Math.min(100, Math.round((p / row.initialPressure) * 100))) : null
   const willEmpty = !isNaN(p) && row.lowThreshold != null && p <= row.lowThreshold
 
   async function save() {
-    if (!pressure || isNaN(p) || p < 0) { setErr('กรอกความดัน (psi)'); return }
+    if (!hasPressure && !markReturned) { setErr('กรอกความดัน หรือเลือกส่งคืนท่อ'); return }
+    if (hasPressure && (isNaN(p) || p < 0)) { setErr('กรอกความดัน (psi) ให้ถูกต้อง'); return }
     setSaving(true); setErr('')
     const r = await fetch(`/api/cems/gas/${row.id}/readings`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pressure, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined, readingDate: date }),
+      body: JSON.stringify({
+        pressure: hasPressure ? pressure : undefined,
+        reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined, readingDate: date,
+        markReturned, returnedBy: markReturned ? (returnedBy || undefined) : undefined, returnedDate: markReturned ? returnedDate : undefined,
+      }),
     })
     setSaving(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
@@ -369,7 +383,7 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
           ปัจจุบัน <b className="text-slate-700">{row.currentPressure} psi</b> ({row.pct}%) จากเต็ม {row.initialPressure} psi
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <Input label="ความดันที่อ่านได้ (psi)" value={pressure} onChange={setPressure} type="number" required />
+          <Input label="ความดันที่อ่านได้ (psi)" value={pressure} onChange={setPressure} type="number" />
           <Input label="วันที่" value={date} onChange={setDate} type="date" />
         </div>
         {preview != null && (
@@ -385,10 +399,25 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
         </div>
         <Input label="ผู้อ่าน" value={reader} onChange={setReader} />
         <Input label="หมายเหตุ" value={notes} onChange={setNotes} placeholder="อื่น ๆ" />
+
+        {/* ส่งคืนท่อ — มาร์คสถานะ RETURNED (ล้างสถานะเลยกำหนด) */}
+        <div className={`rounded-lg border p-3 ${markReturned ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50'}`}>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input type="checkbox" checked={markReturned} onChange={e => setMarkReturned(e.target.checked)} className="h-4 w-4" />
+            ↩ ส่งคืนท่อแล้ว (เปลี่ยนสถานะเป็น “ส่งคืนแล้ว”)
+          </label>
+          {markReturned && (
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Input label="วันที่ส่งคืน" value={returnedDate} onChange={setReturnedDate} type="date" />
+              <Input label="ผู้ส่งคืน" value={returnedBy} onChange={setReturnedBy} placeholder="ชื่อผู้ส่งคืน" />
+            </div>
+          )}
+        </div>
+
         {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
-          <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
+          <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : markReturned ? 'บันทึก + ส่งคืน' : 'บันทึก'}</Btn>
         </div>
       </div>
     </Modal>
