@@ -188,7 +188,7 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
     startY: 14,
     margin: { left: 8, right: 8, top: 14 },
     theme: 'grid',
-    styles: { font: 'Sarabun', fontStyle: 'normal', fontSize: 6, cellPadding: 0.7, halign: 'center', valign: 'middle', overflow: 'linebreak', lineColor: [203, 213, 225], lineWidth: 0.1 },
+    styles: { font: 'Sarabun', fontStyle: 'normal', fontSize: 6, cellPadding: 0.7, halign: 'center', valign: 'middle', overflow: 'linebreak', lineColor: [0, 0, 0], lineWidth: 0.15 },
     headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 6, halign: 'center' },
     columnStyles: {
       0: { cellWidth: 24, halign: 'left' },
