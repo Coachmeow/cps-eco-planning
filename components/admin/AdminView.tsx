@@ -748,9 +748,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
           <thead className="bg-slate-50 text-xs text-slate-500">
             <tr>
               <th className="px-4 py-2 text-left font-medium">ประเภท</th>
-              <th className="px-4 py-2 text-left font-medium">หมายเลข</th>
               <th className="px-4 py-2 text-left font-medium">ยี่ห้อ</th>
               <th className="px-4 py-2 text-left font-medium">รุ่น</th>
+              <th className="px-4 py-2 text-left font-medium">หมายเลข</th>
               <th className="px-4 py-2 text-left font-medium">Serial</th>
               <th className="px-4 py-2 text-left font-medium">ประเภท</th>
               <th className="px-4 py-2 text-left font-medium">ระยะเช่า</th>
@@ -771,11 +771,11 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                         </select>
                       : <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>}
                   </td>
+                  <td className="px-4 py-2 text-slate-500">{eq.brand || <span className="text-slate-300">—</span>}</td>
+                  <td className="px-4 py-2 text-slate-500">{eq.model || <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-2">
                     <button onClick={() => setViewing(eq)} className="font-medium text-slate-700 hover:text-emerald-700 hover:underline">{eq.internalNo ?? '—'}</button>
                   </td>
-                  <td className="px-4 py-2 text-slate-500">{eq.brand || <span className="text-slate-300">—</span>}</td>
-                  <td className="px-4 py-2 text-slate-500">{eq.model || <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-2 text-slate-400">{eq.serialNo ?? '—'}</td>
                   <td className="px-4 py-2">
                     {eq.isRental
