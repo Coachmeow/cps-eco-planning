@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     // ส่งคืนท่อ → RETURNED + วันที่/ผู้ส่งคืน (ชนะ empty)
     if (markReturned) {
       cylData.status = 'RETURNED'
-      cylData.returnedDate = readingDate
+      cylData.returnedDate = body.returnedDate ? new Date(body.returnedDate) : readingDate
       cylData.returnedBy = body.returnedBy || null
     }
     if (Object.keys(cylData).length) await tx.cemsGasCylinder.update({ where: { id: c.id }, data: cylData })

@@ -404,7 +404,7 @@ function ReadingModal({ row, onClose, onSaved }: { row: GasRow; onClose: () => v
         <div className={`rounded-lg border p-3 ${markReturned ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50'}`}>
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <input type="checkbox" checked={markReturned} onChange={e => setMarkReturned(e.target.checked)} className="h-4 w-4" />
-            ↩ ส่งคืนท่อแล้ว (เปลี่ยนสถานะเป็น “ส่งคืนแล้ว”)
+            ↩ แจ้งส่งคืนท่อ (เปลี่ยนสถานะเป็น “ส่งคืนแล้ว”)
           </label>
           {markReturned && (
             <div className="mt-2 grid grid-cols-2 gap-3">

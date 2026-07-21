@@ -42,6 +42,7 @@ export default function CemsGasPublicPage() {
   const [markEmpty, setMarkEmpty] = useState(false)
   const [markReturned, setMarkReturned] = useState(false)
   const [returnedBy, setReturnedBy] = useState('')
+  const [returnedDate, setReturnedDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [reader, setReader] = useState('')
   const [purpose, setPurpose] = useState('')
   const [usageLocation, setUsageLocation] = useState('')
@@ -80,7 +81,7 @@ export default function CemsGasPublicPage() {
     setSubmitting(true); setErr('')
     const r = await fetch(`/api/public/cems-gas/${token}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...(pin ? { 'x-cems-pin': pin } : {}) },
-      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, markReturned, returnedBy: markReturned ? (returnedBy || undefined) : undefined, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined }),
+      body: JSON.stringify({ pressure: hasP ? pressure : undefined, markEmpty, markReturned, returnedBy: markReturned ? (returnedBy || undefined) : undefined, returnedDate: markReturned ? returnedDate : undefined, reader: reader || undefined, purpose: purpose || undefined, usageLocation: usageLocation || undefined, notes: notes || undefined }),
     })
     setSubmitting(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'บันทึกไม่สำเร็จ'); return }
@@ -165,23 +166,30 @@ export default function CemsGasPublicPage() {
             <input type="number" inputMode="numeric" value={pressure} onChange={e => setPressure(e.target.value)} className={inp} placeholder={`เต็ม = ${data.initialPressure}`} />
             {preview != null && <p className="mt-1 text-xs text-slate-500">คงเหลือ ≈ <b>{preview}%</b>{data.initialWeight != null && <> · {Math.round(data.initialWeight * preview / 100 * 100) / 100} kg</>}{data.lowThreshold != null && p <= data.lowThreshold && ' · ต่ำกว่าเกณฑ์ → จะมาร์คถังหมด'}</p>}
           </div>
-          <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
-            <input type="checkbox" checked={markEmpty} onChange={e => setMarkEmpty(e.target.checked)} className="h-4 w-4" />
-            ถังนี้หมดแล้ว (มาร์คเป็น “หมด”)
-          </label>
-          <div className={`rounded-lg px-3 py-2.5 ${markReturned ? 'bg-sky-50' : 'bg-slate-50'}`}>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={markReturned} onChange={e => setMarkReturned(e.target.checked)} className="h-4 w-4" />
-              ↩ ส่งคืนท่อแล้ว (มาร์คเป็น “ส่งคืนแล้ว”)
-            </label>
-            {markReturned && (
-              <input value={returnedBy} onChange={e => setReturnedBy(e.target.value)} className={`${inp} mt-2`} placeholder="ชื่อผู้ส่งคืน" />
-            )}
-          </div>
           <div><label className={lbl}>วัตถุประสงค์ใช้งาน</label><input value={purpose} onChange={e => setPurpose(e.target.value)} className={inp} placeholder="เช่น สอบเทียบ zero/span" /></div>
           <div><label className={lbl}>สถานที่ใช้งาน</label><input value={usageLocation} onChange={e => setUsageLocation(e.target.value)} className={inp} placeholder="เช่น SKK3 / คลัง" /></div>
           <div><label className={lbl}>ผู้อ่าน</label><input value={reader} onChange={e => setReader(e.target.value)} className={inp} /></div>
           <div><label className={lbl}>หมายเหตุ</label><input value={notes} onChange={e => setNotes(e.target.value)} className={inp} placeholder="อื่น ๆ" /></div>
+
+          {/* ตัวเลือกแจ้งสถานะ — ไว้ล่างสุดก่อนบันทึก กันกดพลาด */}
+          <div className="border-t border-slate-100 pt-3">
+            <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
+              <input type="checkbox" checked={markEmpty} onChange={e => setMarkEmpty(e.target.checked)} className="h-4 w-4" />
+              ⛽ แจ้งแก๊สหมดท่อ (มาร์คเป็น “หมด”)
+            </label>
+            <div className={`mt-2 rounded-lg px-3 py-2.5 ${markReturned ? 'bg-sky-50' : 'bg-slate-50'}`}>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={markReturned} onChange={e => setMarkReturned(e.target.checked)} className="h-4 w-4" />
+                ↩ แจ้งส่งคืนท่อ (มาร์คเป็น “ส่งคืนแล้ว”)
+              </label>
+              {markReturned && (
+                <div className="mt-2 space-y-2">
+                  <div><label className={lbl}>วันที่ส่งคืน</label><input type="date" value={returnedDate} onChange={e => setReturnedDate(e.target.value)} className={inp} /></div>
+                  <div><label className={lbl}>ชื่อผู้ส่งคืน</label><input value={returnedBy} onChange={e => setReturnedBy(e.target.value)} className={inp} placeholder="ชื่อผู้ส่งคืน" /></div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
           <button onClick={submit} disabled={submitting}
