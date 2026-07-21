@@ -590,6 +590,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [modal,     setModal]     = useState<'add-owned' | 'add-rental' | 'edit' | null>(null)
   const [editing,   setEditing]   = useState<Equipment | null>(null)
   const [filterType, setFilterType] = useState('')
+  const [hideRental, setHideRental] = useState(false)
   const [saving,    setSaving]    = useState(false)
   const [viewing,   setViewing]   = useState<Equipment | null>(null)
   // จัดการประเภทเครื่องมือ
@@ -710,7 +711,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   }
 
   const today = toDateKey(new Date())
-  const filtered = equipment.filter(eq => !filterType || String(eq.typeId) === filterType)
+  const rentalCount = equipment.filter(eq => eq.isRental && (!filterType || String(eq.typeId) === filterType)).length
+  const filtered = equipment.filter(eq =>
+    (!filterType || String(eq.typeId) === filterType) && (!hideRental || !eq.isRental))
   const of = (k: keyof typeof ownedForm) => (v: string) => setOwnedForm(p => ({ ...p, [k]: v }))
   const rf = (k: keyof typeof rentalForm) => (v: string) => setRentalForm(p => ({ ...p, [k]: v }))
 
@@ -724,6 +727,10 @@ function EquipmentSection({ role }: { role?: UserRole }) {
           options={[{ value: '', label: 'ทุกประเภท' }, ...eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))]}
           className="w-64"
         />
+        <button onClick={() => setHideRental(v => !v)}
+          className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${hideRental ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+          {hideRental ? '👁 แสดงเครื่องเช่า' : '🙈 ซ่อนเครื่องเช่า'}{rentalCount > 0 && <span className="ml-1 opacity-70">({rentalCount})</span>}
+        </button>
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
         {role === 'MAINTENANCE' && (
           <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] text-sky-600">เปลี่ยนได้เฉพาะสถานะเครื่องมือ</span>
