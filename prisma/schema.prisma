@@ -603,8 +603,10 @@ model CemsGasCylinder {
   currentPressure Float                          // ความดันปัจจุบัน (psi)
   lowThreshold    Float?                         // ต่ำกว่านี้เตือนใกล้หมด (psi)
   initialWeight   Float?                         // น้ำหนักแก๊สเต็มถัง (kg) → คำนวณ kg คงเหลือ
-  receivedDate    DateTime?     @db.Date         // วันรับเข้า → อายุใช้งาน
+  receivedDate    DateTime?     @db.Date         // วันที่ผลิต (ใช้นับอายุแก๊ส) — เดิมชื่อ "วันรับเข้า"
   expiryDate      DateTime?     @db.Date         // วันหมดอายุแก๊ส (cal gas มี shelf-life)
+  dealerDate      DateTime?     @db.Date         // วันที่รับถังจาก Dealer ในไทย (เริ่มนับกำหนดส่งคืน)
+  returnDueDate   DateTime?     @db.Date         // วันที่ต้องส่งคืนถัง (เกินแล้วเสียค่าเช่า)
   location        String?                        // ที่เก็บ/ไซต์ที่ใช้
   status          CemsGasStatus @default(ACTIVE)
   qrToken         String?       @unique

@@ -8,7 +8,7 @@ interface ReadingRow { id: number; pressure: number; readingDate: string; reader
 interface PageData {
   id: number; cylinderNo: string; brand: string | null; size: string | null
   initialPressure: number; currentPressure: number; lowThreshold: number | null; initialWeight: number | null
-  status: string; location: string | null; expiryDate: string | null
+  status: string; location: string | null; expiryDate: string | null; returnDueDate: string | null
   components: Comp[]; readings: ReadingRow[]; pct: number; kgRemaining: number | null
 }
 
@@ -144,6 +144,14 @@ export default function CemsGasPublicPage() {
               <div className={`h-full ${barCls}`} style={{ width: `${data.pct}%` }} />
             </div>
             {low && <p className="mt-1 text-xs text-red-600">⚠ ใกล้หมด — ความดันต่ำ ควรเตรียมเปลี่ยนถัง</p>}
+            {(() => {
+              if (!data.returnDueDate || data.status === 'RETURNED') return null
+              const d = Math.ceil((new Date(data.returnDueDate).getTime() - Date.now()) / 86_400_000)
+              const due = new Date(data.returnDueDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+              if (d < 0) return <p className="mt-1 text-xs font-semibold text-red-600">↩ เลยกำหนดส่งคืน {-d} วัน ({due}) — เสียค่าเช่า</p>
+              if (d <= 30) return <p className="mt-1 text-xs font-semibold text-amber-600">↩ ต้องส่งคืนถังภายใน {d} วัน ({due})</p>
+              return <p className="mt-1 text-xs text-slate-500">↩ ส่งคืนภายใน {due} (อีก {d} วัน)</p>
+            })()}
             {data.status !== 'ACTIVE' && <p className="mt-1 text-xs text-slate-500">สถานะ: <b>{STATUS_TH[data.status] ?? data.status}</b></p>}
           </div>
         </div>

@@ -9,6 +9,7 @@ interface GasRow {
   id: number; cylinderNo: string; brand: string | null; size: string | null
   initialPressure: number; currentPressure: number; lowThreshold: number | null; initialWeight: number | null
   receivedDate: string | null; expiryDate: string | null; location: string | null
+  dealerDate: string | null; returnDueDate: string | null
   status: 'ACTIVE' | 'EMPTY' | 'RETURNED'; notes: string | null
   components: Comp[]; pct: number; kgRemaining: number | null
   lastUse: { purpose: string | null; usageLocation: string | null; readingDate: string } | null
@@ -34,6 +35,16 @@ function expiryInfo(expiry: string | null): { text: string; cls: string } | null
   if (days < 0) return { text: `หมดอายุแล้ว (${fmtDate(expiry)})`, cls: 'text-red-600 font-semibold' }
   if (days <= 60) return { text: `ใกล้หมดอายุ ${fmtDate(expiry)}`, cls: 'text-amber-600' }
   return { text: fmtDate(expiry), cls: 'text-slate-400' }
+}
+
+// กำหนดส่งคืนถัง → นับวันถอยหลัง (เกินแล้วเสียค่าเช่า) — status RETURNED = ส่งคืนแล้ว ไม่เตือน
+function returnInfo(due: string | null, status: string): { text: string; sub: string; cls: string } | null {
+  if (!due) return null
+  if (status === 'RETURNED') return { text: 'ส่งคืนแล้ว', sub: fmtDate(due), cls: 'text-slate-400' }
+  const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86_400_000)
+  if (days < 0)  return { text: `เลยกำหนด ${-days} วัน`, sub: fmtDate(due), cls: 'text-red-600 font-semibold' }
+  if (days <= 30) return { text: `อีก ${days} วัน`,       sub: fmtDate(due), cls: 'text-amber-600 font-semibold' }
+  return { text: `อีก ${days} วัน`, sub: fmtDate(due), cls: 'text-slate-500' }
 }
 
 export default function GasSection() {
@@ -106,14 +117,15 @@ export default function GasSection() {
             <th className="px-3 py-2 text-left font-medium">คงเหลือ (psi)</th>
             <th className="px-3 py-2 text-right font-medium">kg</th>
             <th className="px-3 py-2 text-left font-medium">อายุ / หมดอายุ</th>
+            <th className="px-3 py-2 text-left font-medium">ส่งคืนภายใน</th>
             <th className="px-3 py-2 text-left font-medium">ที่เก็บ/ไซต์</th>
             <th className="px-3 py-2 text-left font-medium">ใช้งานล่าสุด</th>
             <th className="px-3 py-2 text-center font-medium">สถานะ</th>
             <th className="px-3 py-2" />
           </tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">
+            {loading && <tr><td colSpan={10} className="px-3 py-8 text-center text-sm text-slate-300">กำลังโหลด...</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={10} className="px-3 py-8 text-center text-sm text-slate-300">
               {rows.length === 0 ? 'ยังไม่มีถังแก๊ส — กด "+ เพิ่มถังแก๊ส"' : 'ไม่พบถังตามเงื่อนไข'}
             </td></tr>}
             {filtered.map(c => {
@@ -144,6 +156,14 @@ export default function GasSection() {
                   <td className="px-3 py-2 align-top text-xs">
                     <p className="text-slate-500">{ageText(c.receivedDate)}</p>
                     {exp && <p className={exp.cls}>{exp.text}</p>}
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs">
+                    {(() => {
+                      const r = returnInfo(c.returnDueDate, c.status)
+                      return r
+                        ? <><p className={r.cls}>{r.text}</p><p className="text-[10px] text-slate-300">{r.sub}</p></>
+                        : <span className="text-slate-300">—</span>
+                    })()}
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-slate-500">{c.location || <span className="text-slate-300">—</span>}</td>
                   <td className="max-w-[180px] px-3 py-2 align-top text-xs">
@@ -203,8 +223,10 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
     currentPressure: row ? String(row.currentPressure) : '',
     lowThreshold: row?.lowThreshold != null ? String(row.lowThreshold) : '150',
     initialWeight: row?.initialWeight != null ? String(row.initialWeight) : '',
-    receivedDate: row?.receivedDate ? row.receivedDate.slice(0, 10) : todayKey(),
+    receivedDate: row?.receivedDate ? row.receivedDate.slice(0, 10) : '',
     expiryDate: row?.expiryDate ? row.expiryDate.slice(0, 10) : '',
+    dealerDate: row?.dealerDate ? row.dealerDate.slice(0, 10) : todayKey(),
+    returnDueDate: row?.returnDueDate ? row.returnDueDate.slice(0, 10) : '',
     location: row?.location ?? '', notes: row?.notes ?? '',
     status: row?.status ?? 'ACTIVE',
   })
@@ -270,8 +292,12 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
           <Input label="น้ำหนักแก๊สเต็ม (kg)" value={form.initialWeight} onChange={f('initialWeight')} type="number" placeholder="ไว้คำนวณ kg" />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Input label="วันรับเข้า" value={form.receivedDate} onChange={f('receivedDate')} type="date" />
+          <Input label="วันที่ผลิต" value={form.receivedDate} onChange={f('receivedDate')} type="date" />
           <Input label="วันหมดอายุแก๊ส" value={form.expiryDate} onChange={f('expiryDate')} type="date" />
+          <Input label="วันที่รับจาก Dealer" value={form.dealerDate} onChange={f('dealerDate')} type="date" />
+          <Input label="ต้องส่งคืนภายใน" value={form.returnDueDate} onChange={f('returnDueDate')} type="date" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Input label="ที่เก็บ/ไซต์" value={form.location} onChange={f('location')} placeholder="คลัง / SKK3" />
           {row && (
             <div className="flex flex-col gap-1">

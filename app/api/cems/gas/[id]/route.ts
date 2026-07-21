@@ -25,8 +25,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.currentPressure != null && body.currentPressure !== '') data.currentPressure = parseFloat(String(body.currentPressure))
     if ('lowThreshold'  in body) data.lowThreshold  = body.lowThreshold  !== '' && body.lowThreshold  != null ? parseFloat(String(body.lowThreshold))  : null
     if ('initialWeight' in body) data.initialWeight = body.initialWeight !== '' && body.initialWeight != null ? parseFloat(String(body.initialWeight)) : null
-    if ('receivedDate'  in body) data.receivedDate  = body.receivedDate ? new Date(body.receivedDate) : null
-    if ('expiryDate'    in body) data.expiryDate    = body.expiryDate   ? new Date(body.expiryDate)   : null
+    if ('receivedDate'  in body) data.receivedDate  = body.receivedDate  ? new Date(body.receivedDate)  : null
+    if ('expiryDate'    in body) data.expiryDate    = body.expiryDate    ? new Date(body.expiryDate)    : null
+    if ('dealerDate'    in body) data.dealerDate    = body.dealerDate    ? new Date(body.dealerDate)    : null
+    if ('returnDueDate' in body) data.returnDueDate = body.returnDueDate ? new Date(body.returnDueDate) : null
     if (body.status && STATUSES.includes(body.status)) data.status = body.status
 
     const comps = Array.isArray(body.components) ? (body.components as CompInput[]) : null
