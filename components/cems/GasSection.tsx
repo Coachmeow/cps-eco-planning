@@ -483,10 +483,50 @@ function QrModal({ row, onClose }: { row: GasRow; onClose: () => void }) {
     })()
   }, [row.id])
 
+  // ดาวน์โหลดเป็นรูปฉลาก: กรอบ + เลขท่อ + องค์ประกอบ + QR (วาดด้วย canvas)
   function download() {
     if (!qr) return
-    const safe = row.cylinderNo.replace(/[\\/:*?"<>|\s]+/g, '')
-    const a = document.createElement('a'); a.href = qr; a.download = `QR_GAS_${safe}.png`; a.click()
+    const W = 440, H = 560, QS = 300
+    const canvas = document.createElement('canvas')
+    canvas.width = W; canvas.height = H
+    const ctx = canvas.getContext('2d'); if (!ctx) return
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+    // กรอบมุมมน
+    ctx.strokeStyle = '#c7d2fe'; ctx.lineWidth = 3
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(14, 14, W - 28, H - 28, 16); ctx.stroke() }
+    else ctx.strokeRect(14, 14, W - 28, H - 28)
+    ctx.textAlign = 'center'
+    const font = (s: number, b = false) => `${b ? 'bold ' : ''}${s}px system-ui, "Segoe UI", "Noto Sans Thai", sans-serif`
+    // header
+    ctx.fillStyle = '#4f46e5'; ctx.font = font(15, true)
+    ctx.fillText('CPS ECO · CEMS แก๊สมาตรฐาน', W / 2, 50)
+    // เลขท่อ (เด่นสุด)
+    ctx.fillStyle = '#1e293b'; ctx.font = font(32, true)
+    ctx.fillText(row.cylinderNo, W / 2, 92)
+    // องค์ประกอบ (ตัดบรรทัดถ้ายาว สูงสุด 2 บรรทัด)
+    ctx.fillStyle = '#64748b'; ctx.font = font(14)
+    const comp = row.components.map(compText).join(' · ')
+    const lines: string[] = []
+    if (comp) {
+      let cur = ''
+      for (const w of comp.split(' ')) {
+        const t = cur ? `${cur} ${w}` : w
+        if (ctx.measureText(t).width > W - 70 && cur) { lines.push(cur); cur = w } else cur = t
+        if (lines.length >= 2) break
+      }
+      if (cur && lines.length < 2) lines.push(cur)
+    }
+    lines.slice(0, 2).forEach((ln, i) => ctx.fillText(ln, W / 2, 118 + i * 20))
+    // QR
+    const img = new Image()
+    img.onload = () => {
+      ctx.drawImage(img, (W - QS) / 2, 165, QS, QS)
+      ctx.fillStyle = '#94a3b8'; ctx.font = font(13)
+      ctx.fillText('สแกนเพื่ออัปเดตความดันคงเหลือ', W / 2, 165 + QS + 34)
+      const safe = row.cylinderNo.replace(/[\\/:*?"<>|\s]+/g, '')
+      const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `QR_GAS_${safe}.png`; a.click()
+    }
+    img.src = qr
   }
   function print() {
     if (!qr) return
