@@ -120,8 +120,8 @@ export default function Sidebar() {
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-lg">🌿</span>
         {!collapsed && (
           <div className="leading-tight">
-            <p className="text-sm font-bold tracking-widest text-slate-700">CPS ECO</p>
-            <p className="text-[10px] text-slate-400">Planning System</p>
+            <p className="text-sm font-bold tracking-wide text-slate-700">Eco Planning</p>
+            <p className="text-[10px] text-slate-400">System</p>
           </div>
         )}
       </div>

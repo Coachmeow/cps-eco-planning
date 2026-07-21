@@ -7,8 +7,8 @@ import IdleLogout from '@/components/IdleLogout'
 const geist = Geist({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'CPS Eco — Planning System',
-  description: 'ระบบแผนงานและเครื่องมือ CPS Eco Services',
+  title: 'Eco Planning System',
+  description: 'ระบบแผนงานและเครื่องมือ — Eco Planning System',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

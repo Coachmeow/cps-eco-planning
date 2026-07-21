@@ -132,7 +132,7 @@ export default function CemsGasPublicPage() {
       <div className="mx-auto max-w-md pb-10">
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold tracking-widest text-indigo-600">CPS ECO · CEMS แก๊สมาตรฐาน</p>
+          <p className="text-xs font-bold tracking-widest text-indigo-600">Eco Planning System · CEMS แก๊สมาตรฐาน</p>
           <p className="mt-1 text-xl font-bold text-slate-800">🧪 {data.cylinderNo}</p>
           <p className="text-sm text-slate-400">{[data.brand, data.size].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 flex flex-wrap gap-1">

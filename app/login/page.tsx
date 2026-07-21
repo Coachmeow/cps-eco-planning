@@ -35,7 +35,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
         <div className="mb-6 text-center">
-          <p className="text-xs font-bold tracking-widest text-slate-400">CPS ECO</p>
+          <p className="text-xs font-bold tracking-widest text-slate-400">ECO PLANNING SYSTEM</p>
           <h1 className="mt-1 text-lg font-semibold text-slate-800">ระบบแผนงานและเครื่องมือ</h1>
           <p className="mt-1 text-xs text-slate-400">เข้าสู่ระบบเพื่อใช้งาน</p>
         </div>

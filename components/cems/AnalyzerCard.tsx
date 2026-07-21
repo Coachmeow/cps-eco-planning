@@ -63,7 +63,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
       .plate{font-size:26px;font-weight:800;color:#1e293b;margin:6px 0 2px}
       .hint{font-size:13px;color:#64748b;margin-bottom:16px}
       img{width:300px;height:300px}.foot{font-size:12px;color:#94a3b8;margin-top:14px}</style></head>
-      <body><div class="tag">CPS ECO · CEMS SERVICE</div>
+      <body><div class="tag">Eco Planning System · CEMS SERVICE</div>
       <div class="plate">📟 ${a.tag}</div>
       <div class="hint">${[a.brand, a.model].filter(Boolean).join(' · ')}</div>
       <img src="${qr}" alt="QR" />

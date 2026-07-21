@@ -157,7 +157,7 @@ export default function CemsAnalyzerPublicPage() {
       <div className="mx-auto max-w-md pb-10">
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold tracking-widest text-sky-600">CPS ECO · CEMS SERVICE</p>
+          <p className="text-xs font-bold tracking-widest text-sky-600">Eco Planning System · CEMS SERVICE</p>
           <p className="mt-1 text-xl font-bold text-slate-800">📟 {data.tag}</p>
           <p className="text-sm text-slate-400">{[data.brand, data.model, data.serialNo].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">

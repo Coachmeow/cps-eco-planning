@@ -46,7 +46,7 @@ export default function PartRequestPage() {
     <div className="h-full overflow-y-auto bg-slate-100 p-4">
       <div className="mx-auto max-w-md pb-10">
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold tracking-widest text-emerald-600">CPS ECO · CEMS เบิกอะไหล่</p>
+          <p className="text-xs font-bold tracking-widest text-emerald-600">Eco Planning System · CEMS เบิกอะไหล่</p>
           <p className="mt-1 text-xl font-bold text-slate-800">🔩 {data.part.code}</p>
           <p className="text-sm text-slate-400">{data.part.name}</p>
           <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">

@@ -79,7 +79,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
         .foot{font-size:12px;color:#94a3b8;margin-top:14px}
       </style></head>
       <body>
-        <div class="tag">CPS ECO · LOGBOOK</div>
+        <div class="tag">Eco Planning System · LOGBOOK</div>
         <div class="plate">🚗 ${plate}</div>
         <div class="hint">สแกนเพื่อบันทึกไมล์ (ไม่ต้องล็อกอิน)</div>
         <img src="${qr}" alt="QR" />

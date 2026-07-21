@@ -538,7 +538,7 @@ function QrModal({ row, onClose }: { row: GasRow; onClose: () => void }) {
       body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
       .tag{font-size:12px;letter-spacing:2px;color:#4f46e5;font-weight:700}.code{font-size:26px;font-weight:800;color:#1e293b;margin:6px 0 2px}
       .name{font-size:13px;color:#64748b;margin-bottom:16px}img{width:300px;height:300px}.foot{font-size:12px;color:#94a3b8;margin-top:14px}</style></head>
-      <body><div class="tag">CPS ECO · CEMS แก๊สมาตรฐาน</div><div class="code">🧪 ${row.cylinderNo}</div>
+      <body><div class="tag">แก๊สมาตรฐาน</div><div class="code">🧪 ${row.cylinderNo}</div>
       <div class="name">${comp || ''}</div>
       <img src="${qr}" alt="QR" /><div class="foot">สแกนเพื่ออัปเดตความดันคงเหลือ</div>
       <script>const i=document.querySelector('img');function g(){window.focus();window.print()}if(i.complete)g();else i.onload=g;window.onafterprint=()=>window.close()<\/script>

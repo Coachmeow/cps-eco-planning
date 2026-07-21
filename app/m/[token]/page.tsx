@@ -155,7 +155,7 @@ export default function MileagePage() {
       <div className="mx-auto max-w-md pb-10">
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold tracking-widest text-emerald-600">CPS ECO · LOGBOOK</p>
+          <p className="text-xs font-bold tracking-widest text-emerald-600">Eco Planning System · LOGBOOK</p>
           <p className="mt-1 text-xl font-bold text-slate-800">🚗 {data.vehicle.licensePlate}</p>
           <p className="text-sm text-slate-400">{[data.vehicle.name, data.vehicle.vehicleType, data.vehicle.brand, data.vehicle.model].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
