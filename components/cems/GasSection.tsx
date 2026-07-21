@@ -498,8 +498,8 @@ function QrModal({ row, onClose }: { row: GasRow; onClose: () => void }) {
     ctx.textAlign = 'center'
     const font = (s: number, b = false) => `${b ? 'bold ' : ''}${s}px system-ui, "Segoe UI", "Noto Sans Thai", sans-serif`
     // header
-    ctx.fillStyle = '#4f46e5'; ctx.font = font(15, true)
-    ctx.fillText('CPS ECO · CEMS แก๊สมาตรฐาน', W / 2, 50)
+    ctx.fillStyle = '#4f46e5'; ctx.font = font(16, true)
+    ctx.fillText('แก๊สมาตรฐาน', W / 2, 50)
     // เลขท่อ (เด่นสุด)
     ctx.fillStyle = '#1e293b'; ctx.font = font(32, true)
     ctx.fillText(row.cylinderNo, W / 2, 92)
