@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getEquipmentConflicts } from '@/lib/conflicts'
 import { requireRole, forbidden } from '@/lib/auth'
+import { maintStateForWindow, overlappingEventWhere, type MaintEvent } from '@/lib/equipmentAvailability'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -33,16 +34,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'equipmentId และ assignedDate จำเป็น' }, { status: 400 })
   }
 
-  // จองได้เฉพาะเครื่องพร้อมใช้ — กันจองเครื่องซ่อม/Cal/เสีย/ปลดระวาง
-  const eq = await prisma.equipment.findUnique({ where: { id: parseInt(String(equipmentId)) }, select: { status: true } })
+  const eqId = parseInt(String(equipmentId))
+  const date = new Date(assignedDate)
+  const days = Math.min(Math.max(Math.floor(Number(estimatedDays)) || 1, 1), 20)
+  const bEnd = new Date(date); bEnd.setDate(bEnd.getDate() + days - 1)
+
+  // จองได้ถ้าไม่ทับช่วงส่งซ่อม/Cal (date-aware) — จองหลังวันรับกลับได้ ; RETIRED = จองไม่ได้เสมอ
+  const eq = await prisma.equipment.findUnique({ where: { id: eqId }, select: { status: true } })
   if (!eq) return NextResponse.json({ error: 'ไม่พบเครื่องมือ' }, { status: 404 })
-  if (eq.status !== 'ACTIVE') {
-    return NextResponse.json({ error: 'เครื่องมือไม่พร้อมใช้ (ซ่อม/Cal/เสีย) จองไม่ได้' }, { status: 400 })
+  if (eq.status === 'RETIRED') return NextResponse.json({ error: 'เครื่องมือปลดระวางแล้ว จองไม่ได้' }, { status: 400 })
+  const evRows = await prisma.equipmentEvent.findMany({
+    where: { equipmentId: eqId, ...overlappingEventWhere(date, bEnd) },
+    select: { sentDate: true, expectedDate: true, returnedDate: true, type: true },
+  })
+  const maintEvents: MaintEvent[] = evRows.map(e => ({ sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate, type: e.type }))
+  if (maintStateForWindow(maintEvents, date, bEnd).state === 'blocked') {
+    return NextResponse.json({ error: 'เครื่องมืออยู่ระหว่างส่งซ่อม/Cal ในช่วงที่จอง' }, { status: 400 })
   }
 
-  const date = new Date(assignedDate)
   const hasConflict = await getEquipmentConflicts(equipmentId, date)
-  const days = Math.min(Math.floor(Number(estimatedDays)), 20)
 
   // วันแม่ — เก็บจำนวนวันรวมไว้ที่ estimatedDays
   const created = await prisma.equipmentAssignment.create({

@@ -61,16 +61,32 @@ export default function EquipmentPopup({
     weekday: 'short', day: 'numeric', month: 'short',
   })
 
-  // สถานะเครื่อง → จองได้เฉพาะ ACTIVE
-  const STATUS_TH: Record<string, string> = { CALIBRATING: 'สอบเทียบ (Cal)', BROKEN: 'เสีย', RETIRED: 'ปลดระวาง' }
-  const bookable = equipment.status === 'ACTIVE'
+  // ── สถานะส่งซ่อม/Cal ตามช่วงวันที่เลือก (date + days) — จองได้ถ้าไม่ทับช่วงส่งซ่อม/Cal (จองหลังวันรับกลับได้) ──
+  const [maintList, setMaintList] = useState<{ equipmentId: number; state: string; type?: string; expectedDate?: string | null }[]>([])
+  useEffect(() => {
+    const d = Math.min(Math.max(parseInt(days) || 1, 1), 31)
+    let alive = true
+    fetch(`/api/equipment-assignments/maintenance?start=${date}&days=${d}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(rows => { if (alive) setMaintList(Array.isArray(rows) ? rows : []) })
+      .catch(() => { if (alive) setMaintList([]) })
+    return () => { alive = false }
+  }, [date, days])
+  const maintByEq = useMemo(() => new Map(maintList.map(m => [m.equipmentId, m])), [maintList])
+  const maintLabel = (t?: string) => (t === 'CALIBRATION' ? 'ส่งแคล (Cal)' : 'ส่งซ่อม')
+
+  const mainMaint = maintByEq.get(equipment.id)
+  const isRetired = equipment.status === 'RETIRED'
+  const bookable  = !isRetired && mainMaint?.state !== 'blocked'
+  const tentative = bookable && mainMaint?.state === 'tentative'
 
   // Group all other equipment by type; own type first (เฉพาะเครื่องพร้อมใช้ ACTIVE)
   const groups = useMemo(() => {
     const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
     for (const eq of allEquipment) {
       if (eq.id === equipment.id) continue
-      if (eq.status !== 'ACTIVE') continue   // ซ่อม/Cal/เสีย → ไม่ให้เลือกเป็นเครื่องมือร่วม
+      if (eq.status === 'RETIRED') continue                       // ปลดระวาง → ไม่ให้เลือก
+      if (maintByEq.get(eq.id)?.state === 'blocked') continue     // ทับช่วงส่งซ่อม/Cal → ไม่ให้เลือก (นอกช่วงเลือกได้)
       if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
       map.get(eq.typeId)!.items.push(eq)
     }
@@ -80,7 +96,7 @@ export default function EquipmentPopup({
       a.type.id === equipment.typeId ? -1 : b.type.id === equipment.typeId ? 1 : 0
     )
     return arr
-  }, [allEquipment, equipment.id, equipment.typeId])
+  }, [allEquipment, equipment.id, equipment.typeId, maintByEq])
 
   const q = search.trim().toLowerCase()
 
@@ -213,11 +229,27 @@ export default function EquipmentPopup({
             <div className="px-4 py-3 text-xs text-slate-400">👁 โหมดดูอย่างเดียว — ไม่มีสิทธิ์จองเครื่องมือ</div>
           )}
 
-          {/* เครื่องไม่พร้อมใช้ (ซ่อม/Cal/เสีย/ปลดระวาง) → จองออกงานไม่ได้ */}
+          {/* จองไม่ได้: ปลดระวาง หรือ ทับช่วงส่งซ่อม/Cal ในช่วงวันที่เลือก */}
           {canEdit && !bookable && (
             <div className="m-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-700">
-              🔧 เครื่องนี้กำลัง<b>{STATUS_TH[equipment.status] ?? equipment.status}</b> — จองออกงานไม่ได้
-              <p className="mt-1 text-[11px] text-amber-600">รับเครื่องกลับ หรือเปลี่ยนสถานะเป็นพร้อมใช้ก่อน</p>
+              {isRetired ? (
+                <>🔧 เครื่องนี้<b>ปลดระวาง</b>แล้ว — จองไม่ได้</>
+              ) : (
+                <>🔧 ช่วงวันที่เลือกเครื่องนี้อยู่ระหว่าง<b>{maintLabel(mainMaint?.type)}</b> — จองไม่ได้
+                  <p className="mt-1 text-[11px] text-amber-600">
+                    {mainMaint?.expectedDate
+                      ? <>กำหนดรับกลับ {fmtDay(mainMaint.expectedDate)} — เลือกวันเริ่ม/จำนวนวันให้เลยวันรับกลับ จะจองได้</>
+                      : 'ยังไม่มีกำหนดรับกลับ'}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* จองได้ แต่อยู่หลังวันกำหนดรับกลับ ยังไม่ยืนยันรับเครื่องจริง → เตือนเผื่อเลื่อน */}
+          {canEdit && tentative && (
+            <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+              ⚠ จองหลังกำหนดรับกลับจาก<b>{maintLabel(mainMaint?.type)}</b>{mainMaint?.expectedDate ? ` (${fmtDay(mainMaint.expectedDate)})` : ''} — ยังไม่ยืนยันรับเครื่องจริง เผื่อเลื่อน
             </div>
           )}
 
