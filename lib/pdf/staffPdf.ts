@@ -54,6 +54,7 @@ function buildDayCell(
 ): { cell: CellDef; span: number } {
   const dateKey = toDateKey(days[i])
   const dayAssign = dayMap?.get(dateKey) ?? []
+  const hasNote = dayAssign.some(a => !!a.notes && a.notes.trim() !== '')
 
   // merge งานหลายวัน (parent FIELD estimatedDays>=2) — นับต่อเนื่องแต่ไม่เกินขอบบล็อก
   const parent = dayAssign.find(a => a.parentId == null && a.status === 'FIELD' && Number(a.estimatedDays) >= 2)
@@ -111,7 +112,15 @@ function buildDayCell(
     bg = STATUS_BG; txt = STATUS_TEXT
   }
 
-  return { cell: { content: text.trim(), colSpan: span, styles: { fillColor: bg, textColor: txt } }, span }
+  const content = (text.trim() + (hasNote ? ' *' : '')).trim()
+  return { cell: { content, colSpan: span, styles: { fillColor: bg, textColor: txt } }, span }
+}
+
+// ป้ายกำกับงาน (สำหรับตารางหมายเหตุด้านท้าย)
+function assignLabel(a: StaffAssignment): string {
+  if (a.status === 'LEAVE') return a.leaveType ? (LEAVE_ABBR[a.leaveType] ?? 'ลา') : 'ลา'
+  if (a.status !== 'FIELD') return STATUS_LABEL[a.status] ?? a.status
+  return a.site?.code ?? '—'
 }
 
 export function exportStaffPdf(args: ExportStaffPdfArgs): void {
@@ -197,6 +206,46 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
       [2 + nDays]: { cellWidth: 10 },
     },
   })
+
+  // ── หน้าหมายเหตุงาน ── รวมหมายเหตุทุกงาน (เรียงตามพนักงาน → วันที่)
+  interface NoteRow { emp: string; team: string; date: string; label: string; note: string }
+  const noteRows: NoteRow[] = []
+  for (const emp of employees) {
+    const dayMap = calendarData.get(emp.id)
+    if (!dayMap) continue
+    const seen = new Set<number>()
+    for (const d of days) {
+      for (const a of (dayMap.get(toDateKey(d)) ?? [])) {
+        if (a.parentId != null) continue                 // ข้ามวันต่อเนื่องของงานเดียวกัน
+        if (!a.notes || a.notes.trim() === '') continue
+        if (seen.has(a.id)) continue
+        seen.add(a.id)
+        const span = Number(a.estimatedDays) || 1
+        const s = d.getDate()
+        const dateStr = `${span > 1 ? `${s}-${s + span - 1}` : s} ${thaiMonths[month]}`
+        noteRows.push({ emp: emp.nickname ?? emp.fullName.split(' ')[0], team: emp.primaryTeam.code, date: dateStr, label: assignLabel(a), note: a.notes.trim() })
+      }
+    }
+  }
+
+  if (noteRows.length > 0) {
+    doc.addPage('a3', 'landscape')
+    doc.setFont('Sarabun', 'bold'); doc.setFontSize(13); doc.setTextColor(30, 41, 59)
+    doc.text(`หมายเหตุงาน — ${thaiMonths[month]} ${year + 543}`, 8, 10)
+    autoTable(doc, {
+      startY: 14,
+      margin: { left: 8, right: 8 },
+      theme: 'grid',
+      head: [['พนักงาน', 'ทีม', 'วันที่', 'งาน', 'หมายเหตุ']],
+      body: noteRows.map(n => [n.emp, n.team, n.date, n.label, n.note]),
+      styles: { font: 'Sarabun', fontStyle: 'normal', fontSize: 9, cellPadding: 1.5, valign: 'top', overflow: 'linebreak', lineColor: [0, 0, 0], lineWidth: 0.15 },
+      headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 32 }, 1: { cellWidth: 16 }, 2: { cellWidth: 26 }, 3: { cellWidth: 30 },
+        4: { cellWidth: pageW - 16 - 32 - 16 - 26 - 30 },
+      },
+    })
+  }
 
   doc.save(`staff_${year}-${String(month).padStart(2, '0')}.pdf`)
 }
