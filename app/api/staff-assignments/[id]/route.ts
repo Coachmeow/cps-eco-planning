@@ -15,11 +15,24 @@ export async function DELETE(
 
   if (target.parentId == null) {
     // วันแม่ → ลบทั้งงาน (ลูกหายตาม)
-    // เครื่อง/รถ ที่แนบ "คงอยู่" แค่ตัดสายผูก (จัดการ/ดึงออกในแผนเครื่องมือ/แผนใช้รถ)
-    await prisma.equipmentAssignment.updateMany({ where: { staffAssignmentId: targetId }, data: { staffAssignmentId: null } })
-    await prisma.vehicleBooking.updateMany({ where: { staffAssignmentId: targetId }, data: { staffAssignmentId: null } })
-    await prisma.staffAssignment.deleteMany({ where: { parentId: targetId } })
-    await prisma.staffAssignment.delete({ where: { id: targetId } })
+    // เครื่อง/รถ ที่จอง "พ่วงมากับงานนี้" (staffAssignmentId ชี้มาที่งานแม่หรือวันลูก) → ลบตามทั้งชุด
+    // ส่วนที่จองแยกเอง (staffAssignmentId = null) ไม่ถูกแตะ
+    const childIds = (await prisma.staffAssignment.findMany({ where: { parentId: targetId }, select: { id: true } })).map(c => c.id)
+    const saIds = [targetId, ...childIds]
+    await prisma.$transaction(async (tx) => {
+      const eqIds = (await tx.equipmentAssignment.findMany({ where: { staffAssignmentId: { in: saIds } }, select: { id: true } })).map(e => e.id)
+      if (eqIds.length) {
+        await tx.equipmentAssignment.deleteMany({ where: { parentId: { in: eqIds } } })   // วันลูกของ booking
+        await tx.equipmentAssignment.deleteMany({ where: { id: { in: eqIds } } })
+      }
+      const vbIds = (await tx.vehicleBooking.findMany({ where: { staffAssignmentId: { in: saIds } }, select: { id: true } })).map(v => v.id)
+      if (vbIds.length) {
+        await tx.vehicleBooking.deleteMany({ where: { parentId: { in: vbIds } } })
+        await tx.vehicleBooking.deleteMany({ where: { id: { in: vbIds } } })
+      }
+      await tx.staffAssignment.deleteMany({ where: { parentId: targetId } })
+      await tx.staffAssignment.delete({ where: { id: targetId } })
+    })
   } else {
     // วันลูก → ลบเฉพาะวันนั้น แล้วลดจำนวนวันที่ตัวแม่ให้ตรง (utilization ถูกต้อง)
     await prisma.staffAssignment.delete({ where: { id: targetId } })
