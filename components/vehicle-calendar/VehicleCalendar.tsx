@@ -156,7 +156,7 @@ export default function VehicleCalendar() {
             <tbody>
               {vehicles.map(v => (
                 <tr key={v.id} className="hover:bg-slate-50/50">
-                  <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
+                  <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
                     <div className="font-medium text-slate-700">{v.licensePlate}</div>
                     <div className="text-[10px] text-slate-400 truncate max-w-[120px]">{[v.name, v.vehicleType].filter(Boolean).join(' · ') || '—'}</div>
                   </td>

@@ -52,12 +52,12 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
       onMouseEnter={onMouseEnter}
       colSpan={colSpan}
       title={noteText || undefined}
-      className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-b
-        border-slate-300 px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${rangeCls}`}
+      className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
+        px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${rangeCls}`}
     >
       {bookings.length > 0 && first && (
         <div className="flex flex-col items-center gap-px leading-tight">
-          <span className="truncate max-w-[84px] font-semibold">
+          <span className="truncate max-w-[84px] font-medium">
             {PURPOSE_META[first.purpose]?.icon} {label(first)}
             {merged && first.parentId == null && Number(first.estimatedDays) > 1 && (
               <span className="ml-1 text-[9px] font-normal opacity-60">({Number(first.estimatedDays)} วัน)</span>

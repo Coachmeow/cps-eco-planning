@@ -58,6 +58,35 @@ export default function EquipmentCalendar() {
     return Array.from(map.values())
   }, [equipment, showRental])
 
+  // ── ช่วงส่งซ่อม/Cal ที่ครอบวันในเดือนนี้ → แถบ "ส่งซ่อม/ส่งแคล" ในตาราง ──
+  const [maintEvents, setMaintEvents] = useState<{ equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }[]>([])
+  useEffect(() => {
+    fetch('/api/equipment-events?status=all')
+      .then(r => (r.ok ? r.json() : []))
+      .then(rows => setMaintEvents(Array.isArray(rows) ? rows.map((e: { equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }) => ({ equipmentId: e.equipmentId, type: e.type, sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate })) : []))
+      .catch(() => setMaintEvents([]))
+  }, [year, month])
+
+  const maintDayMap = useMemo(() => {
+    const map = new Map<number, Map<string, 'REPAIR' | 'CALIBRATION'>>()
+    if (days.length === 0) return map
+    const mStart = toDateKey(days[0]), mEnd = toDateKey(days[days.length - 1])
+    for (const ev of maintEvents) {
+      const s0 = ev.sentDate.slice(0, 10)
+      const e0 = (ev.returnedDate ?? ev.expectedDate ?? mEnd).slice(0, 10)
+      const s = s0 < mStart ? mStart : s0
+      const e = e0 > mEnd ? mEnd : e0
+      if (s > e) continue
+      if (!map.has(ev.equipmentId)) map.set(ev.equipmentId, new Map())
+      const m = map.get(ev.equipmentId)!
+      for (const d of days) {
+        const k = toDateKey(d)
+        if (k >= s && k <= e && !m.has(k)) m.set(k, ev.type)
+      }
+    }
+    return map
+  }, [maintEvents, days])
+
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
@@ -85,6 +114,29 @@ export default function EquipmentCalendar() {
       const day       = days[i]
       const dateKey   = toDateKey(day)
       const dayAssign: EquipmentAssignment[] = dayMap?.get(dateKey) ?? []
+
+      // ช่องว่างที่อยู่ในช่วงส่งซ่อม/Cal → แถบ maint (merge วันติดกันชนิดเดียวกัน)
+      if (dayAssign.length === 0) {
+        const mk = maintDayMap.get(eq.id)?.get(dateKey)
+        if (mk) {
+          let mspan = 1
+          while (i + mspan < days.length) {
+            const nk = toDateKey(days[i + mspan])
+            if ((dayMap?.get(nk)?.length ?? 0) > 0) break
+            if (maintDayMap.get(eq.id)?.get(nk) !== mk) break
+            mspan++
+          }
+          cells.push(
+            <EquipmentCell key={dateKey} assignments={[]} isConflict={false}
+              dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={mspan}
+              team={eq.type.primaryTeam?.code ?? 'ST'} maint={mk}
+              onClick={() => { setRangeStart(null); setRangeHover(null); setPopup({ equipment: eq, dateKey }) }}
+            />
+          )
+          i += mspan
+          continue
+        }
+      }
 
       const parent = dayAssign.find(a => a.parentId == null && Number(a.estimatedDays) >= 2)
       let span = 1
@@ -198,7 +250,7 @@ export default function EquipmentCalendar() {
                     const util = calcUtil(assignedDays, workdays)
                     return (
                       <tr key={eq.id} className="hover:bg-slate-50/50">
-                        <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-1.5">
+                        <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
                           <div className="flex items-center gap-1.5">
                             <span className="font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                             {eq.isRental && <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-600">เช่า</span>}
@@ -208,7 +260,7 @@ export default function EquipmentCalendar() {
                           {eq.serialNo && eq.internalNo && <div className="text-[10px] text-slate-400">{eq.serialNo}</div>}
                         </td>
                         {renderRowCells(eq)}
-                        <td className={`border-b border-slate-200 px-2 text-center ${utilColor(util)}`}>{assignedDays > 0 ? `${util}%` : '—'}</td>
+                        <td className={`border-b border-b-slate-400 px-2 text-center ${utilColor(util)}`}>{assignedDays > 0 ? `${util}%` : '—'}</td>
                       </tr>
                     )
                   })}
