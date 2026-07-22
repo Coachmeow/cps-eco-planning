@@ -14,6 +14,7 @@ interface Props {
   canEdit?:             boolean
   onSave:               (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:             (id: number) => Promise<void>
+  onMove?:              (p: { assignmentId: number; newStartDate: string }) => Promise<void>
   onClose:              () => void
 }
 
@@ -34,9 +35,33 @@ export default function EquipmentPopup({
   equipmentAssignments = [],
   initialDays,
   canEdit = true,
-  onSave, onDelete, onClose,
+  onSave, onDelete, onMove, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+
+  // เลื่อนงาน (reschedule) — เปิดช่องเลือกวันเริ่มใหม่ต่อรายการวันแม่
+  const [moveFor,  setMoveFor]  = useState<number | null>(null)
+  const [moveDate, setMoveDate] = useState('')
+  const [moving,   setMoving]   = useState(false)
+  function openMove(id: number, startDate: string) { setMoveFor(id); setMoveDate(startDate.slice(0, 10)) }
+  async function doMove() {
+    if (!onMove || moveFor == null || !moveDate) return
+    setMoving(true)
+    try { await onMove({ assignmentId: moveFor, newStartDate: moveDate }); setMoveFor(null) }
+    catch (e) { alert(`เลื่อนไม่สำเร็จ: ${e instanceof Error ? e.message : e}`) }
+    finally { setMoving(false) }
+  }
+  const movePanel = (
+    <div className="mt-1.5 flex items-center gap-1.5 rounded border border-sky-200 bg-sky-50 px-2 py-1.5">
+      <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
+        className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-700 focus:outline-none" />
+      <button onClick={doMove} disabled={moving}
+        className="rounded bg-sky-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-sky-700 disabled:opacity-50">
+        {moving ? '...' : 'ยืนยันเลื่อน'}
+      </button>
+      <button onClick={() => setMoveFor(null)} className="text-[11px] text-slate-400 hover:text-slate-600">ยกเลิก</button>
+    </div>
+  )
 
   const [siteId,     setSiteId]     = useState('')
   const [days,       setDays]       = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
@@ -187,22 +212,32 @@ export default function EquipmentPopup({
                     <div key={a.id} className="text-xs">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-700">{a.site?.code ?? '—'}</span>
-                        {canEdit && !a.isLocked
-                          ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                          : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                        <div className="flex items-center gap-2">
+                          {canEdit && !a.isLocked && a.parentId == null && onMove &&
+                            <button onClick={() => openMove(a.id, a.assignedDate)} className="text-sky-500 hover:text-sky-700">เลื่อน</button>}
+                          {canEdit && !a.isLocked
+                            ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
+                            : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                        </div>
                       </div>
                       {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                      {moveFor === a.id && movePanel}
                     </div>
                   )
                 }
 
                 return (
                   <div key={a.id} className="rounded-lg border border-slate-100 p-2">
-                    <div className="mb-1 text-xs font-semibold text-slate-700">
-                      {a.site?.code ?? '—'}
-                      <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                    <div className="mb-1 flex items-center justify-between">
+                      <div className="text-xs font-semibold text-slate-700">
+                        {a.site?.code ?? '—'}
+                        <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
+                      </div>
+                      {canEdit && !a.isLocked && onMove &&
+                        <button onClick={() => openMove(a.id, a.assignedDate)} className="text-[11px] text-sky-500 hover:text-sky-700">เลื่อนทั้งงาน</button>}
                     </div>
                     {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    {moveFor === a.id && movePanel}
                     <div className="space-y-0.5">
                       {group.map((g) => {
                         const isParent = g.parentId == null

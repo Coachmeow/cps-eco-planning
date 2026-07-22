@@ -65,5 +65,13 @@ export function useVehicleCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
-  return { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking }
+  const moveBooking = useCallback(async (p: { assignmentId: number; newStartDate: string }) => {
+    const res = await fetch('/api/vehicle-bookings/move', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+    })
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'เลื่อนไม่สำเร็จ')
+    await fetchAll()
+  }, [fetchAll])
+
+  return { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking, moveBooking }
 }

@@ -35,7 +35,7 @@ export default function VehicleCalendar() {
   const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
   const [rangeHover, setRangeHover] = useState<number | null>(null)
 
-  const { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking } =
+  const { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking, moveBooking } =
     useVehicleCalendar(year, month)
   const { role } = useMe()
   const canEdit = canPlan(role)
@@ -175,7 +175,7 @@ export default function VehicleCalendar() {
           bookings={calendarData.get(popup.vehicle.id)?.get(popup.dateKey) ?? []}
           vehicleBookings={Array.from(calendarData.get(popup.vehicle.id)?.values() ?? []).flat()}
           sites={sites} employees={employees} canEdit={canEdit}
-          onSave={addBooking} onDelete={removeBooking} onClose={() => setPopup(null)}
+          onSave={addBooking} onDelete={removeBooking} onMove={moveBooking} onClose={() => setPopup(null)}
         />
       )}
     </div>

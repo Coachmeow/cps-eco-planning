@@ -86,5 +86,13 @@ export function useEquipmentCalendar(year: number, month: number, typeId: number
     await fetchAll()
   }, [fetchAll])
 
-  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, addAssignments, removeAssignment }
+  const moveAssignment = useCallback(async (p: { assignmentId: number; newStartDate: string }) => {
+    const res = await fetch('/api/equipment-assignments/move', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+    })
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'เลื่อนไม่สำเร็จ')
+    await fetchAll()
+  }, [fetchAll])
+
+  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, addAssignments, removeAssignment, moveAssignment }
 }

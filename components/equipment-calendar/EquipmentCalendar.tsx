@@ -39,7 +39,7 @@ export default function EquipmentCalendar() {
   const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
   const [rangeHover, setRangeHover] = useState<number | null>(null)
 
-  const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignments, removeAssignment } =
+  const { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignments, removeAssignment, moveAssignment } =
     useEquipmentCalendar(year, month, selectedTypeId)
   const { role } = useMe()
   const canEdit = canPlan(role)
@@ -280,7 +280,7 @@ export default function EquipmentCalendar() {
           sites={sites}
           allEquipment={equipment}
           canEdit={canEdit}
-          onSave={addAssignments} onDelete={removeAssignment} onClose={() => setPopup(null)}
+          onSave={addAssignments} onDelete={removeAssignment} onMove={moveAssignment} onClose={() => setPopup(null)}
         />
       )}
     </div>
