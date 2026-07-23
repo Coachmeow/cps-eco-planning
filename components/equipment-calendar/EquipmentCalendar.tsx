@@ -34,6 +34,7 @@ export default function EquipmentCalendar() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null)
   const [showRental, setShowRental] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('')   // '' = ทุกสถานะ | ACTIVE | CALIBRATING | BROKEN | RETIRED
   const [popup, setPopup] = useState<{ equipment: Equipment; dateKey: string; initialDays?: number } | null>(null)
   // เลือกช่วงวันแบบ 2 คลิก (คลิกวันเริ่ม → วันสิ้นสุด แถวเดียวกัน)
   const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
@@ -52,11 +53,12 @@ export default function EquipmentCalendar() {
     const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
     for (const eq of equipment) {
       if (!showRental && eq.isRental) continue
+      if (statusFilter && eq.status !== statusFilter) continue
       if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
       map.get(eq.typeId)!.items.push(eq)
     }
     return Array.from(map.values())
-  }, [equipment, showRental])
+  }, [equipment, showRental, statusFilter])
 
   // ── ช่วงส่งซ่อม/Cal ที่ครอบวันในเดือนนี้ → แถบ "ส่งซ่อม/ส่งแคล" ในตาราง ──
   const [maintEvents, setMaintEvents] = useState<{ equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }[]>([])
@@ -116,7 +118,7 @@ export default function EquipmentCalendar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month, selectedTypeId, showRental])
+  useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month, selectedTypeId, showRental, statusFilter])
 
   // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
   function renderRowCells(eq: Equipment): ReactNode[] {
@@ -204,6 +206,14 @@ export default function EquipmentCalendar() {
             <input type="checkbox" checked={showRental} onChange={(e) => setShowRental(e.target.checked)} className="rounded" />
             แสดงเครื่องเช่า
           </label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none">
+            <option value="">ทุกสถานะ</option>
+            <option value="ACTIVE">✅ พร้อมใช้งาน</option>
+            <option value="CALIBRATING">📐 ส่งแคล (Cal)</option>
+            <option value="BROKEN">🔧 เสีย/ส่งซ่อม</option>
+            <option value="RETIRED">🚫 ปลดระวาง</option>
+          </select>
           <select value={selectedTypeId ?? ''} onChange={(e) => setSelectedTypeId(e.target.value ? parseInt(e.target.value) : null)}
             className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none">
             <option value="">ทุกประเภท</option>
