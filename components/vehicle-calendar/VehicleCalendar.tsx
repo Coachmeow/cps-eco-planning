@@ -46,6 +46,16 @@ export default function VehicleCalendar() {
   function prevMonth() { if (month === 1) { setYear(y => y - 1); setMonth(12) } else setMonth(m => m - 1) }
   function nextMonth() { if (month === 12) { setYear(y => y + 1); setMonth(1) } else setMonth(m => m + 1) }
 
+  const [exporting, setExporting] = useState(false)
+  async function handleExportPdf() {
+    setExporting(true)
+    try {
+      const { exportVehiclePdf } = await import('@/lib/pdf/vehiclePdf')
+      exportVehiclePdf({ year, month, vehicles, calendarData, days, holidayMap, conflicts })
+    } catch (e) { alert('สร้าง PDF ไม่สำเร็จ: ' + (e instanceof Error ? e.message : String(e))) }
+    finally { setExporting(false) }
+  }
+
   // คลิกช่อง: มีจองแล้ว → เปิด popup ทันที ; ช่องว่าง → คลิก 1 = วันเริ่ม, คลิก 2 (แถวเดิม) = วันสิ้นสุด
   function handleCellClick(v: Vehicle, idx: number, dateKey: string, hasBooking: boolean) {
     if (!canEdit || hasBooking) { setRangeStart(null); setRangeHover(null); setPopup({ vehicle: v, dateKey }); return }
@@ -117,6 +127,10 @@ export default function VehicleCalendar() {
             <span key={code} className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{code}</span>
           ))}
           <span className="ml-1 text-[10px] text-slate-400">· ไม่ระบุคนขับ = สีตามประเภท</span>
+          <button onClick={handleExportPdf} disabled={exporting}
+            className="ml-2 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+            {exporting ? '⏳ กำลังสร้าง...' : '📄 Export PDF'}
+          </button>
         </div>
       </div>
 

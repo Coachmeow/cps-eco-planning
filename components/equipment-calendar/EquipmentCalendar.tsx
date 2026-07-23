@@ -90,6 +90,19 @@ export default function EquipmentCalendar() {
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
+  const [exporting, setExporting] = useState(false)
+  async function handleExportPdf() {
+    setExporting(true)
+    try {
+      const { exportEquipmentPdf } = await import('@/lib/pdf/equipmentPdf')
+      exportEquipmentPdf({
+        year, month, equipment: grouped.flatMap(g => g.items), calendarData, days,
+        holidayMap, conflicts: conflicts.equipmentConflicts, maintDayMap,
+      })
+    } catch (e) { alert('สร้าง PDF ไม่สำเร็จ: ' + (e instanceof Error ? e.message : String(e))) }
+    finally { setExporting(false) }
+  }
+
   // คลิกช่อง: มีจองแล้ว → เปิด popup ทันที ; ช่องว่าง → คลิก 1 = วันเริ่ม, คลิก 2 (แถวเดิม) = วันสิ้นสุด
   function handleCellClick(eq: Equipment, idx: number, dateKey: string, hasBooking: boolean) {
     if (!canEdit || hasBooking) { setRangeStart(null); setRangeHover(null); setPopup({ equipment: eq, dateKey }); return }
@@ -197,6 +210,10 @@ export default function EquipmentCalendar() {
             {eqTypes.map((t) => <option key={t.id} value={t.id}>{t.code} — {t.name}</option>)}
           </select>
           <ExportButton href={`/api/export/equipment?year=${year}&month=${month}`} label="Export Excel" />
+          <button onClick={handleExportPdf} disabled={exporting}
+            className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+            {exporting ? '⏳ กำลังสร้าง...' : '📄 Export PDF'}
+          </button>
         </div>
       </div>
 
