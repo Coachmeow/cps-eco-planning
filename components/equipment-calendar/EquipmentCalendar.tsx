@@ -49,18 +49,7 @@ export default function EquipmentCalendar() {
   const days     = useMemo(() => getDaysInMonth(year, month), [year, month])
   const workdays = countWorkdays(year, month, holidaySet)
 
-  const grouped = useMemo(() => {
-    const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
-    for (const eq of equipment) {
-      if (!showRental && eq.isRental) continue
-      if (statusFilter && eq.status !== statusFilter) continue
-      if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
-      map.get(eq.typeId)!.items.push(eq)
-    }
-    return Array.from(map.values())
-  }, [equipment, showRental, statusFilter])
-
-  // ── ช่วงส่งซ่อม/Cal ที่ครอบวันในเดือนนี้ → แถบ "ส่งซ่อม/ส่งแคล" ในตาราง ──
+  // ── ช่วงส่งซ่อม/Cal (event) — ใช้ทั้งชิป/แถบ/filter ──
   const [maintEvents, setMaintEvents] = useState<{ equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }[]>([])
   useEffect(() => {
     fetch('/api/equipment-events?status=all')
@@ -68,6 +57,38 @@ export default function EquipmentCalendar() {
       .then(rows => setMaintEvents(Array.isArray(rows) ? rows.map((e: { equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }) => ({ equipmentId: e.equipmentId, type: e.type, sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate })) : []))
       .catch(() => setMaintEvents([]))
   }, [year, month])
+
+  // สถานะ date-aware ต่อเครื่อง (ส่งแคล/เสีย) — โชว์เฉพาะภายใน 15 วันก่อนวันส่ง และค้างจนกว่าจะรับกลับ
+  // ใช้ทั้งชิปข้างชื่อ และ filter สถานะ ให้ตรงกัน
+  const chipByEq = useMemo(() => {
+    const m = new Map<number, 'REPAIR' | 'CALIBRATION'>()
+    const now = Date.now(), DAY = 86400000
+    for (const ev of maintEvents) {
+      if (ev.returnedDate) continue                                   // รับกลับแล้ว → ล้างสถานะ
+      if (now >= new Date(ev.sentDate).getTime() - 15 * DAY) {        // ภายใน 15 วันก่อนส่ง หรือเลยกำหนดแล้ว
+        if (m.get(ev.equipmentId) !== 'REPAIR') m.set(ev.equipmentId, ev.type)   // REPAIR สำคัญกว่า
+      }
+    }
+    return m
+  }, [maintEvents])
+
+  const grouped = useMemo(() => {
+    const map = new Map<number, { type: EquipmentType; items: Equipment[] }>()
+    for (const eq of equipment) {
+      if (!showRental && eq.isRental) continue
+      // filter สถานะ (date-aware เหมือนชิป): ส่งแคล/เสีย อิงสถานะที่กำลังแสดง ; พร้อมใช้ = ไม่มีสถานะค้าง & ไม่ปลดระวาง
+      if (statusFilter) {
+        const chip = chipByEq.get(eq.id)   // 'REPAIR' | 'CALIBRATION' | undefined
+        if (statusFilter === 'CALIBRATING' && chip !== 'CALIBRATION') continue
+        if (statusFilter === 'BROKEN'      && chip !== 'REPAIR') continue
+        if (statusFilter === 'ACTIVE'      && (chip || eq.status === 'RETIRED')) continue
+        if (statusFilter === 'RETIRED'     && eq.status !== 'RETIRED') continue
+      }
+      if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
+      map.get(eq.typeId)!.items.push(eq)
+    }
+    return Array.from(map.values())
+  }, [equipment, showRental, statusFilter, chipByEq])
 
   const maintDayMap = useMemo(() => {
     const map = new Map<number, Map<string, 'REPAIR' | 'CALIBRATION'>>()
@@ -88,19 +109,6 @@ export default function EquipmentCalendar() {
     }
     return map
   }, [maintEvents, days])
-
-  // ชิปสถานะข้างชื่อ (ส่งแคล/เสีย) — โชว์แค่ภายใน 15 วันก่อนวันส่ง และค้างจนกว่าจะรับกลับ (returnedDate)
-  const chipByEq = useMemo(() => {
-    const m = new Map<number, 'REPAIR' | 'CALIBRATION'>()
-    const now = Date.now(), DAY = 86400000
-    for (const ev of maintEvents) {
-      if (ev.returnedDate) continue                                   // รับกลับแล้ว → ล้างสถานะ
-      if (now >= new Date(ev.sentDate).getTime() - 15 * DAY) {        // ภายใน 15 วันก่อนส่ง หรือเลยกำหนดแล้ว
-        if (m.get(ev.equipmentId) !== 'REPAIR') m.set(ev.equipmentId, ev.type)   // REPAIR สำคัญกว่า
-      }
-    }
-    return m
-  }, [maintEvents])
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
