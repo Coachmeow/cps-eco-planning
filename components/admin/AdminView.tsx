@@ -46,8 +46,6 @@ interface Equipment {
   hasPhoto?: boolean
 }
 
-const STATUS_OPTS = ['ACTIVE', 'CALIBRATING', 'BROKEN', 'RETIRED'] as const
-
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',
@@ -785,11 +783,18 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                         </span>
                       : '—'}
                   </td>
+                  {/* ซ่อม/แคล มาจากใบงานเท่านั้น — แก้มือได้แค่ ACTIVE ↔ RETIRED */}
                   <td className="px-4 py-2">
-                    <select value={eq.status} onChange={e => changeStatus(eq, e.target.value)}
-                      className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
-                      {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    {eq.status === 'BROKEN' || eq.status === 'CALIBRATING'
+                      ? <span title="สถานะมาจากใบงาน — เปลี่ยนโดยรับกลับ/ลบใบงานในเมนู ซ่อม/Cal"
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${eq.status === 'BROKEN' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
+                          {eq.status === 'BROKEN' ? '🔧 BROKEN' : '📐 CALIBRATING'}
+                        </span>
+                      : <select value={eq.status} onChange={e => changeStatus(eq, e.target.value)}
+                          className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
+                          <option value="ACTIVE">ACTIVE</option>
+                          <option value="RETIRED">RETIRED</option>
+                        </select>}
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-1.5">
@@ -850,11 +855,15 @@ function EquipmentSection({ role }: { role?: UserRole }) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">สถานะ</label>
-              <CustomSelect
-                value={ownedForm.status}
-                onChange={of('status')}
-                options={STATUS_OPTS.map(s => ({ value: s, label: s }))}
-              />
+              {ownedForm.status === 'BROKEN' || ownedForm.status === 'CALIBRATING'
+                ? <div className="rounded border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500">
+                    {ownedForm.status === 'BROKEN' ? '🔧 BROKEN (ส่งซ่อม)' : '📐 CALIBRATING (ส่งแคล)'} — สถานะมาจากใบงาน เปลี่ยนได้ที่เมนู ซ่อม/Cal
+                  </div>
+                : <CustomSelect
+                    value={ownedForm.status}
+                    onChange={of('status')}
+                    options={[{ value: 'ACTIVE', label: 'ACTIVE' }, { value: 'RETIRED', label: 'RETIRED' }]}
+                  />}
             </div>
             <Input label="หมายเหตุ" value={ownedForm.notes} onChange={of('notes')} placeholder="..." />
             <div className="flex justify-end gap-2 pt-2">
@@ -1036,8 +1045,11 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
     await fetch(`/api/equipment-events/${ev.id}`, { method: 'DELETE' }); load()
   }
 
-  const open = events.filter(e => !e.returnedDate)
-  const history = events.filter(e => e.returnedDate)
+  // กรองประเภทงาน — ช่างดูงานซ่อม / ทีมแผนดูงานแคล แยกกัน
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'REPAIR' | 'CALIBRATION'>('ALL')
+  const byType = (e: EqEventRow) => typeFilter === 'ALL' || e.type === typeFilter
+  const open = events.filter(e => !e.returnedDate && byType(e))
+  const history = events.filter(e => e.returnedDate && byType(e))
   const overdue = (e: EqEventRow) => !e.returnedDate && e.expectedDate && e.expectedDate.slice(0, 10) < today
   const canDelete = role === 'ADMIN' || role === 'MANAGER'
 
@@ -1049,8 +1061,18 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-500">กำลังส่ง {open.length} รายการ</p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+            {([['ALL', 'ทั้งหมด'], ['REPAIR', '🔧 ซ่อม'], ['CALIBRATION', '📐 Cal']] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setTypeFilter(v)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${typeFilter === v ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-500">กำลังส่ง {open.length} รายการ</p>
+        </div>
         <Btn onClick={() => { setForm({ ...initForm, equipmentId: equipment[0] ? String(equipment[0].id) : '' }); setModal(true) }}>+ เปิดใบงาน</Btn>
       </div>
 
