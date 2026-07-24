@@ -89,6 +89,19 @@ export default function EquipmentCalendar() {
     return map
   }, [maintEvents, days])
 
+  // ชิปสถานะข้างชื่อ (ส่งแคล/เสีย) — โชว์แค่ภายใน 15 วันก่อนวันส่ง และค้างจนกว่าจะรับกลับ (returnedDate)
+  const chipByEq = useMemo(() => {
+    const m = new Map<number, 'REPAIR' | 'CALIBRATION'>()
+    const now = Date.now(), DAY = 86400000
+    for (const ev of maintEvents) {
+      if (ev.returnedDate) continue                                   // รับกลับแล้ว → ล้างสถานะ
+      if (now >= new Date(ev.sentDate).getTime() - 15 * DAY) {        // ภายใน 15 วันก่อนส่ง หรือเลยกำหนดแล้ว
+        if (m.get(ev.equipmentId) !== 'REPAIR') m.set(ev.equipmentId, ev.type)   // REPAIR สำคัญกว่า
+      }
+    }
+    return m
+  }, [maintEvents])
+
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
 
@@ -281,8 +294,8 @@ export default function EquipmentCalendar() {
                           <div className="flex items-center gap-1.5">
                             <span className="font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                             {eq.isRental && <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-600">เช่า</span>}
-                            {eq.status === 'CALIBRATING' && <span className="rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-500">Cal</span>}
-                            {eq.status === 'BROKEN' && <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-medium text-red-600">เสีย</span>}
+                            {chipByEq.get(eq.id) === 'CALIBRATION' && <span className="rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-500">Cal</span>}
+                            {chipByEq.get(eq.id) === 'REPAIR' && <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-medium text-red-600">เสีย</span>}
                           </div>
                           {eq.serialNo && eq.internalNo && <div className="text-[10px] text-slate-400">{eq.serialNo}</div>}
                         </td>
