@@ -590,7 +590,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [modal,     setModal]     = useState<'add-owned' | 'add-rental' | 'edit' | null>(null)
   const [editing,   setEditing]   = useState<Equipment | null>(null)
   const [filterType, setFilterType] = useState('')
-  const [hideRental, setHideRental] = useState(false)
+  const [hideRental, setHideRental] = useState(true) // default ซ่อนเครื่องเช่า — กดเพื่อแสดง
   const [saving,    setSaving]    = useState(false)
   const [viewing,   setViewing]   = useState<Equipment | null>(null)
   // จัดการประเภทเครื่องมือ
@@ -679,7 +679,6 @@ function EquipmentSection({ role }: { role?: UserRole }) {
     load()
   }
   const changeStatus = (eq: Equipment, status: string) => putEquipment(eq, { status })
-  const changeType   = (eq: Equipment, typeId: string) => putEquipment(eq, { typeId: parseInt(typeId) })
 
   async function del(eq: Equipment) {
     if (!confirm(`ลบ "${eq.internalNo ?? eq.serialNo}" ? ประวัติการใช้งานจะถูกลบด้วย`)) return
@@ -763,13 +762,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               const isExpired = eq.isRental && eq.rentalEndDate && eq.rentalEndDate.slice(0,10) < today
               return (
                 <tr key={eq.id} className={`border-t border-slate-100 hover:bg-slate-50 ${eq.status === 'RETIRED' || isExpired ? 'opacity-50' : ''}`}>
+                  {/* ย้ายประเภทได้จาก modal แก้ไขเท่านั้น — กันมือลั่นเปลี่ยนแล้วบันทึกทันที */}
                   <td className="px-4 py-2">
-                    {canManage
-                      ? <select value={eq.typeId} onChange={e => changeType(eq, e.target.value)} title="ย้ายประเภท"
-                          className="max-w-[130px] rounded border border-slate-200 px-1.5 py-0.5 font-mono text-xs text-slate-600 focus:outline-none">
-                          {eqTypes.map(t => <option key={t.id} value={t.id}>{t.code}</option>)}
-                        </select>
-                      : <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>}
+                    <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>
                   </td>
                   <td className="px-4 py-2 text-slate-500">{eq.brand || <span className="text-slate-300">—</span>}</td>
                   <td className="px-4 py-2 text-slate-500">{eq.model || <span className="text-slate-300">—</span>}</td>
