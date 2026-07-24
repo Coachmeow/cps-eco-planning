@@ -55,12 +55,12 @@ const TEAM_COLOR: Record<string, string> = {
 }
 
 // ── Shared UI ─────────────────────────────────────────────────
-function Btn({ children, onClick, variant = 'default', small }: { children: React.ReactNode; onClick?: () => void; variant?: 'default' | 'danger' | 'ghost'; small?: boolean }) {
-  const base = `rounded font-medium transition-colors ${small ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-sm'}`
+function Btn({ children, onClick, variant = 'default', small, disabled }: { children: React.ReactNode; onClick?: () => void; variant?: 'default' | 'danger' | 'ghost'; small?: boolean; disabled?: boolean }) {
+  const base = `rounded font-medium transition-colors ${small ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-sm'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`
   const cls  = variant === 'danger'  ? `${base} bg-red-50 text-red-600 hover:bg-red-100`
              : variant === 'ghost'   ? `${base} text-slate-500 hover:bg-slate-100`
              : `${base} bg-slate-800 text-white hover:bg-slate-700`
-  return <button className={cls} onClick={onClick}>{children}</button>
+  return <button className={cls} onClick={onClick} disabled={disabled}>{children}</button>
 }
 
 function Input({ label, value, onChange, type = 'text', placeholder, required }: {
@@ -977,12 +977,14 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [modal, setModal]         = useState(false)
   const [returning, setReturning] = useState<EqEventRow | null>(null)
+  const [editing, setEditing]     = useState<EqEventRow | null>(null)
   const [saving, setSaving]       = useState(false)
   const today = new Date().toISOString().slice(0, 10)
 
   const initForm = { equipmentId: '', type: 'REPAIR', sentDate: today, expectedDate: '', vendor: '', cost: '', nextDueDate: '', notes: '' }
   const [form, setForm] = useState(initForm)
   const [retForm, setRetForm] = useState({ returnedDate: today, nextDueDate: '', cost: '' })
+  const [editForm, setEditForm] = useState({ returnedDate: today, nextDueDate: '', cost: '' })
 
   const load = useCallback(async () => {
     const [evRes, eqRes] = await Promise.all([
@@ -1007,14 +1009,32 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
     setRetForm({ returnedDate: today, nextDueDate: ev.nextDueDate?.slice(0, 10) ?? '', cost: ev.cost != null ? String(ev.cost) : '' })
     setReturning(ev)
   }
+  const retNextMissing = returning?.type === 'CALIBRATION' && !retForm.nextDueDate
   async function confirmReturn() {
-    if (!returning) return
+    if (!returning || retNextMissing) return
     setSaving(true)
     await fetch(`/api/equipment-events/${returning.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ returnedDate: retForm.returnedDate, nextDueDate: retForm.nextDueDate || null, cost: retForm.cost || null }),
     })
     setSaving(false); setReturning(null); load()
+  }
+  function openEdit(ev: EqEventRow) {
+    setEditForm({
+      returnedDate: ev.returnedDate?.slice(0, 10) ?? today,
+      nextDueDate: ev.nextDueDate?.slice(0, 10) ?? '',
+      cost: ev.cost != null ? String(ev.cost) : '',
+    })
+    setEditing(ev)
+  }
+  async function confirmEdit() {
+    if (!editing) return
+    setSaving(true)
+    await fetch(`/api/equipment-events/${editing.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ returnedDate: editForm.returnedDate, nextDueDate: editForm.nextDueDate || null, cost: editForm.cost || null }),
+    })
+    setSaving(false); setEditing(null); load()
   }
   async function del(ev: EqEventRow) {
     if (!confirm('ลบใบงานนี้?')) return
@@ -1090,7 +1110,12 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)} → {ev.returnedDate?.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.cost != null ? `${ev.cost.toLocaleString('th-TH')} บาท` : '—'}</td>
-                <td className="px-4 py-2 text-right">{canDelete && <Btn small variant="danger" onClick={() => del(ev)}>ลบ</Btn>}</td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex justify-end gap-1.5">
+                    {canDelete && <Btn small variant="ghost" onClick={() => openEdit(ev)}>แก้ไข</Btn>}
+                    {canDelete && <Btn small variant="danger" onClick={() => del(ev)}>ลบ</Btn>}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1138,13 +1163,37 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             <p className="text-sm text-slate-600">{returning.equipment.type.code} {returning.equipment.internalNo ?? returning.equipment.serialNo} · <TypeBadge t={returning.type} /></p>
             <Input label="วันรับกลับ" value={retForm.returnedDate} onChange={v => setRetForm(p => ({ ...p, returnedDate: v }))} type="date" required />
             {returning.type === 'CALIBRATION' && (
-              <Input label="กำหนด Cal ครั้งถัดไป" value={retForm.nextDueDate} onChange={v => setRetForm(p => ({ ...p, nextDueDate: v }))} type="date" />
+              <div>
+                <Input label="กำหนด Cal ครั้งถัดไป" value={retForm.nextDueDate} onChange={v => setRetForm(p => ({ ...p, nextDueDate: v }))} type="date" required />
+                {retNextMissing && <p className="mt-1 text-xs text-red-500">ต้องระบุกำหนด Cal ครั้งถัดไป เพื่อให้เครื่องอยู่ในแผน Cal</p>}
+              </div>
             )}
             <Input label="ค่าใช้จ่าย (บาท)" value={retForm.cost} onChange={v => setRetForm(p => ({ ...p, cost: v }))} type="number" placeholder="0" />
             <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-700">รับกลับแล้วเครื่องจะกลับสู่สถานะ "พร้อมใช้" อัตโนมัติ</div>
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setReturning(null)}>ยกเลิก</Btn>
-              <Btn onClick={confirmReturn}>{saving ? 'กำลังบันทึก...' : 'ยืนยันรับกลับ'}</Btn>
+              <Btn onClick={confirmReturn} disabled={saving || retNextMissing}>{saving ? 'กำลังบันทึก...' : 'ยืนยันรับกลับ'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal แก้ไขประวัติ (แก้วันรับกลับ / กำหนด Cal ถัดไป / ค่าใช้จ่าย) */}
+      {editing && (
+        <Modal title="แก้ไขประวัติซ่อม/Cal" onClose={() => setEditing(null)}>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">{editing.equipment.type.code} {editing.equipment.internalNo ?? editing.equipment.serialNo} · <TypeBadge t={editing.type} /></p>
+            <Input label="วันรับกลับ" value={editForm.returnedDate} onChange={v => setEditForm(p => ({ ...p, returnedDate: v }))} type="date" required />
+            {editing.type === 'CALIBRATION' && (
+              <div>
+                <Input label="กำหนด Cal ครั้งถัดไป" value={editForm.nextDueDate} onChange={v => setEditForm(p => ({ ...p, nextDueDate: v }))} type="date" />
+                <p className="mt-1 text-xs text-slate-400">เว้นว่าง = นำเครื่องออกจากแผน Cal</p>
+              </div>
+            )}
+            <Input label="ค่าใช้จ่าย (บาท)" value={editForm.cost} onChange={v => setEditForm(p => ({ ...p, cost: v }))} type="number" placeholder="0" />
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => setEditing(null)}>ยกเลิก</Btn>
+              <Btn onClick={confirmEdit} disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
           </div>
         </Modal>

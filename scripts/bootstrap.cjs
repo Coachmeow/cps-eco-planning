@@ -196,6 +196,28 @@ async function main() {
     }
     console.log(`🎓 ข้อมูลพนักงาน: อัปเดต ${upd} · ไม่พบชื่อ ${miss}`)
   }
+
+  // 9) Resync แผน Cal: calDueDate ต้อง derive จาก Cal event ล่าสุดที่รับกลับแล้วเสมอ (event = source of truth)
+  //    แก้ข้อมูลค้างจากช่วงที่ลบ/แก้ประวัติแล้วไม่ recompute — idempotent รันซ้ำทุก deploy ได้
+  {
+    const allEq = await prisma.equipment.findMany({ select: { id: true, calDueDate: true } })
+    let fixed = 0
+    for (const eq of allEq) {
+      const latest = await prisma.equipmentEvent.findFirst({
+        where: { equipmentId: eq.id, type: 'CALIBRATION', returnedDate: { not: null } },
+        orderBy: { sentDate: 'desc' },
+        select: { nextDueDate: true },
+      })
+      const want = latest ? latest.nextDueDate : null
+      const cur = eq.calDueDate ? eq.calDueDate.getTime() : null
+      const wantT = want ? want.getTime() : null
+      if (cur !== wantT) {
+        await prisma.equipment.update({ where: { id: eq.id }, data: { calDueDate: want } })
+        fixed++
+      }
+    }
+    console.log(`📐 Resync แผน Cal: แก้ ${fixed} เครื่อง (จาก ${allEq.length})`)
+  }
 }
 
 main()
