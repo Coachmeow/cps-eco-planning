@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Equipment, EquipmentType, Site, EquipmentAssignment } from '@/lib/types'
+import { siteDotClass } from '@/lib/siteColors'
+import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 
 interface Props {
   equipment:    Equipment
@@ -22,13 +24,6 @@ const fmtDay = (d: string) =>
   new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
 const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1))
-
-const SITE_DOT: Record<string, string> = {
-  emerald: 'bg-emerald-400', sky: 'bg-sky-400', violet: 'bg-violet-400',
-  rose: 'bg-rose-400', amber: 'bg-amber-400', orange: 'bg-orange-400',
-  cyan: 'bg-cyan-400', indigo: 'bg-indigo-400', pink: 'bg-pink-400',
-  teal: 'bg-teal-400', lime: 'bg-lime-400', red: 'bg-red-400',
-}
 
 export default function EquipmentPopup({
   equipment, date, assignments, sites, allEquipment,
@@ -99,6 +94,19 @@ export default function EquipmentPopup({
   }, [date, days])
   const maintByEq = useMemo(() => new Map(maintList.map(m => [m.equipmentId, m])), [maintList])
   const maintLabel = (t?: string) => (t === 'CALIBRATION' ? 'ส่งแคล (Cal)' : 'ส่งซ่อม')
+
+  // ── เครื่องที่มีงานอยู่แล้วในช่วงวันที่เลือก → เตือนก่อนจองซ้อน (ไม่บล็อก) ──
+  const [busyList, setBusyList] = useState<BusyRow[]>([])
+  useEffect(() => {
+    const d = Math.min(Math.max(parseInt(days) || 1, 1), 31)
+    let alive = true
+    fetch(`/api/equipment-assignments/busy?start=${date}&days=${d}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(rows => { if (alive) setBusyList(Array.isArray(rows) ? rows : []) })
+      .catch(() => { if (alive) setBusyList([]) })
+    return () => { alive = false }
+  }, [date, days])
+  const busyByEq = useMemo(() => groupBusyByEquipment(busyList), [busyList])
 
   const mainMaint = maintByEq.get(equipment.id)
   const isRetired = equipment.status === 'RETIRED'
@@ -172,6 +180,16 @@ export default function EquipmentPopup({
 
   const totalEquip = 1 + companions.length
   const totalDays  = parseInt(days)
+
+  // เครื่องที่กำลังจะบันทึก แต่มีงานอยู่แล้วในช่วงนี้ (รวมเครื่องหลัก) — เตือนก่อนกดบันทึก
+  const eqLabel = (id: number) => {
+    const e = allEquipment.find(x => x.id === id)
+    return e ? (e.internalNo ?? e.serialNo ?? `#${e.id}`) : `#${id}`
+  }
+  const conflictIds = [
+    ...(busyByEq.has(equipment.id) ? [equipment.id] : []),
+    ...companions.filter(id => busyByEq.has(id)),
+  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
@@ -313,7 +331,7 @@ export default function EquipmentPopup({
               {siteId && (() => {
                 const s = sites.find(x => String(x.id) === siteId)
                 if (!s) return null
-                const dotCls = SITE_DOT[s.color ?? 'emerald'] ?? 'bg-slate-400'
+                const dotCls = siteDotClass(s.color)
                 return (
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
                     <span className={`h-2.5 w-2.5 rounded-full ${dotCls}`} />
@@ -410,15 +428,22 @@ export default function EquipmentPopup({
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {filtered.map(eq => {
-                            const sel = companions.includes(eq.id)
+                            const sel  = companions.includes(eq.id)
+                            const busy = busyByEq.get(eq.id)
                             return (
                               <button key={eq.id} onClick={() => toggleCompanion(eq.id)}
+                                title={busy ? busyTitle(busy) : undefined}
                                 className={`flex items-center gap-0.5 rounded border px-2 py-0.5 text-[11px] font-medium transition-all ${
-                                  sel
-                                    ? 'border-slate-600 bg-slate-700 text-white shadow-sm'
-                                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'
+                                  sel && busy
+                                    ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                                    : sel
+                                      ? 'border-slate-600 bg-slate-700 text-white shadow-sm'
+                                      : busy
+                                        ? 'border-amber-300 bg-amber-50 text-amber-800 hover:border-amber-400 hover:bg-amber-100'
+                                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'
                                 }`}>
-                                {sel && <span className="text-[9px] leading-none">✓</span>}
+                                {sel && <span className="text-[9px] leading-none">{busy ? '⚠' : '✓'}</span>}
+                                {busy && !sel && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${siteDotClass(busy[0].siteColor)}`} />}
                                 <span>{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
                                 {eq.isRental && (
                                   <span className={`rounded px-0.5 text-[8px] leading-none ${sel ? 'bg-white/20' : 'bg-amber-100 text-amber-600'}`}>เช่า</span>
@@ -440,6 +465,19 @@ export default function EquipmentPopup({
         {/* ── Save button (fixed at bottom) ── */}
         {canEdit && bookable && showAdd && (
         <div className="shrink-0 border-t border-slate-100 px-4 pb-4 pt-3">
+          {conflictIds.length > 0 && (
+            <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+              <p className="font-semibold">⚠ จองซ้อน {conflictIds.length} เครื่อง — บันทึกได้ แต่จะขึ้น conflict ในปฏิทิน</p>
+              <ul className="mt-1 space-y-0.5">
+                {conflictIds.map(id => (
+                  <li key={id} className="flex items-start gap-1">
+                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${siteDotClass(busyByEq.get(id)![0].siteColor)}`} />
+                    <span><b>{eqLabel(id)}</b> — {busyTitle(busyByEq.get(id)!).replace('ถูกจองแล้ว: ', '')}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <button onClick={handleSave} disabled={saving || !siteId}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">
             {saving

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
+import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 import { LEAVE_TYPES, LEAVE_LABEL } from '@/lib/leaveTypes'
 
 interface Props {
@@ -86,31 +87,14 @@ export default function AssignmentPopup({
   }, [])
 
   // เครื่องที่ถูกจองแล้วในช่วงวันที่เลือก → busyEq[equipmentId] = [{siteCode, siteColor, date}]
-  interface BusyRow { equipmentId: number; assignedDate: string; siteCode: string | null; siteColor: string }
   const [busyEq, setBusyEq] = useState<Map<number, BusyRow[]>>(new Map())
   useEffect(() => {
     if (!pickerOpen || !siteId) return
     fetch(`/api/equipment-assignments/busy?start=${date}&days=${estimatedDays}`)
       .then(r => r.json())
-      .then((rows: BusyRow[]) => {
-        const m = new Map<number, BusyRow[]>()
-        for (const r of rows) {
-          if (!m.has(r.equipmentId)) m.set(r.equipmentId, [])
-          m.get(r.equipmentId)!.push(r)
-        }
-        setBusyEq(m)
-      }).catch(() => {})
+      .then((rows: BusyRow[]) => setBusyEq(groupBusyByEquipment(rows)))
+      .catch(() => {})
   }, [pickerOpen, date, estimatedDays, siteId])
-
-  const busyTitle = (rows: BusyRow[]) => {
-    const bySite = new Map<string, string[]>()
-    for (const r of rows) {
-      const code = r.siteCode ?? '—'
-      if (!bySite.has(code)) bySite.set(code, [])
-      bySite.get(code)!.push(new Date(r.assignedDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }))
-    }
-    return 'ถูกจองแล้ว: ' + Array.from(bySite.entries()).map(([c, ds]) => `${c} (${ds.join(', ')})`).join(' · ')
-  }
 
   // เครื่องที่ส่งซ่อม/Cal ในช่วงวันที่เลือก → maint[equipmentId] = สถานะ (บล็อกช่วงที่อยู่ศูนย์ / เผื่อเลื่อนถ้าจองหลังกำหนดรับกลับ)
   interface MaintRow { equipmentId: number; state: 'blocked' | 'tentative'; type?: string; sentDate?: string; expectedDate?: string | null; returnedDate?: string | null }
