@@ -1116,16 +1116,24 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             <th className="px-4 py-2 text-left font-medium">เครื่องมือ</th>
             <th className="px-4 py-2 text-left font-medium">ประเภท</th>
             <th className="px-4 py-2 text-left font-medium">ส่ง → กลับ</th>
+            <th className="px-4 py-2 text-left font-medium">กำหนด Cal ถัดไป</th>
             <th className="px-4 py-2 text-left font-medium">ค่าใช้จ่าย</th>
             <th className="px-4 py-2" />
           </tr></thead>
           <tbody>
-            {history.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีประวัติ</td></tr>}
+            {history.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีประวัติ</td></tr>}
             {history.slice(0, 50).map(ev => (
               <tr key={ev.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-2 text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)} → {ev.returnedDate?.slice(0, 10)}</td>
+                <td className="px-4 py-2 text-xs">
+                  {ev.type === 'CALIBRATION'
+                    ? (ev.nextDueDate
+                        ? <span className="text-purple-600">{ev.nextDueDate.slice(0, 10)}</span>
+                        : <span className="text-amber-500" title="ไม่อยู่ในแผน Cal — กดแก้ไขเพื่อใส่วันที่">ไม่ระบุ ⚠</span>)
+                    : <span className="text-slate-300">—</span>}
+                </td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.cost != null ? `${ev.cost.toLocaleString('th-TH')} บาท` : '—'}</td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex justify-end gap-1.5">
