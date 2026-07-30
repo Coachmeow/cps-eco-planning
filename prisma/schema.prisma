@@ -12,6 +12,8 @@ model ServiceTeam {
   code      String @unique
   name      String
   sortOrder Int    @default(999)  // ลำดับการแสดงผล (ทีมใหม่ที่ไม่ตั้งค่าจะต่อท้าย)
+  // false = ทีมสนับสนุน/แอดมิน (เช่น LOG) — ยังลงแผนในปฏิทินได้ แต่ไม่นับใน Capacity/Utilization
+  isFieldTeam Boolean @default(true)
 
   equipmentTypes   EquipmentType[]
   employees        Employee[]

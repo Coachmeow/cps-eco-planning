@@ -45,9 +45,9 @@ export default function DashboardView() {
 
   const avgUtil     = data ? Math.round(data.equipmentUtil.filter(r=>r.ownCount>0).reduce((s,r)=>s+r.ownUtil,0)/Math.max(data.equipmentUtil.filter(r=>r.ownCount>0).length,1)) : 0
 
-  // Util พนักงานเฉลี่ย — ฐานกำลังคนทั้งทีม (booked ÷ capacity) ของ ST/AMB/WP/WT/CEMS
-  const STAFF_UTIL_TEAMS = ['ST', 'AMB', 'WP', 'WT', 'CEMS']
-  const staffCap = data?.teamCapacity.filter(t => STAFF_UTIL_TEAMS.includes(t.teamCode)) ?? []
+  // Util พนักงานเฉลี่ย — ฐานกำลังคนทั้งทีม (booked ÷ capacity)
+  // teamCapacity ตัดทีมสนับสนุน/แอดมิน (isFieldTeam=false เช่น LOG) มาจากฝั่ง API แล้ว
+  const staffCap = data?.teamCapacity ?? []
   const staffCapTotal = staffCap.reduce((s,t)=>s+t.capacity,0)
   const staffBookedTotal = staffCap.reduce((s,t)=>s+t.booked,0)
   const staffUtil = staffCapTotal > 0 ? Math.round((staffBookedTotal/staffCapTotal)*100) : 0

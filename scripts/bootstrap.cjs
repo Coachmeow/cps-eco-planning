@@ -69,6 +69,12 @@ async function main() {
   }
   console.log('✅ อัปเดตลำดับทีมแล้ว')
 
+  // 3.1) ทีมสนับสนุน/แอดมิน — ไม่นับใน Capacity/Utilization (ยังลงแผนในปฏิทินได้ตามปกติ)
+  const SUPPORT_TEAMS = ['LOG']
+  await prisma.serviceTeam.updateMany({ where: { code: { in: SUPPORT_TEAMS } }, data: { isFieldTeam: false } })
+  await prisma.serviceTeam.updateMany({ where: { code: { notIn: SUPPORT_TEAMS } }, data: { isFieldTeam: true } })
+  console.log(`✅ ตั้งทีมสนับสนุน (ไม่คิด Utilization): ${SUPPORT_TEAMS.join(', ')}`)
+
   // 4) ล้างงานภาคสนาม (FIELD) ที่ไม่มีไซต์ — ข้อมูลค้างที่โชว์เป็น "FIELD" และไปโป่ง utilization
   //    idempotent: หลังเพิ่ม validation จะไม่มีเกิดใหม่ ; ลบซ้ำทุก deploy ปลอดภัย
   const fieldless = await prisma.staffAssignment.findMany({

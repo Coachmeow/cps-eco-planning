@@ -123,8 +123,11 @@ export async function GET(req: NextRequest) {
   const personUtil = (await Promise.all(
     personGroups.map(async (g) => {
       const emp = await prisma.employee.findUnique({
-        where: { id: g.employeeId }, select: { fullName: true, nickname: true, primaryTeam: { select: { code: true } } },
+        where: { id: g.employeeId },
+        select: { fullName: true, nickname: true, primaryTeam: { select: { code: true, isFieldTeam: true } } },
       })
+      // คนของทีมสนับสนุน/แอดมิน ไม่จัดอันดับ Utilization (งานที่ออกไปยังนับใน man-day ไซต์/ภาระงานทีมตามปกติ)
+      if (emp?.primaryTeam.isFieldTeam === false) return null
       const fieldDays = Number(g._sum.estimatedDays ?? 0)
       const utilPct   = workdays > 0 ? Math.round((fieldDays / workdays) * 100) : 0
       return {
@@ -136,7 +139,7 @@ export async function GET(req: NextRequest) {
         utilPct,
       }
     })
-  )).sort((a, b) => b.utilPct - a.utilPct)
+  )).filter((r): r is NonNullable<typeof r> => r !== null).sort((a, b) => b.utilPct - a.utilPct)
 
   // ── Team Capacity คงเหลือ (เดือนที่เลือก) ───────────────────
   // capacity = จำนวนพนักงาน active ในทีม × วันทำงาน
@@ -161,7 +164,8 @@ export async function GET(req: NextRequest) {
     cur.booked += bookedByEmp.get(e.id) ?? 0
     capMap.set(e.primaryTeamId, cur)
   }
-  const teamCapacity = teams.map((t) => {
+  // ทีมสนับสนุน/แอดมิน (isFieldTeam=false เช่น LOG) ไม่ใช่กำลังคนภาคสนาม — ตัดออกจากฐาน Capacity
+  const teamCapacity = teams.filter((t) => t.isFieldTeam !== false).map((t) => {
     const c         = capMap.get(t.id) ?? { count: 0, booked: 0 }
     const capacity  = c.count * workdays
     const remaining = capacity - c.booked
