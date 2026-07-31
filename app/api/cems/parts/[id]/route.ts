@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCemsAdmin, forbidden } from '@/lib/auth'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const { id } = await params
     const body = await req.json()
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // ลบอะไหล่ — ลบประวัติ txn ทั้งหมดด้วย (client ต้อง confirm ก่อน)
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const { id } = await params
     const partId = parseInt(id)

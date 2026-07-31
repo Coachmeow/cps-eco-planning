@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 import { computeNextDue } from '@/lib/cemsSchedule'
 
 export async function GET(req: NextRequest) {
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const b = await req.json()
     const partId = parseInt(String(b.partId))

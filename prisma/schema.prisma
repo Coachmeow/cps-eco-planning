@@ -123,13 +123,21 @@ enum UserRole {
   GENERAL
 }
 
+// ระดับสิทธิ์ในโมดูล CEMS — USER = ดู+บันทึกงาน / ADMIN = อนุมัติ ลบ จัดการทะเบียน-แผน
+enum CemsRole {
+  NONE
+  USER
+  ADMIN
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   username     String    @unique
   passwordHash String
   role         UserRole  @default(GENERAL)
   isActive     Boolean   @default(true)
-  cemsAccess   Boolean   @default(false)   // สิทธิ์เข้าโมดูล CEMS Service (ADMIN เข้าได้เสมอ)
+  cemsAccess   Boolean   @default(false)   // (legacy) สิทธิ์เข้า CEMS — เก็บไว้เป็น fallback กัน lockout ระหว่างย้ายมาใช้ cemsRole
+  cemsRole     CemsRole  @default(NONE)    // สิทธิ์โมดูล CEMS Service (ADMIN ของระบบ = CEMS Admin เสมอ)
   employeeId   Int?      @unique
   employee     Employee? @relation(fields: [employeeId], references: [id])
   createdAt    DateTime  @default(now())

@@ -1545,8 +1545,16 @@ function HolidaysSection() {
 }
 
 // ── Section: Users (ADMIN เท่านั้น) ───────────────────────────
+type CemsRoleValue = 'NONE' | 'USER' | 'ADMIN'
+const CEMS_ROLE_ORDER: CemsRoleValue[] = ['NONE', 'USER', 'ADMIN']
+const CEMS_ROLE_LABEL: Record<CemsRoleValue, string> = {
+  NONE:  '— ไม่มีสิทธิ์',
+  USER:  'CEMS User',      // ดู + บันทึกงาน (เบิก/สถานะ/ความดัน)
+  ADMIN: 'CEMS Admin',     // อนุมัติ + ลบ + จัดการทะเบียน/แผน
+}
+
 interface UserRow {
-  id: number; username: string; role: UserRole; isActive: boolean; cemsAccess: boolean
+  id: number; username: string; role: UserRole; isActive: boolean; cemsRole: CemsRoleValue
   employeeId: number | null; employeeName: string | null; fullName: string | null; team: string | null
 }
 
@@ -1630,13 +1638,11 @@ function UsersSection({ myUid }: { myUid?: number }) {
                   <CustomSelect value={u.role} onChange={(v) => patch(u, { role: v })}
                     options={ROLE_ORDER.map(r => ({ value: r, label: ROLE_LABEL[r] }))} />
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 w-40">
                   {u.role === 'ADMIN'
-                    ? <span className="text-[10px] text-slate-400">เข้าได้เสมอ</span>
-                    : <button onClick={() => patch(u, { cemsAccess: !u.cemsAccess })}
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${u.cemsAccess ? 'bg-sky-100 text-sky-700 hover:bg-sky-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
-                        {u.cemsAccess ? '✓ CEMS' : '—'}
-                      </button>}
+                    ? <span className="text-[10px] text-slate-400">CEMS Admin (เสมอ)</span>
+                    : <CustomSelect value={u.cemsRole ?? 'NONE'} onChange={(v) => patch(u, { cemsRole: v })}
+                        options={CEMS_ROLE_ORDER.map(r => ({ value: r, label: CEMS_ROLE_LABEL[r] }))} />}
                 </td>
                 <td className="px-4 py-2">
                   <button onClick={() => patch(u, { isActive: !u.isActive })}
@@ -1665,7 +1671,7 @@ function UsersSection({ myUid }: { myUid?: number }) {
 
 // ── Modal: เพิ่มผู้ใช้ ────────────────────────────────────────
 function AddUserModal({ employees, onClose, onSaved }: { employees: Employee[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ username: '', password: '', role: 'GENERAL' as UserRole, cemsAccess: false, employeeId: '' })
+  const [form, setForm] = useState({ username: '', password: '', role: 'GENERAL' as UserRole, cemsRole: 'NONE' as CemsRoleValue, employeeId: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -1702,10 +1708,12 @@ function AddUserModal({ employees, onClose, onSaved }: { employees: Employee[]; 
           <CustomSelect value={form.role} onChange={(v) => setForm(p => ({ ...p, role: v as UserRole }))}
             options={ROLE_ORDER.map(r => ({ value: r, label: ROLE_LABEL[r] }))} />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={form.cemsAccess} onChange={e => setForm(p => ({ ...p, cemsAccess: e.target.checked }))} className="h-4 w-4" />
-          สิทธิ์เข้าโมดูล CEMS
-        </label>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">สิทธิ์โมดูล CEMS</label>
+          <CustomSelect value={form.cemsRole} onChange={(v) => setForm(p => ({ ...p, cemsRole: v as CemsRoleValue }))}
+            options={CEMS_ROLE_ORDER.map(r => ({ value: r, label: CEMS_ROLE_LABEL[r] }))} />
+          <p className="text-[11px] text-slate-400">User = ดู+บันทึกงาน · Admin = อนุมัติเบิก/ลบ/จัดการทะเบียน-แผน (ผู้ดูแลระบบเป็น CEMS Admin เสมอ)</p>
+        </div>
         {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>

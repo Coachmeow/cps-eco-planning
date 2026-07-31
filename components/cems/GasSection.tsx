@@ -52,7 +52,7 @@ function returnInfo(c: Pick<GasRow, 'returnDueDate' | 'status' | 'returnedDate' 
   return { text: `อีก ${days} วัน`, sub: fmtDate(c.returnDueDate), cls: 'text-slate-500' }
 }
 
-export default function GasSection() {
+export default function GasSection({ canManage = false }: { canManage?: boolean }) {
   const [rows, setRows] = useState<GasRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -108,9 +108,11 @@ export default function GasSection() {
         <CustomSelect value={statusFilter} onChange={setStatusFilter} placeholder="ทุกสถานะ" className="w-36"
           options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(GAS_STATUS).map(([v, m]) => ({ value: v, label: m.label }))]} />
         <p className="text-sm text-slate-400">{filtered.length} ถัง</p>
-        <div className="ml-auto">
-          <Btn onClick={() => { setEditRow(null); setAddOpen(true) }}>+ เพิ่มถังแก๊ส</Btn>
-        </div>
+        {canManage && (
+          <div className="ml-auto">
+            <Btn onClick={() => { setEditRow(null); setAddOpen(true) }}>+ เพิ่มถังแก๊ส</Btn>
+          </div>
+        )}
       </div>
 
       {/* table */}
@@ -189,9 +191,11 @@ export default function GasSection() {
                       <span className="mx-0.5 h-4 w-px bg-slate-200" />
                       <Btn small variant="ghost" onClick={() => setQrRow(c)}>QR</Btn>
                       <Btn small variant="ghost" onClick={() => setHistoryRow(c)}>ประวัติ</Btn>
-                      <span className="mx-0.5 h-4 w-px bg-slate-200" />
-                      <Btn small variant="ghost" onClick={() => { setEditRow(c); setAddOpen(true) }}>แก้</Btn>
-                      <Btn small variant="danger" onClick={() => delRow(c)}>ลบ</Btn>
+                      {canManage && <>
+                        <span className="mx-0.5 h-4 w-px bg-slate-200" />
+                        <Btn small variant="ghost" onClick={() => { setEditRow(c); setAddOpen(true) }}>แก้</Btn>
+                        <Btn small variant="danger" onClick={() => delRow(c)}>ลบ</Btn>
+                      </>}
                     </div>
                   </td>
                 </tr>

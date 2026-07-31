@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 
 // ไซต์ CEMS เริ่มต้น (seed ครั้งแรก)
 const DEFAULT_SITES = ['SKK3', 'SKK4', 'SKK5', 'SKK6', 'STL5', 'STL6', 'SKW', 'SLP', 'STS4', 'STS5', 'STS6', 'CFB', 'MEEP', 'SWCC1', 'SWCC2']
@@ -12,7 +12,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const body = await req.json()
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCemsAdmin, forbidden } from '@/lib/auth'
 import { toDateKey } from '@/lib/dateKey'
 
 // นำเข้ารายการอะไหล่จาก Excel (โครงเดิมของหน่วยงาน)
@@ -11,7 +11,7 @@ import { toDateKey } from '@/lib/dateKey'
 const BRAND_MAP: Record<string, string> = { BEK: 'BEKO', DUR: 'Durag', OPS: 'OPSIS', MIS: 'อื่นๆ' }
 
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const form = await req.formData()
     const file = form.get('file') as File | null

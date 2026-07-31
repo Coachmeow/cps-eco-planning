@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCemsAdmin, forbidden } from '@/lib/auth'
 
 const STATUSES = ['ACTIVE', 'EMPTY', 'RETURNED'] as const
 interface CompInput { gas?: string; concentration?: unknown; unit?: string }
 
 // แก้ไขถัง + องค์ประกอบ + สถานะ (mark empty/returned)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const { id } = await params
     const cid = parseInt(id)
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // ลบถัง (องค์ประกอบ + การอ่านความดัน ลบตาม onDelete: Cascade)
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   const { id } = await params
   const cid = parseInt(id)
   const exist = await prisma.cemsGasCylinder.findUnique({ where: { id: cid }, select: { id: true } })

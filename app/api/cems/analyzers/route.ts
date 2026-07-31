@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 
 export async function GET() {
   if (!await requireCems()) return forbidden()
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const body = await req.json()
     if (!body.tag) return NextResponse.json({ error: 'กรอกชื่อ/รหัสเครื่อง' }, { status: 400 })

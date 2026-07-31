@@ -17,7 +17,7 @@ export interface AnalyzerRow {
 const OWNERSHIPS = ['POOL_OWN', 'POOL_LEGACY', 'CUSTOMER']
 const STATUSES   = ['READY', 'IN_USE', 'REPAIR', 'RETIRED']
 
-export default function AnalyzerSection() {
+export default function AnalyzerSection({ canManage = false }: { canManage?: boolean }) {
   const [analyzers, setAnalyzers] = useState<AnalyzerRow[]>([])
   const [sites, setSites]         = useState<CemsSiteRow[]>([])
   const [search, setSearch]       = useState('')
@@ -113,7 +113,7 @@ export default function AnalyzerSection() {
         <CustomSelect value={fOwner} onChange={setFOwner} placeholder="ทุกแหล่งที่มา" className="w-40"
           options={[{ value: '', label: 'ทุกแหล่งที่มา' }, ...OWNERSHIPS.map(o => ({ value: o, label: OWNERSHIP_LABEL[o] }))]} />
         <p className="text-sm text-slate-400">{filtered.length} เครื่อง</p>
-        <div className="ml-auto"><Btn onClick={openAdd}>+ เพิ่มเครื่อง</Btn></div>
+        {canManage && <div className="ml-auto"><Btn onClick={openAdd}>+ เพิ่มเครื่อง</Btn></div>}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -156,10 +156,12 @@ export default function AnalyzerSection() {
                 </td>
                 <td className="px-3 py-2 text-xs text-slate-400">{fmtDate(a.statusUpdatedAt)}</td>
                 <td className="px-3 py-2 text-right">
-                  <div className="flex justify-end gap-1.5">
-                    <Btn small onClick={() => openEdit(a)}>แก้ไข</Btn>
-                    <Btn small variant="danger" onClick={() => del(a)}>ลบ</Btn>
-                  </div>
+                  {canManage && (
+                    <div className="flex justify-end gap-1.5">
+                      <Btn small onClick={() => openEdit(a)}>แก้ไข</Btn>
+                      <Btn small variant="danger" onClick={() => del(a)}>ลบ</Btn>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -225,7 +227,7 @@ export default function AnalyzerSection() {
         </Modal>
       )}
 
-      {viewing && <AnalyzerCard analyzerId={viewing.id} sites={sites} onClose={() => { setViewing(null); load() }} />}
+      {viewing && <AnalyzerCard analyzerId={viewing.id} sites={sites} canManage={canManage} onClose={() => { setViewing(null); load() }} />}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 
 // stock ต่อรายการ = Σ IN − Σ OUT ± ADJUST (คำนวณจาก txn เสมอ ไม่เก็บเลขนิ่ง)
 export async function GET() {
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const body = await req.json()
     if (!body.code || !body.name) return NextResponse.json({ error: 'กรอกรหัสและชื่อรายการ' }, { status: 400 })

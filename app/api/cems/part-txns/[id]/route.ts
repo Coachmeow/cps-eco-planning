@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCemsAdmin, forbidden } from '@/lib/auth'
 
 // ลบรายการ txn (กรณีคีย์ผิด) — stock คำนวณใหม่อัตโนมัติเพราะไม่เก็บเลขนิ่ง
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const { id } = await params
     await prisma.cemsPartTxn.delete({ where: { id: parseInt(id) } })

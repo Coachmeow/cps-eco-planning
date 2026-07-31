@@ -38,6 +38,14 @@ async function main() {
   })
   console.log('✅ admin "anuwat" พร้อมใช้งาน')
 
+  // 1.1) ย้ายสิทธิ์ CEMS จาก flag เดิม (cemsAccess) มาเป็นระดับ cemsRole — ครั้งเดียว รันซ้ำไม่ทับของที่ตั้งใหม่
+  //      cemsAccess=true → USER (ADMIN ของระบบเป็น CEMS Admin โดยอัตโนมัติอยู่แล้ว ไม่ต้องตั้ง)
+  const migrated = await prisma.user.updateMany({
+    where: { cemsAccess: true, cemsRole: 'NONE' },
+    data:  { cemsRole: 'USER' },
+  })
+  console.log(`🔐 ย้ายสิทธิ์ CEMS → cemsRole=USER: ${migrated.count} บัญชี`)
+
   // 2) backfill บัญชีพนักงาน (GENERAL) สำหรับคนที่ยังไม่มี user
   const employees     = await prisma.employee.findMany({ orderBy: { id: 'asc' } })
   const existingUsers = await prisma.user.findMany({ select: { employeeId: true, username: true } })

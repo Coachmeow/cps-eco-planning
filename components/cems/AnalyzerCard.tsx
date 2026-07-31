@@ -19,7 +19,7 @@ interface Detail {
 
 const EVENT_TYPES = ['REPAIR', 'RETURN', 'MOVE', 'PM', 'ISSUE']
 
-export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerId: number; sites: CemsSiteRow[]; onClose: () => void }) {
+export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = false }: { analyzerId: number; sites: CemsSiteRow[]; onClose: () => void; canManage?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [a, setA]   = useState<Detail | null>(null)
   const [qr, setQr] = useState<string | null>(null)
@@ -186,7 +186,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose }: { analyzerI
                           <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.chip}`}>{meta.icon} {meta.label}{ev.type === 'MOVE' && <> → {ev.site?.code ?? 'หน่วยงาน'}</>}</span>
                           <span className="flex items-center gap-2 text-slate-400">
                             {fmtDate(ev.eventDate)}
-                            <button onClick={() => delEvent(ev)} className="text-red-300 hover:text-red-500">ลบ</button>
+                            {canManage && <button onClick={() => delEvent(ev)} className="text-red-300 hover:text-red-500">ลบ</button>}
                           </span>
                         </div>
                         {ev.symptom && <p className="mt-1 text-slate-600">อาการ: {ev.symptom}</p>}

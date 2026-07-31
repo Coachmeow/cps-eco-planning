@@ -34,7 +34,7 @@ const TXN_META: Record<string, { label: string; chip: string }> = {
 const todayKey = () => new Date().toLocaleDateString('en-CA')
 const money = (n: number | null | undefined) => n != null ? n.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '—'
 
-export default function PartsSection() {
+export default function PartsSection({ canManage = false }: { canManage?: boolean }) {
   const [parts, setParts] = useState<PartRow[]>([])
   const [sites, setSites] = useState<SiteOpt[]>([])
   const [analyzers, setAnalyzers] = useState<AnalyzerOpt[]>([])
@@ -143,12 +143,14 @@ export default function PartsSection() {
             className={`rounded px-3 py-2 text-sm font-medium transition-colors ${requests.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'text-slate-500 hover:bg-slate-100'}`}>
             🔔 คำขอเบิก{requests.length > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{requests.length}</span>}
           </button>
-          <label className={`cursor-pointer rounded px-4 py-2 text-sm font-medium transition-colors ${importing ? 'bg-slate-100 text-slate-400' : 'text-slate-500 hover:bg-slate-100'}`}>
-            {importing ? 'กำลังนำเข้า...' : '📥 นำเข้า Excel'}
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" disabled={importing}
-              onChange={e => importFile(e.target.files?.[0])} />
-          </label>
-          <Btn onClick={() => { setEditPart(null); setAddOpen(true) }}>+ เพิ่มอะไหล่</Btn>
+          {canManage && <>
+            <label className={`cursor-pointer rounded px-4 py-2 text-sm font-medium transition-colors ${importing ? 'bg-slate-100 text-slate-400' : 'text-slate-500 hover:bg-slate-100'}`}>
+              {importing ? 'กำลังนำเข้า...' : '📥 นำเข้า Excel'}
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" disabled={importing}
+                onChange={e => importFile(e.target.files?.[0])} />
+            </label>
+            <Btn onClick={() => { setEditPart(null); setAddOpen(true) }}>+ เพิ่มอะไหล่</Btn>
+          </>}
         </div>
       </div>
 
@@ -187,14 +189,18 @@ export default function PartsSection() {
                   <td className="px-3 py-2 text-xs text-slate-400">{p.location ?? '—'}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Btn small onClick={() => setTxnModal({ part: p, type: 'IN' })}>+ รับ</Btn>
-                      <Btn small variant="ghost" onClick={() => setTxnModal({ part: p, type: 'OUT' })}>− เบิก</Btn>
-                      <span className="mx-0.5 h-4 w-px bg-slate-200" />
+                      {canManage && <>
+                        <Btn small onClick={() => setTxnModal({ part: p, type: 'IN' })}>+ รับ</Btn>
+                        <Btn small variant="ghost" onClick={() => setTxnModal({ part: p, type: 'OUT' })}>− เบิก</Btn>
+                        <span className="mx-0.5 h-4 w-px bg-slate-200" />
+                      </>}
                       <Btn small variant="ghost" onClick={() => setQrPart(p)}>QR</Btn>
                       <Btn small variant="ghost" onClick={() => setHistoryPart(p)}>ประวัติ</Btn>
-                      <span className="mx-0.5 h-4 w-px bg-slate-200" />
-                      <Btn small variant="ghost" onClick={() => { setEditPart(p); setAddOpen(true) }}>แก้</Btn>
-                      <Btn small variant="danger" onClick={() => delPart(p)}>ลบ</Btn>
+                      {canManage && <>
+                        <span className="mx-0.5 h-4 w-px bg-slate-200" />
+                        <Btn small variant="ghost" onClick={() => { setEditPart(p); setAddOpen(true) }}>แก้</Btn>
+                        <Btn small variant="danger" onClick={() => delPart(p)}>ลบ</Btn>
+                      </>}
                     </div>
                   </td>
                 </tr>
@@ -206,16 +212,16 @@ export default function PartsSection() {
 
       {txnModal && <TxnModal part={txnModal.part} type={txnModal.type} sites={sites} analyzers={analyzers}
         onClose={() => setTxnModal(null)} onSaved={() => { setTxnModal(null); load() }} />}
-      {historyPart && <HistoryModal part={historyPart} onClose={() => setHistoryPart(null)} onChanged={load} />}
+      {historyPart && <HistoryModal part={historyPart} canManage={canManage} onClose={() => setHistoryPart(null)} onChanged={load} />}
       {addOpen && <PartModal part={editPart} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} />}
-      {reqModal && <RequestsModal requests={requests} onClose={() => setReqModal(false)} onChanged={load} />}
+      {reqModal && <RequestsModal requests={requests} canManage={canManage} onClose={() => setReqModal(false)} onChanged={load} />}
       {qrPart && <QrModal part={qrPart} onClose={() => setQrPart(null)} />}
     </div>
   )
 }
 
 // ── Modal: คำขอเบิกรออนุมัติ ─────────────────────────────────
-function RequestsModal({ requests, onClose, onChanged }: { requests: ReqRow[]; onClose: () => void; onChanged: () => void }) {
+function RequestsModal({ requests, canManage, onClose, onChanged }: { requests: ReqRow[]; canManage: boolean; onClose: () => void; onChanged: () => void }) {
   const [busy, setBusy] = useState<number | null>(null)
 
   async function decide(r: ReqRow, action: 'approve' | 'reject') {
@@ -253,10 +259,12 @@ function RequestsModal({ requests, onClose, onChanged }: { requests: ReqRow[]; o
                   {r.note && <p className="mt-0.5 text-[11px] text-amber-600">📝 {r.note}</p>}
                   <p className="mt-0.5 text-[10px] text-slate-400">{fmtDate(r.createdAt)}</p>
                 </div>
-                <div className="flex shrink-0 flex-col gap-1.5">
-                  <Btn small onClick={() => decide(r, 'approve')}>{busy === r.id ? '...' : '✓ อนุมัติ'}</Btn>
-                  <Btn small variant="danger" onClick={() => decide(r, 'reject')}>✕ ปฏิเสธ</Btn>
-                </div>
+                {canManage
+                  ? <div className="flex shrink-0 flex-col gap-1.5">
+                      <Btn small onClick={() => decide(r, 'approve')}>{busy === r.id ? '...' : '✓ อนุมัติ'}</Btn>
+                      <Btn small variant="danger" onClick={() => decide(r, 'reject')}>✕ ปฏิเสธ</Btn>
+                    </div>
+                  : <span className="shrink-0 self-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">รอ Admin อนุมัติ</span>}
               </div>
             </div>
           ))}
@@ -452,7 +460,7 @@ function TxnModal({ part, type, sites, analyzers, onClose, onSaved }: {
 }
 
 // ── Modal: ประวัติ ───────────────────────────────────────────
-function HistoryModal({ part, onClose, onChanged }: { part: PartRow; onClose: () => void; onChanged: () => void }) {
+function HistoryModal({ part, canManage, onClose, onChanged }: { part: PartRow; canManage: boolean; onClose: () => void; onChanged: () => void }) {
   const [txns, setTxns] = useState<TxnRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -489,7 +497,7 @@ function HistoryModal({ part, onClose, onChanged }: { part: PartRow; onClose: ()
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-slate-400">{t.person && `${t.person} · `}{fmtDate(t.txnDate)}</span>
-                <button onClick={() => delTxn(t)} className="text-red-300 hover:text-red-500">×</button>
+                {canManage && <button onClick={() => delTxn(t)} className="text-red-300 hover:text-red-500">×</button>}
               </div>
             </div>
           ))}

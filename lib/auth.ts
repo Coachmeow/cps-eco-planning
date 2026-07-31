@@ -18,14 +18,38 @@ export async function requireRole(...roles: UserRole[]): Promise<SessionPayload 
   return hasRole(session, ...roles) ? session : null
 }
 
-// สิทธิ์โมดูล CEMS: ADMIN เข้าได้เสมอ / คนอื่นต้องมี cemsAccess (เช็ค DB → มีผลทันทีไม่ต้อง re-login)
+// ── สิทธิ์โมดูล CEMS (เช็ค DB → มีผลทันทีไม่ต้อง re-login) ──────────
+// ADMIN ของระบบ = CEMS Admin เสมอ
+async function cemsRoleOf(session: SessionPayload): Promise<'NONE' | 'USER' | 'ADMIN'> {
+  if (session.role === 'ADMIN') return 'ADMIN'
+  const { prisma } = await import('./prisma')
+  const user = await prisma.user.findUnique({
+    where: { id: session.uid }, select: { cemsRole: true, cemsAccess: true, isActive: true },
+  })
+  if (!user?.isActive) return 'NONE'
+  // cemsAccess (legacy) ให้ได้แค่ระดับ USER — กัน lockout ถ้า migration ยังไม่ได้รัน ไม่เคยให้สิทธิ์ admin
+  if (user.cemsRole === 'NONE' && user.cemsAccess) return 'USER'
+  return user.cemsRole
+}
+
+/** เข้าโมดูล CEMS ได้ (USER ขึ้นไป) — ดูข้อมูล + บันทึกงานประจำวัน */
 export async function requireCems(): Promise<SessionPayload | null> {
   const session = await getSession()
   if (!session) return null
-  if (session.role === 'ADMIN') return session
-  const { prisma } = await import('./prisma')
-  const user = await prisma.user.findUnique({ where: { id: session.uid }, select: { cemsAccess: true, isActive: true } })
-  return user?.isActive && user.cemsAccess ? session : null
+  return (await cemsRoleOf(session)) !== 'NONE' ? session : null
+}
+
+/** สิทธิ์จัดการ CEMS (ADMIN เท่านั้น) — อนุมัติคำขอ, ลบข้อมูล, จัดการทะเบียน/แผน, ตัดสต็อกตรง */
+export async function requireCemsAdmin(): Promise<SessionPayload | null> {
+  const session = await getSession()
+  if (!session) return null
+  return (await cemsRoleOf(session)) === 'ADMIN' ? session : null
+}
+
+/** ระดับสิทธิ์ CEMS ของ session ปัจจุบัน (ใช้ตอบ /api/auth/me ให้ UI ซ่อนปุ่ม) */
+export async function getCemsRole(): Promise<'NONE' | 'USER' | 'ADMIN'> {
+  const session = await getSession()
+  return session ? cemsRoleOf(session) : 'NONE'
 }
 
 // ── Password hashing (scrypt) — format: scrypt$<saltHex>$<hashHex> ──

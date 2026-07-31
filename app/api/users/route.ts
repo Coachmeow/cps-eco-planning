@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { requireRole, forbidden, hashPassword, type UserRole } from '@/lib/auth'
 
 const ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'MAINTENANCE', 'GENERAL']
+export const CEMS_ROLES = ['NONE', 'USER', 'ADMIN'] as const
+export type CemsRoleValue = (typeof CEMS_ROLES)[number]
 
 export async function GET() {
   if (!await requireRole('ADMIN')) return forbidden()
@@ -16,7 +18,7 @@ export async function GET() {
     username:     u.username,
     role:         u.role,
     isActive:     u.isActive,
-    cemsAccess:   u.cemsAccess,
+    cemsRole:     u.cemsRole === 'NONE' && u.cemsAccess ? 'USER' : u.cemsRole,  // legacy fallback ให้ตรงกับ requireCems
     employeeId:   u.employeeId,
     employeeName: u.employee?.nickname ?? u.employee?.fullName ?? null,
     fullName:     u.employee?.fullName ?? null,
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
   if (!username || !password) return NextResponse.json({ error: 'กรอก username และรหัสผ่าน' }, { status: 400 })
   if (password.length < 4)     return NextResponse.json({ error: 'รหัสผ่านอย่างน้อย 4 ตัวอักษร' }, { status: 400 })
   const role: UserRole = ROLES.includes(body.role) ? body.role : 'GENERAL'
+  const cemsRole: CemsRoleValue = CEMS_ROLES.includes(body.cemsRole) ? body.cemsRole : 'NONE'
   const employeeId = body.employeeId != null && body.employeeId !== '' ? parseInt(String(body.employeeId)) : null
 
   try {
@@ -41,7 +44,8 @@ export async function POST(req: NextRequest) {
         username,
         passwordHash: hashPassword(password),
         role,
-        cemsAccess: !!body.cemsAccess,
+        cemsRole,
+        cemsAccess: cemsRole !== 'NONE',   // sync legacy flag ไว้ให้ตรงกัน
         employeeId,
       },
     })

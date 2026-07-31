@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 import { toDateKey } from '@/lib/dateKey'
 
 // % คงเหลือ + kg คงเหลือ (psi ↔ kg แปรผันตรงสำหรับแก๊สอัด)
@@ -35,7 +35,7 @@ interface CompInput { gas?: string; concentration?: unknown; unit?: string }
 
 // สร้างถังใหม่ + องค์ประกอบ
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()
   try {
     const body = await req.json()
     const cylinderNo = String(body.cylinderNo ?? '').trim()

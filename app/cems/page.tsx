@@ -11,7 +11,7 @@ import GasSection from '@/components/cems/GasSection'
 type CemsTab = 'analyzers' | 'sites' | 'parts' | 'plan' | 'gas'
 
 export default function CemsPage() {
-  const { me, loading } = useMe()
+  const { me, loading, isCemsAdmin } = useMe()
   const [tab, setTab] = useState<CemsTab>('analyzers')
 
   const allowed = !!me && (me.role === 'ADMIN' || !!me.cemsAccess)
@@ -35,7 +35,13 @@ export default function CemsPage() {
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
-      <h1 className="mb-5 text-xl font-bold text-slate-800">🖥 CEMS Service</h1>
+      <div className="mb-5 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-slate-800">🖥 CEMS Service</h1>
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${isCemsAdmin ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
+          {isCemsAdmin ? 'CEMS Admin' : 'CEMS User'}
+        </span>
+        {!isCemsAdmin && <span className="text-[11px] text-slate-400">— ดูข้อมูลและบันทึกงานได้ · อนุมัติ/ลบ/จัดการทะเบียน ต้องเป็น Admin</span>}
+      </div>
 
       <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-slate-200 p-1 w-fit">
         {tabs.map(t => (
@@ -50,11 +56,11 @@ export default function CemsPage() {
       </div>
 
       <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
-        {tab === 'analyzers' && <AnalyzerSection />}
-        {tab === 'sites'     && <CemsSitesSection />}
-        {tab === 'parts'     && <PartsSection />}
-        {tab === 'plan'      && <PartPlanSection />}
-        {tab === 'gas'       && <GasSection />}
+        {tab === 'analyzers' && <AnalyzerSection canManage={isCemsAdmin} />}
+        {tab === 'sites'     && <CemsSitesSection canManage={isCemsAdmin} />}
+        {tab === 'parts'     && <PartsSection canManage={isCemsAdmin} />}
+        {tab === 'plan'      && <PartPlanSection canManage={isCemsAdmin} />}
+        {tab === 'gas'       && <GasSection canManage={isCemsAdmin} />}
       </div>
     </div>
   )

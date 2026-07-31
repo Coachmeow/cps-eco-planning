@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCems, requireCemsAdmin, forbidden } from '@/lib/auth'
 import { toDateKey } from '@/lib/dateKey'
 import { computeNextDue } from '@/lib/cemsSchedule'
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 // สร้างรายการรับเข้า (IN) / เบิกออก (OUT) / ปรับยอด (ADJUST)
 export async function POST(req: NextRequest) {
-  if (!await requireCems()) return forbidden()
+  if (!await requireCemsAdmin()) return forbidden()   // เบิก/รับเข้าตรง = ตัดสต็อกไม่ผ่านอนุมัติ
   try {
     const body = await req.json()
     const { partId, type } = body

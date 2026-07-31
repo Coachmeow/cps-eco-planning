@@ -35,7 +35,7 @@ const emptyForm = { partId: '', targetType: 'analyzer' as 'analyzer' | 'site', a
 
 interface WithdrawTarget { partId: number; scheduleId: number; analyzerId?: number; siteId?: number }
 
-export default function PartPlanSection() {
+export default function PartPlanSection({ canManage = false }: { canManage?: boolean }) {
   const now = new Date()
   const [sites, setSites] = useState<Site[]>([])
   const [parts, setParts] = useState<Part[]>([])
@@ -157,7 +157,7 @@ export default function PartPlanSection() {
           <span className="rounded px-1.5 py-0.5 bg-red-100 text-red-600">เลยกำหนด</span>
           <span className="rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-700">เปลี่ยนแล้ว</span>
         </div>
-        <Btn small onClick={openAdd}>+ เพิ่มแผน</Btn>
+        {canManage && <Btn small onClick={openAdd}>+ เพิ่มแผน</Btn>}
       </div>
 
       {loading ? (
@@ -338,10 +338,12 @@ export default function PartPlanSection() {
                         {s.lastReplacedDate && ` · ล่าสุด ${fmtDate(s.lastReplacedDate)}`}
                       </span>
                     </div>
-                    <div className="flex shrink-0 gap-0.5">
-                      <Btn small variant="ghost" onClick={() => openEdit(s)}>แก้</Btn>
-                      <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
-                    </div>
+                    {canManage && (
+                      <div className="flex shrink-0 gap-0.5">
+                        <Btn small variant="ghost" onClick={() => openEdit(s)}>แก้</Btn>
+                        <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

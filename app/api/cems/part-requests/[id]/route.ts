@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireCems, forbidden } from '@/lib/auth'
+import { requireCemsAdmin, forbidden } from '@/lib/auth'
 import { toDateKey } from '@/lib/dateKey'
 import { computeNextDue } from '@/lib/cemsSchedule'
 
 // อนุมัติ (สร้าง OUT txn → ตัด stock) หรือ ปฏิเสธ คำขอเบิก
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireCems()
+  const session = await requireCemsAdmin()   // อนุมัติ/ปฏิเสธ = CEMS Admin เท่านั้น
   if (!session) return forbidden()
   const { id } = await params
   const reqId = parseInt(id)
