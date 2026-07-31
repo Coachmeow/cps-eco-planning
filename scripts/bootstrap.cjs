@@ -224,6 +224,37 @@ async function main() {
     }
     console.log(`📐 Resync แผน Cal: แก้ ${fixed} เครื่อง (จาก ${allEq.length})`)
   }
+
+  // 10) Backfill ใบงานซ่อมให้เครื่องที่ติดสถานะ BROKEN ตั้งแต่ก่อนมีระบบเปิดใบงาน
+  //     (สถานะซ่อม/แคลต้องมีใบงานรองรับเสมอ ไม่งั้นแก้กลับไม่ได้ — ป้ายในตารางเป็นแบบอ่านอย่างเดียว)
+  //     idempotent: สร้างเฉพาะเครื่องที่ยังไม่มีใบงานเปิดค้าง รอบถัดไปมีใบงานแล้วจึงไม่สร้างซ้ำ
+  {
+    const stuck = await prisma.equipment.findMany({
+      where:  { status: { in: ['BROKEN', 'CALIBRATING'] }, events: { none: { returnedDate: null } } },
+      select: { id: true, status: true, internalNo: true, serialNo: true },
+    })
+    const broken = stuck.filter((e) => e.status === 'BROKEN')
+    const calib  = stuck.filter((e) => e.status === 'CALIBRATING')
+
+    for (const eq of broken) {
+      await prisma.equipmentEvent.create({
+        data: {
+          equipmentId: eq.id,
+          type:        'REPAIR',
+          sentDate:    new Date('2026-07-01'),
+          notes:       'ส่งซ่อมก่อนทำระบบเปิดใบงาน',
+        },
+      })
+    }
+    console.log(`🔧 Backfill ใบงานซ่อม (ไม่มีกำหนดรับกลับ): ${broken.length} เครื่อง`)
+
+    // CALIBRATING ที่ไม่มีใบงาน = ผิดปกติ (ปกติต้องมาจากการเปิดใบงานเท่านั้น) — ไม่สร้างให้อัตโนมัติ
+    // เพราะตอนรับกลับระบบบังคับใส่กำหนด Cal ครั้งถัดไป จะกลายเป็นยัดวันที่ที่ไม่รู้จริงเข้าแผน Cal
+    if (calib.length > 0) {
+      console.log(`   ⚠ พบเครื่องติดสถานะ CALIBRATING แต่ไม่มีใบงาน ${calib.length} เครื่อง (ต้องตรวจสอบเอง):`)
+      for (const eq of calib) console.log(`     - ${eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}`)
+    }
+  }
 }
 
 main()
