@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { duePartSchedules } from '@/lib/cemsSchedule'
+import { checkQrAccess } from '@/lib/cemsQrPin'
 
 // stock = Σ IN − Σ OUT ± ADJUST
 async function stockOf(partId: number): Promise<number> {
@@ -10,8 +11,9 @@ async function stockOf(partId: number): Promise<number> {
   return Math.round(s * 100) / 100
 }
 
-// public (ไม่ล็อกอิน) — ข้อมูลอะไหล่ + รายชื่อพนักงาน/ไซต์/เครื่อง สำหรับหน้าขอเบิก QR
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+// public (ไม่ล็อกอิน แต่ต้องมีรหัสรวมถ้าตั้ง CEMS_QR_PIN) — ข้อมูลอะไหล่ + รายชื่อพนักงาน/ไซต์/เครื่อง สำหรับหน้าขอเบิก QR
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const gate = checkQrAccess(req); if (!gate.ok) return gate.res
   const { token } = await params
   const part = await prisma.cemsSparePart.findUnique({
     where: { qrToken: token },
@@ -34,6 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 // public — ส่งคำขอเบิก (PENDING) ; ไม่แตะ stock จนกว่า CEMS Admin อนุมัติ
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const gate = checkQrAccess(req); if (!gate.ok) return gate.res
   const { token } = await params
   const part = await prisma.cemsSparePart.findUnique({ where: { qrToken: token }, select: { id: true } })
   if (!part) return NextResponse.json({ error: 'ไม่พบอะไหล่' }, { status: 404 })

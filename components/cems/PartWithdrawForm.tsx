@@ -31,6 +31,7 @@ export interface PartWithdrawFormProps {
   schedules: WithdrawSchedule[]
   submitUrl: string
   extraBody?: Record<string, unknown>
+  extraHeaders?: Record<string, string>   // หน้า QR สาธารณะ: แนบรหัสรวม x-cems-pin
   prefill?: WithdrawPrefill
   onDone: (result: WithdrawResult) => void
 }
@@ -39,7 +40,7 @@ const fmtDue = (d: string | null) => d ? new Date(d).toLocaleDateString('th-TH',
 const inp = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-800 focus:border-slate-500 focus:outline-none'
 const lbl = 'mb-1 block text-sm font-medium text-slate-600'
 
-export default function PartWithdrawForm({ part, employees, sites, analyzers, schedules, submitUrl, extraBody, prefill, onDone }: PartWithdrawFormProps) {
+export default function PartWithdrawForm({ part, employees, sites, analyzers, schedules, submitUrl, extraBody, extraHeaders, prefill, onDone }: PartWithdrawFormProps) {
   const [mode, setMode] = useState<ReplaceType>(prefill?.mode ?? 'OTHER')
   const [requesterId, setRequesterId] = useState('')
   const [qty, setQty] = useState('1')
@@ -98,7 +99,11 @@ export default function PartWithdrawForm({ part, employees, sites, analyzers, sc
     else if (mode === 'BREAKDOWN') body.scheduleId = scheduleId || undefined
     else body.manualSite = manualSite || undefined
 
-    const r = await fetch(submitUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const r = await fetch(submitUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(extraHeaders ?? {}) },
+      body: JSON.stringify(body),
+    })
     setSubmitting(false)
     if (!r.ok) { const d = await r.json().catch(() => ({})); setErr(d.error ?? 'ส่งคำขอไม่สำเร็จ'); return }
     onDone({ qty: q })

@@ -1,8 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import PartWithdrawForm, { type WithdrawSchedule } from '@/components/cems/PartWithdrawForm'
+
+// รหัสรวมชุดเดียวกับหน้า QR ถังแก๊ส/เครื่อง CEMS (ตั้งที่ env CEMS_QR_PIN — ไม่ตั้ง = ไม่ถาม)
+const PIN_LEN = 6
+const REMEMBER_MS = 7 * 24 * 60 * 60 * 1000
+const PIN_KEY = 'cemsqr_pin'
+function readSavedPin(): string | null {
+  try { const o = JSON.parse(localStorage.getItem(PIN_KEY) || 'null'); if (o && o.exp > Date.now()) return o.p } catch {}
+  return null
+}
+function saveSavedPin(p: string) { try { localStorage.setItem(PIN_KEY, JSON.stringify({ p, exp: Date.now() + REMEMBER_MS })) } catch {} }
+function clearSavedPin() { try { localStorage.removeItem(PIN_KEY) } catch {} }
+
+const inp = 'w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-800 focus:border-slate-500 focus:outline-none'
 
 interface PageData {
   part: { id: number; code: string; name: string; unit: string | null; location: string | null; stock: number }
@@ -14,18 +27,60 @@ interface PageData {
 
 export default function PartRequestPage() {
   const { token } = useParams<{ token: string }>()
+  const [pin, setPin] = useState('')
+  const [needPin, setNeedPin] = useState(false)
+  const [pinInput, setPinInput] = useState('')
   const [data, setData] = useState<PageData | null>(null)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
   const [doneQty, setDoneQty] = useState(0)
   const [formKey, setFormKey] = useState(0)
 
-  useEffect(() => {
-    fetch(`/api/public/cems-part/${token}`).then(async r => {
-      if (!r.ok) { setErr('ไม่พบอะไหล่ หรือ QR ไม่ถูกต้อง'); return }
-      setData(await r.json())
-    }).catch(() => setErr('เชื่อมต่อไม่ได้'))
+  const load = useCallback((tryPin?: string) => {
+    const headers: Record<string, string> = {}
+    if (tryPin) headers['x-cems-pin'] = tryPin
+    return fetch(`/api/public/cems-part/${token}`, { headers }).then(async r => {
+      if (r.status === 429) { setNeedPin(true); setData(null); setErr('ลองผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่'); return false }
+      if (r.status === 401) { setNeedPin(true); setData(null); if (tryPin) { setErr('รหัสไม่ถูกต้อง'); clearSavedPin() } return false }
+      if (!r.ok) { setErr('ไม่พบอะไหล่ หรือ QR ไม่ถูกต้อง'); return false }
+      setNeedPin(false); setErr(''); setData(await r.json()); if (tryPin) setPin(tryPin)
+      return true
+    }).catch(() => { setErr('เชื่อมต่อไม่ได้'); return false })
   }, [token])
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? readSavedPin() : null
+    load(saved || undefined)
+  }, [load])
+
+  async function trySubmitPin(code: string) {
+    const ok = await load(code)
+    if (ok) { saveSavedPin(code); setPinInput('') }
+  }
+  function onPinChange(v: string) {
+    const digits = v.replace(/\D/g, '').slice(0, PIN_LEN)
+    setPinInput(digits); setErr('')
+    if (digits.length === PIN_LEN) trySubmitPin(digits)
+  }
+
+  // ── หน้ารหัสรวม ──
+  if (needPin && !data) return (
+    <Center>
+      <div className="w-full max-w-xs text-center">
+        <div className="mb-3 text-5xl">🔒</div>
+        <p className="text-lg font-bold text-slate-800">ใส่รหัสเข้าใช้งาน</p>
+        <p className="mt-1 mb-4 text-sm text-slate-400">หน้าขอเบิกอะไหล่ CEMS · เฉพาะเจ้าหน้าที่</p>
+        <input type="password" inputMode="numeric" autoComplete="off" value={pinInput} autoFocus maxLength={PIN_LEN}
+          onChange={e => onPinChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && pinInput) trySubmitPin(pinInput) }}
+          className={`${inp} text-center text-2xl tracking-[0.5em]`} placeholder="••••••" />
+        {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+        <button onClick={() => pinInput && trySubmitPin(pinInput)}
+          className="mt-4 w-full rounded-xl bg-slate-700 py-3 text-base font-semibold text-white hover:bg-slate-800">เข้าใช้งาน</button>
+        <p className="mt-3 text-[11px] text-slate-400">ใส่รหัส {PIN_LEN} หลัก · จำไว้ 7 วันในเครื่องนี้</p>
+      </div>
+    </Center>
+  )
 
   if (err && !data) return <Center><p className="text-red-600">{err}</p></Center>
   if (!data) return <Center><p className="text-slate-400">กำลังโหลด...</p></Center>
@@ -64,6 +119,7 @@ export default function PartRequestPage() {
             analyzers={data.analyzers}
             schedules={data.schedules}
             submitUrl={`/api/public/cems-part/${token}`}
+            extraHeaders={pin ? { 'x-cems-pin': pin } : undefined}
             onDone={r => { setDoneQty(r.qty); setDone(true) }}
           />
         </div>
