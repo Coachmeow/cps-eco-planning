@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Vehicle, VehicleBooking, Site, Employee, VehiclePurpose } from '@/lib/types'
 import { PURPOSE_META, PURPOSE_ORDER } from '@/lib/vehiclePurpose'
+import SearchableSelect from '@/components/SearchableSelect'
 
 interface Props {
   vehicle:      Vehicle
@@ -174,11 +175,8 @@ export default function VehiclePopup({
           {purpose === 'FIELD' && (
             <div>
               <label className="block text-xs text-slate-500 mb-1">ไซต์งาน</label>
-              <select value={siteId} onChange={e => setSiteId(e.target.value)}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none">
-                <option value="">— เลือกไซต์ —</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
-              </select>
+              <SearchableSelect value={siteId} onChange={setSiteId} placeholder="— เลือกไซต์ —"
+                options={sites.map(s => ({ value: String(s.id), label: `${s.code} — ${s.name}` }))} />
             </div>
           )}
           <div>

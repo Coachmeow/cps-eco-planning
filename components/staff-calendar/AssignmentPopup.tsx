@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
+import SearchableSelect from '@/components/SearchableSelect'
 import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 import { LEAVE_TYPES, LEAVE_LABEL } from '@/lib/leaveTypes'
 
@@ -440,11 +441,8 @@ export default function AssignmentPopup({
               {/* Site */}
               <div>
                 <label className="block text-xs text-slate-500 mb-1">ไซต์งาน</label>
-                <select value={siteId} onChange={(e) => setSiteId(e.target.value)}
-                  className={`w-full rounded border px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 ${siteId ? 'border-slate-200 focus:ring-slate-300' : 'border-red-300 focus:ring-red-300'}`}>
-                  <option value="">— เลือกไซต์ —</option>
-                  {sites.map((s) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
-                </select>
+                <SearchableSelect value={siteId} onChange={setSiteId} invalid={!siteId} placeholder="— เลือกไซต์ —"
+                  options={sites.map((s) => ({ value: String(s.id), label: `${s.code} — ${s.name}` }))} />
                 {!siteId && <p className="mt-1 text-xs text-red-500">ต้องเลือกไซต์สำหรับงานภาคสนาม</p>}
               </div>
 

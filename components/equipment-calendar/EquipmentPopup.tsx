@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Equipment, EquipmentType, Site, EquipmentAssignment } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
+import SearchableSelect from '@/components/SearchableSelect'
 import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 
 interface Props {
@@ -322,11 +323,8 @@ export default function EquipmentPopup({
             {/* Site dropdown */}
             <div>
               <label className="block text-xs text-slate-500 mb-1">ไซต์งาน <span className="text-red-400">*</span></label>
-              <select value={siteId} onChange={e => setSiteId(e.target.value)}
-                className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
-                <option value="">— เลือกไซต์ —</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
-              </select>
+              <SearchableSelect value={siteId} onChange={setSiteId} placeholder="— เลือกไซต์ —"
+                options={sites.map(s => ({ value: String(s.id), label: `${s.code} — ${s.name}` }))} />
               {/* selected site color preview */}
               {siteId && (() => {
                 const s = sites.find(x => String(x.id) === siteId)
