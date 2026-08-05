@@ -40,10 +40,10 @@ export function TentativeRow({
   onConfirm: () => void
 }) {
   return (
-    <div className="mt-1 flex items-start justify-between gap-2 rounded border border-dashed border-slate-400 bg-slate-50 px-2 py-1.5">
+    <div className="mt-1 flex items-start justify-between gap-2 rounded border border-dashed border-red-400 bg-red-50/50 px-2 py-1.5">
       <div className="min-w-0 text-[11px]">
-        <p className="font-medium text-slate-600">⏳ รอลูกค้ายืนยัน</p>
-        {reason && <p className="mt-0.5 break-words text-slate-500">{reason}</p>}
+        <p className="font-medium text-red-600">⏳ รอลูกค้ายืนยัน</p>
+        {reason && <p className="mt-0.5 break-words text-slate-600">{reason}</p>}
       </div>
       {canEdit && (
         <button onClick={onConfirm} disabled={busy}

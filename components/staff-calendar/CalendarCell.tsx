@@ -137,7 +137,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
           {/* งานจองรอยืนยัน — กรอบเส้นประครอบช่อง (งานหลายวัน merge แล้วครอบทั้งช่วง) + ⏳ */}
           {isTentative && (
             <>
-              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-slate-500/70" />
+              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-red-500" />
               <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
             </>
           )}

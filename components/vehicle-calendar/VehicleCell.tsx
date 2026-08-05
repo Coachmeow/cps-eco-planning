@@ -77,7 +77,7 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
           {isTentative && (
             <>
-              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-slate-500/70" />
+              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-red-500" />
               <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
             </>
           )}

@@ -81,8 +81,20 @@ export default function StaffCalendar() {
     return n
   }, [calendarData])
 
+  // กรองเหลือเฉพาะคนที่มีงานชนกัน (key = "empId-YYYY-MM-DD")
+  const [conflictOnly, setConflictOnly] = useState(false)
+  const conflictEmpIds = useMemo(() => {
+    const s = new Set<number>()
+    for (const key of conflicts.staffConflicts) {
+      const id = parseInt(key.split('-')[0])
+      if (!isNaN(id)) s.add(id)
+    }
+    return s
+  }, [conflicts])
+
   const filteredEmployees = (teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter))
     .filter(e => !tentativeOnly || tentativeEmpIds.has(e.id))
+    .filter(e => !conflictOnly  || conflictEmpIds.has(e.id))
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
@@ -179,14 +191,20 @@ export default function StaffCalendar() {
           <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
           <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
         </div>
+        {/* ชิปกรอง — กดค้างไว้เพื่อดูเฉพาะกลุ่มนั้น ; เลือกได้ทีละอย่างกันตารางว่างเปล่า */}
         {totalConflicts > 0 && (
-          <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {totalConflicts} conflict</span>
+          <button onClick={() => { setConflictOnly(v => !v); setTentativeOnly(false) }}
+            title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานชนกัน"
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              conflictOnly ? 'bg-red-600 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}>
+            ⚠ {totalConflicts} conflict
+          </button>
         )}
         {tentativeCount > 0 && (
-          <button onClick={() => setTentativeOnly(v => !v)}
+          <button onClick={() => { setTentativeOnly(v => !v); setConflictOnly(false) }}
             title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานรอลูกค้ายืนยัน"
             className={`rounded-full border border-dashed px-2.5 py-0.5 text-xs font-semibold transition-colors ${
-              tentativeOnly ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-400 bg-white text-slate-600 hover:bg-slate-100'}`}>
+              tentativeOnly ? 'border-red-600 bg-red-600 text-white' : 'border-red-400 bg-white text-red-600 hover:bg-red-50'}`}>
             ⏳ รอยืนยัน {tentativeCount}
           </button>
         )}
