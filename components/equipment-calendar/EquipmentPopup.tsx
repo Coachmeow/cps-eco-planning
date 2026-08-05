@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Equipment, EquipmentType, Site, EquipmentAssignment } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
+import { TentativeField, TentativeRow } from '@/components/TentativeControls'
 import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   onSave:               (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:             (id: number) => Promise<void>
   onMove?:              (p: { assignmentId: number; newStartDate: string }) => Promise<void>
+  onConfirm?:           (id: number) => Promise<void>   // ยืนยันงานจองรอยืนยัน
   onClose:              () => void
 }
 
@@ -31,9 +33,21 @@ export default function EquipmentPopup({
   equipmentAssignments = [],
   initialDays,
   canEdit = true,
-  onSave, onDelete, onMove, onClose,
+  onSave, onDelete, onMove, onConfirm, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+
+  // งานจองรอลูกค้ายืนยัน
+  const [isTentative,     setIsTentative]     = useState(false)
+  const [tentativeReason, setTentativeReason] = useState('')
+  const [confirming,      setConfirming]      = useState<number | null>(null)
+  async function doConfirm(id: number) {
+    if (!onConfirm) return
+    setConfirming(id)
+    try { await onConfirm(id); onClose() }
+    catch (e) { alert(`ยืนยันไม่สำเร็จ: ${e instanceof Error ? e.message : e}`) }
+    finally { setConfirming(null) }
+  }
 
   // เลื่อนงาน (reschedule) — เปิดช่องเลือกวันเริ่มใหม่ต่อรายการวันแม่
   const [moveFor,  setMoveFor]  = useState<number | null>(null)
@@ -170,6 +184,8 @@ export default function EquipmentPopup({
       siteId:        parseInt(siteId),
       estimatedDays: parseInt(days),
       notes:         notes || undefined,
+      isTentative,
+      tentativeReason: isTentative ? (tentativeReason || undefined) : undefined,
     }
     const payloads = [
       { ...base, equipmentId: equipment.id },
@@ -239,6 +255,7 @@ export default function EquipmentPopup({
                             : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
                         </div>
                       </div>
+                      {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} onConfirm={() => doConfirm(a.id)} />}
                       {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
                       {moveFor === a.id && movePanel}
                     </div>
@@ -255,6 +272,7 @@ export default function EquipmentPopup({
                       {canEdit && !a.isLocked && onMove &&
                         <button onClick={() => openMove(a.id, a.assignedDate)} className="text-[11px] text-sky-500 hover:text-sky-700">เลื่อนทั้งงาน</button>}
                     </div>
+                    {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} wholeJob onConfirm={() => doConfirm(a.id)} />}
                     {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
                     {moveFor === a.id && movePanel}
                     <div className="space-y-0.5">
@@ -356,6 +374,10 @@ export default function EquipmentPopup({
                   className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
               </div>
             </div>
+
+            {/* งานจองรอลูกค้ายืนยัน */}
+            <TentativeField checked={isTentative} onCheckedChange={setIsTentative}
+              reason={tentativeReason} onReasonChange={setTentativeReason} />
           </div>
           )}
 

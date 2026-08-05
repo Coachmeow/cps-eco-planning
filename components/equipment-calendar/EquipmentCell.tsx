@@ -45,12 +45,20 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
     .map(a => `${a.site?.code ?? ''}: ${a.notes}`)
     .join('\n')
 
+  // งานจองรอยืนยัน — เส้นประ + ⏳ ; เหตุผลขึ้น tooltip บรรทัดแรก (ไอคอน 📝 ยังผูกกับ noteText เหมือนเดิม)
+  const isTentative = assignments.some(a => a.isTentative)
+  const tentativeText = assignments
+    .filter(a => a.isTentative)
+    .map(a => `⏳ รอยืนยัน${a.tentativeReason ? `: ${a.tentativeReason}` : ''}`)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+  const tipText = [...tentativeText, noteText].filter(Boolean).join('\n')
+
   return (
     <td
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       colSpan={colSpan}
-      title={noteText || undefined}
+      title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[80px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
         px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra} ${rangeCls}`}
@@ -69,7 +77,13 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
             </span>
           ))}
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
-          {assignments.some(a => a.isLocked) && <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>}
+          {isTentative && (
+            <>
+              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-slate-500/70" />
+              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+            </>
+          )}
+          {assignments.some(a => a.isLocked) && <span className={`absolute top-0.5 text-[9px] text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`}>🔒</span>}
           {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
         </div>
       ) : maint ? (

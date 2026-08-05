@@ -73,5 +73,12 @@ export function useVehicleCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
-  return { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking, moveBooking }
+  // ยืนยันงานจอง — ปลดธงรอยืนยันทั้งชุด (วันแม่+ลูก)
+  const confirmBooking = useCallback(async (id: number) => {
+    const res = await fetch(`/api/vehicle-bookings/${id}/confirm`, { method: 'POST' })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? 'ยืนยันไม่สำเร็จ') }
+    await fetchAll()
+  }, [fetchAll])
+
+  return { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking, moveBooking, confirmBooking }
 }

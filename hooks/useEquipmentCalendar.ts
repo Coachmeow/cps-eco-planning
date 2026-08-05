@@ -94,5 +94,12 @@ export function useEquipmentCalendar(year: number, month: number, typeId: number
     await fetchAll()
   }, [fetchAll])
 
-  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, addAssignments, removeAssignment, moveAssignment }
+  // ยืนยันงานจอง — ปลดธงรอยืนยันทั้งชุด (วันแม่+ลูก)
+  const confirmAssignment = useCallback(async (id: number) => {
+    const res = await fetch(`/api/equipment-assignments/${id}/confirm`, { method: 'POST' })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? 'ยืนยันไม่สำเร็จ') }
+    await fetchAll()
+  }, [fetchAll])
+
+  return { equipment, eqTypes, calendarData, conflicts, sites, loading, addAssignment, addAssignments, removeAssignment, moveAssignment, confirmAssignment }
 }

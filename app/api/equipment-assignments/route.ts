@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   const body = await req.json()
-  const { equipmentId, assignedDate, siteId, staffAssignmentId, notes, estimatedDays = 1 } = body
+  const { equipmentId, assignedDate, siteId, staffAssignmentId, notes, estimatedDays = 1,
+          isTentative = false, tentativeReason } = body
+  const tentativeData = { isTentative: !!isTentative, tentativeReason: isTentative ? (tentativeReason || null) : null }
 
   if (!equipmentId || !assignedDate) {
     return NextResponse.json({ error: 'equipmentId และ assignedDate จำเป็น' }, { status: 400 })
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
       staffAssignmentId: staffAssignmentId ?? null,
       notes,
       estimatedDays: days,
+      ...tentativeData,
     },
     include: { equipment: { include: { type: true } }, site: true },
   })
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest) {
         notes,
         estimatedDays: 0,
         parentId: created.id,
+        ...tentativeData,
       },
       include: { equipment: { include: { type: true } }, site: true },
     })

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
+import { TentativeField, TentativeRow } from '@/components/TentativeControls'
 import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 import { LEAVE_TYPES, LEAVE_LABEL } from '@/lib/leaveTypes'
 
@@ -20,6 +21,7 @@ interface Props {
   onSave:              (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:            (id: number) => Promise<void>
   onMove?:             (p: { assignmentId: number; newStartDate: string; includeIds: number[] }) => Promise<{ moved: number; skipped: string[] }>
+  onConfirm?:          (id: number) => Promise<void>   // ยืนยันงานจองรอยืนยัน
   onClose:             () => void
 }
 
@@ -40,7 +42,7 @@ export default function AssignmentPopup({
   employeeAssignments = [],
   initialDays,
   canEdit = true,
-  onSave, onDelete, onMove, onClose,
+  onSave, onDelete, onMove, onConfirm, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -50,6 +52,10 @@ export default function AssignmentPopup({
   const [serviceTypeId, setServiceTypeId] = useState(String(employee.primaryTeamId))
   const [estimatedDays, setEstimatedDays] = useState(String(Math.min(Math.max(initialDays ?? 1, 1), 31)))
   const [notes,         setNotes]         = useState('')
+  // งานจองรอลูกค้ายืนยัน — กันคิวไว้ก่อน + เหตุผลที่ยังไม่ยืนยัน (เช่น รอเปิด PO)
+  const [isTentative,      setIsTentative]      = useState(false)
+  const [tentativeReason,  setTentativeReason]  = useState('')
+  const [confirming,       setConfirming]       = useState<number | null>(null)
   const [companions,    setCompanions]    = useState<number[]>([])
   const [showOthers,    setShowOthers]    = useState(false)
   const [saving,        setSaving]        = useState(false)
@@ -244,6 +250,15 @@ export default function AssignmentPopup({
     setCompanions(prev => allSel ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])
   }
 
+  // ยืนยันงานจอง — ปลดธงทั้งชุด (วันแม่+วันลูก+เครื่องมือ/รถที่แนบ) แล้วปฏิทินรีเฟรชเอง
+  async function doConfirm(id: number) {
+    if (!onConfirm) return
+    setConfirming(id)
+    try { await onConfirm(id); onClose() }
+    catch (e) { alert(`ยืนยันไม่สำเร็จ: ${e instanceof Error ? e.message : e}`) }
+    finally { setConfirming(null) }
+  }
+
   async function handleSave() {
     if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
     if (status === 'LEAVE' && !leaveType) { alert('กรุณาเลือกประเภทการลา'); return }
@@ -256,6 +271,8 @@ export default function AssignmentPopup({
       status,
       leaveType: status === 'LEAVE' ? leaveType : undefined,
       notes: notes || undefined,
+      isTentative,
+      tentativeReason: isTentative ? (tentativeReason || undefined) : undefined,
     }
     // เครื่องมือ/รถ แนบเฉพาะงานภาคสนามที่เลือกไซต์แล้ว — ติดไปกับงานของคนหลัก
     const eqAttach  = status === 'FIELD' && siteId ? equipIds : []
@@ -351,6 +368,7 @@ export default function AssignmentPopup({
                           </span>
                         : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
                     </div>
+                    {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} onConfirm={() => doConfirm(a.id)} />}
                     {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
                     {renderAttach(a.parentId ?? a.id)}
                   </div>
@@ -370,6 +388,7 @@ export default function AssignmentPopup({
                       <button onClick={() => openMove(a)} className="font-normal text-sky-500 hover:text-sky-700">↔ เลื่อน</button>
                     )}
                   </div>
+                  {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} wholeJob onConfirm={() => doConfirm(a.id)} />}
                   {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
                   <div className="space-y-0.5">
                     {group.map((g) => {
@@ -527,6 +546,10 @@ export default function AssignmentPopup({
               placeholder="เช่น ห้ามเปลี่ยน, Audit"
               className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300" />
           </div>
+
+          {/* งานจองรอลูกค้ายืนยัน */}
+          <TentativeField checked={isTentative} onCheckedChange={setIsTentative}
+            reason={tentativeReason} onReasonChange={setTentativeReason} />
         </div>
         )}
 

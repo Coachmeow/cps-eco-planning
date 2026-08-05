@@ -46,12 +46,20 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
 
   const noteText = bookings.filter(b => b.notes).map(b => `${label(b)}: ${b.notes}`).join('\n')
 
+  // งานจองรอยืนยัน — เส้นประ + ⏳ ; เหตุผลขึ้น tooltip บรรทัดแรก (ไอคอน 📝 ยังผูกกับ noteText เหมือนเดิม)
+  const isTentative = bookings.some(b => b.isTentative)
+  const tentativeText = bookings
+    .filter(b => b.isTentative)
+    .map(b => `⏳ รอยืนยัน${b.tentativeReason ? `: ${b.tentativeReason}` : ''}`)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+  const tipText = [...tentativeText, noteText].filter(Boolean).join('\n')
+
   return (
     <td
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       colSpan={colSpan}
-      title={noteText || undefined}
+      title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
         px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${rangeCls}`}
     >
@@ -67,6 +75,12 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
             <span className="text-[9px] text-slate-500">🧑 {first.driver?.nickname ?? first.driverName}</span>
           ) : null}
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
+          {isTentative && (
+            <>
+              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-slate-500/70" />
+              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+            </>
+          )}
           {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
         </div>
       )}

@@ -65,6 +65,8 @@ export interface StaffAssignment {
   leaveType: string | null
   notes: string | null
   isLocked: boolean
+  isTentative: boolean
+  tentativeReason: string | null
   parentId: number | null
 }
 
@@ -132,6 +134,8 @@ export interface EquipmentAssignment {
   staffAssignmentId: number | null
   notes: string | null
   isLocked: boolean
+  isTentative: boolean
+  tentativeReason: string | null
   estimatedDays: number
   parentId: number | null
   equipment: Equipment
@@ -173,6 +177,8 @@ export interface VehicleBooking {
   driver: Employee | null
   driverName: string | null
   notes: string | null
+  isTentative: boolean
+  tentativeReason: string | null
 }
 
 export type VehicleCalendarData = Map<number, Map<string, VehicleBooking[]>>

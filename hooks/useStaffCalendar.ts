@@ -121,5 +121,12 @@ export function useStaffCalendar(year: number, month: number) {
     return data as { moved: number; skipped: string[] }
   }, [fetchAll])
 
-  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment, moveAssignment }
+  // ยืนยันงานจอง — ปลดธงรอยืนยันทั้งชุด (วันแม่+ลูก+เครื่องมือ/รถที่แนบ)
+  const confirmAssignment = useCallback(async (id: number) => {
+    const res = await fetch(`/api/staff-assignments/${id}/confirm`, { method: 'POST' })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? 'ยืนยันไม่สำเร็จ') }
+    await fetchAll()
+  }, [fetchAll])
+
+  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment, moveAssignment, confirmAssignment }
 }

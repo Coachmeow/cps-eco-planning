@@ -74,12 +74,21 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
   const leaveText = assignments
     .filter(a => a.status === 'LEAVE' && a.leaveType)
     .map(a => LEAVE_LABEL[a.leaveType!] ?? 'ลา')
+  // งานจองรอยืนยัน — เส้นประรอบช่อง + ⏳ ; เหตุผลที่ยังไม่ยืนยันขึ้นใน tooltip บรรทัดแรก
+  const tentative = assignments.filter(a => a.isTentative)
+  const isTentative = tentative.length > 0
+  const tentativeText = tentative
+    .map(a => `⏳ รอยืนยัน${a.tentativeReason ? `: ${a.tentativeReason}` : ''}`)
+    .filter((v, i, arr) => arr.indexOf(v) === i)   // งานหลายวัน/หลายรายการที่เหตุผลเดียวกัน แสดงบรรทัดเดียว
+
   const noteText = [
     ...leaveText,
     ...assignments
       .filter(a => a.notes)
       .map(a => `${a.status !== 'FIELD' ? statusAbbr(a) : (a.site?.code ?? '')}: ${a.notes}`),
   ].join('\n')
+  // tooltip = เหตุผลรอยืนยัน + หมายเหตุ ; ส่วนไอคอน 📝 ยังผูกกับ noteText อย่างเดียวเหมือนเดิม
+  const tipText = [...tentativeText, noteText].filter(Boolean).join('\n')
 
   // ไฮไลต์ตอนเลือกช่วงวัน: วันเริ่ม = วงแหวนเข้ม ; ในช่วง preview = วงแหวนอ่อน+ฟ้าจาง
   const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
@@ -90,7 +99,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       colSpan={colSpan}
-      title={noteText || undefined}
+      title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
         px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra} ${rangeCls}`}
@@ -125,8 +134,15 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
             )
           })}
 
+          {/* งานจองรอยืนยัน — กรอบเส้นประครอบช่อง (งานหลายวัน merge แล้วครอบทั้งช่วง) + ⏳ */}
+          {isTentative && (
+            <>
+              <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-slate-500/70" />
+              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+            </>
+          )}
           {assignments.some(a => a.isLocked) && (
-            <span className="absolute top-0.5 right-0.5 text-[9px] text-slate-400">🔒</span>
+            <span className={`absolute top-0.5 text-[9px] text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`}>🔒</span>
           )}
           {isConflict && (
             <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />

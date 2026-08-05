@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
   const {
     employeeId, assignedDate, siteId, serviceTypeId,
     estimatedDays = 1, status = 'FIELD', notes, isLocked = false,
+    isTentative = false, tentativeReason,   // งานจองรอลูกค้ายืนยัน + เหตุผลที่ยังไม่ยืนยัน
     leaveType,           // ประเภทลา (เมื่อ status=LEAVE)
     equipmentIds = [],   // เครื่องมือที่แนบไปกับงานคนนี้ (ผูก staffAssignmentId)
     vehicleIds = [],     // รถที่แนบไปกับงานคนนี้
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
   if (!employee) return NextResponse.json({ error: 'ไม่พบพนักงาน' }, { status: 404 })
 
   const isCrossTeam = serviceTypeId != null && serviceTypeId !== employee.primaryTeamId
+  // เครื่องมือ/รถที่แนบไปกับงานนี้ ต้องเป็นงานจองรอยืนยันตามงานคนด้วย
+  const tentativeData = { isTentative: !!isTentative, tentativeReason: isTentative ? (tentativeReason || null) : null }
   const { hasConflict, conflictingIds } = await getStaffConflict(employeeId, date, siteId ?? null)
 
   const created = await prisma.staffAssignment.create({
@@ -61,6 +64,7 @@ export async function POST(req: NextRequest) {
       employeeId, assignedDate: date,
       siteId: siteId ?? null, serviceTypeId: serviceTypeId ?? null,
       isCrossTeam, estimatedDays, status, leaveType: leaveTypeVal, notes, isLocked,
+      isTentative: !!isTentative, tentativeReason: isTentative ? (tentativeReason || null) : null,
     },
     include: { employee: true, site: true, serviceType: true },
   })
@@ -75,6 +79,7 @@ export async function POST(req: NextRequest) {
           employeeId, assignedDate: nextDate,
           siteId: siteId ?? null, serviceTypeId: serviceTypeId ?? null,
           isCrossTeam, estimatedDays: 0, status, leaveType: leaveTypeVal, notes, isLocked,
+          isTentative: !!isTentative, tentativeReason: isTentative ? (tentativeReason || null) : null,
           parentId: created.id,
         },
         include: { employee: true, site: true, serviceType: true },
@@ -110,12 +115,12 @@ export async function POST(req: NextRequest) {
       const eqId = parseInt(String(rawEqId))
       if (!eqId || !activeSet.has(eqId)) continue
       const eqParent = await prisma.equipmentAssignment.create({
-        data: { equipmentId: eqId, assignedDate: date, siteId, staffAssignmentId: created.id, estimatedDays: days },
+        data: { equipmentId: eqId, assignedDate: date, siteId, staffAssignmentId: created.id, estimatedDays: days, ...tentativeData },
       })
       for (let i = 1; i < days; i++) {
         const nd = new Date(date); nd.setDate(nd.getDate() + i)
         await prisma.equipmentAssignment.create({
-          data: { equipmentId: eqId, assignedDate: nd, siteId, staffAssignmentId: created.id, estimatedDays: 0, parentId: eqParent.id },
+          data: { equipmentId: eqId, assignedDate: nd, siteId, staffAssignmentId: created.id, estimatedDays: 0, parentId: eqParent.id, ...tentativeData },
         })
       }
     }
@@ -128,12 +133,12 @@ export async function POST(req: NextRequest) {
       const vId = parseInt(String(rawVId))
       if (!vId) continue
       const vParent = await prisma.vehicleBooking.create({
-        data: { vehicleId: vId, assignedDate: date, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: days },
+        data: { vehicleId: vId, assignedDate: date, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: days, ...tentativeData },
       })
       for (let i = 1; i < days; i++) {
         const nd = new Date(date); nd.setDate(nd.getDate() + i)
         await prisma.vehicleBooking.create({
-          data: { vehicleId: vId, assignedDate: nd, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: 0, parentId: vParent.id },
+          data: { vehicleId: vId, assignedDate: nd, purpose: 'FIELD', siteId, staffAssignmentId: created.id, driverId: employeeId, estimatedDays: 0, parentId: vParent.id, ...tentativeData },
         })
       }
     }

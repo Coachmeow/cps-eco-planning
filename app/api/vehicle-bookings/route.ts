@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
   const body = await req.json()
-  const { vehicleId, assignedDate, purpose = 'FIELD', siteId, destination, driverId, driverName, notes, estimatedDays = 1 } = body
+  const { vehicleId, assignedDate, purpose = 'FIELD', siteId, destination, driverId, driverName, notes, estimatedDays = 1,
+          isTentative = false, tentativeReason } = body
   if (!vehicleId || !assignedDate) {
     return NextResponse.json({ error: 'เลือกรถและวันที่' }, { status: 400 })
   }
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest) {
     driverId:    driverId ? parseInt(driverId) : null,
     driverName:  driverName || null,
     notes:       notes || null,
+    isTentative: !!isTentative,
+    tentativeReason: isTentative ? (tentativeReason || null) : null,
   }
 
   const created = await prisma.vehicleBooking.create({

@@ -190,6 +190,9 @@ model StaffAssignment {
   leaveType     String?          // ประเภทลา (เมื่อ status=LEAVE): SICK/SICK_CERT/PERSONAL/VACATION/UNPAID
   notes         String?
   isLocked      Boolean          @default(false)
+  // งานจองรอลูกค้ายืนยัน — กันคิวไว้แล้วแต่ยังอาจยกเลิก (reason = เหตุผลที่ยังไม่ยืนยัน เช่น รอเปิด PO)
+  isTentative     Boolean        @default(false)
+  tentativeReason String?
   parentId      Int?
   parent        StaffAssignment?  @relation("MultiDay", fields: [parentId], references: [id])
   children      StaffAssignment[] @relation("MultiDay")
@@ -222,6 +225,8 @@ model EquipmentAssignment {
   staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
   notes             String?
   isLocked          Boolean          @default(false)
+  isTentative       Boolean          @default(false)   // งานจองรอยืนยัน (ดู StaffAssignment)
+  tentativeReason   String?
   estimatedDays     Int              @default(1)
   parentId          Int?
   parent            EquipmentAssignment?  @relation("EqMultiDay", fields: [parentId], references: [id])
@@ -385,6 +390,8 @@ model VehicleBooking {
   driver            Employee?        @relation("VehicleDriver", fields: [driverId], references: [id])
   driverName        String?          // คนขับนอกระบบ
   notes             String?
+  isTentative       Boolean          @default(false)   // งานจองรอยืนยัน (ดู StaffAssignment)
+  tentativeReason   String?
   logs              VehicleLog[]
   trips             VehicleTrip[]    @relation("VBTrip")
 

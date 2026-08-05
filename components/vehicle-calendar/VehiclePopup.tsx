@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Vehicle, VehicleBooking, Site, Employee, VehiclePurpose } from '@/lib/types'
 import { PURPOSE_META, PURPOSE_ORDER } from '@/lib/vehiclePurpose'
 import SearchableSelect from '@/components/SearchableSelect'
+import { TentativeField, TentativeRow } from '@/components/TentativeControls'
 
 interface Props {
   vehicle:      Vehicle
@@ -17,6 +18,7 @@ interface Props {
   onSave:       (payload: Record<string, unknown>) => Promise<void>
   onDelete:     (id: number) => Promise<void>
   onMove?:      (p: { assignmentId: number; newStartDate: string }) => Promise<void>
+  onConfirm?:   (id: number) => Promise<void>   // ยืนยันงานจองรอยืนยัน
   onClose:      () => void
 }
 
@@ -24,9 +26,21 @@ const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => String(i + 1))
 const fmtDay = (d: string) => new Date(d).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
 
 export default function VehiclePopup({
-  vehicle, date, bookings, vehicleBookings, sites, employees, initialDays, canEdit = true, onSave, onDelete, onMove, onClose,
+  vehicle, date, bookings, vehicleBookings, sites, employees, initialDays, canEdit = true, onSave, onDelete, onMove, onConfirm, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+
+  // งานจองรอลูกค้ายืนยัน
+  const [isTentative,     setIsTentative]     = useState(false)
+  const [tentativeReason, setTentativeReason] = useState('')
+  const [confirming,      setConfirming]      = useState<number | null>(null)
+  async function doConfirm(id: number) {
+    if (!onConfirm) return
+    setConfirming(id)
+    try { await onConfirm(id); onClose() }
+    catch (e) { alert(`ยืนยันไม่สำเร็จ: ${e instanceof Error ? e.message : e}`) }
+    finally { setConfirming(null) }
+  }
 
   // เลื่อนงาน (reschedule) — เลือกวันเริ่มใหม่ต่อรายการวันแม่
   const [moveFor,  setMoveFor]  = useState<number | null>(null)
@@ -81,6 +95,8 @@ export default function VehiclePopup({
         driverName: driverName || undefined,
         notes: notes || undefined,
         estimatedDays: parseInt(days),
+        isTentative,
+        tentativeReason: isTentative ? (tentativeReason || undefined) : undefined,
       })
       onClose()
     } finally { setSaving(false) }
@@ -120,6 +136,7 @@ export default function VehiclePopup({
                       </div>
                     </div>
                     {driver && <p className="text-[11px] text-slate-400">🧑 {driver}</p>}
+                    {b.isTentative && <TentativeRow reason={b.tentativeReason} canEdit={canEdit} busy={confirming === b.id} onConfirm={() => doConfirm(b.id)} />}
                     {b.notes && <p className="text-[11px] text-amber-600">📝 {b.notes}</p>}
                     {moveFor === b.id && movePanel}
                   </div>
@@ -133,6 +150,7 @@ export default function VehiclePopup({
                       <button onClick={() => openMove(b.id, b.assignedDate)} className="text-[11px] text-sky-500 hover:text-sky-700">เลื่อนทั้งงาน</button>}
                   </div>
                   {driver && <p className="mb-1 text-[11px] text-slate-400">🧑 {driver}</p>}
+                  {b.isTentative && <TentativeRow reason={b.tentativeReason} canEdit={canEdit} busy={confirming === b.id} wholeJob onConfirm={() => doConfirm(b.id)} />}
                   {moveFor === b.id && movePanel}
                   <div className="space-y-0.5">
                     {group.map(g => {
@@ -208,6 +226,11 @@ export default function VehiclePopup({
             <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="..."
               className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
           </div>
+
+          {/* งานจองรอลูกค้ายืนยัน */}
+          <TentativeField checked={isTentative} onCheckedChange={setIsTentative}
+            reason={tentativeReason} onReasonChange={setTentativeReason} />
+
           <button onClick={handleSave} disabled={saving || (purpose === 'FIELD' ? (!siteId && !destination) : !destination)}
             className="w-full rounded bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
             {saving ? 'กำลังบันทึก...' : `บันทึก${parseInt(days) > 1 ? ` (${days} วัน)` : ''}`}
