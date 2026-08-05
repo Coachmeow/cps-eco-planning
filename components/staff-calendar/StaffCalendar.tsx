@@ -63,7 +63,26 @@ export default function StaffCalendar() {
   const { holidaySet, holidayMap } = useHolidays()
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
-  const filteredEmployees = teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter)
+
+  // งานจองรอลูกค้ายืนยัน — นับจำนวนงาน (เฉพาะวันแม่ กันนับซ้ำ) + โหมดกรองเหลือเฉพาะคนที่มีงานรอยืนยัน
+  const [tentativeOnly, setTentativeOnly] = useState(false)
+  const tentativeEmpIds = useMemo(() => {
+    const s = new Set<number>()
+    for (const [empId, dayMap] of calendarData.entries()) {
+      for (const list of dayMap.values()) if (list.some(a => a.isTentative)) { s.add(empId); break }
+    }
+    return s
+  }, [calendarData])
+  const tentativeCount = useMemo(() => {
+    let n = 0
+    for (const dayMap of calendarData.values()) {
+      for (const list of dayMap.values()) n += list.filter(a => a.isTentative && a.parentId == null).length
+    }
+    return n
+  }, [calendarData])
+
+  const filteredEmployees = (teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter))
+    .filter(e => !tentativeOnly || tentativeEmpIds.has(e.id))
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
@@ -162,6 +181,14 @@ export default function StaffCalendar() {
         </div>
         {totalConflicts > 0 && (
           <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {totalConflicts} conflict</span>
+        )}
+        {tentativeCount > 0 && (
+          <button onClick={() => setTentativeOnly(v => !v)}
+            title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานรอลูกค้ายืนยัน"
+            className={`rounded-full border border-dashed px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              tentativeOnly ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-400 bg-white text-slate-600 hover:bg-slate-100'}`}>
+            ⏳ รอยืนยัน {tentativeCount}
+          </button>
         )}
         <div className="ml-auto flex items-center gap-1.5 flex-wrap">
           <button onClick={() => setTeamFilter('ALL')}

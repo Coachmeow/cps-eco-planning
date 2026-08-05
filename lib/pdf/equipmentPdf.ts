@@ -83,7 +83,8 @@ export function exportEquipmentPdf(args: ExportEquipmentPdfArgs): void {
       assignedDays += span
 
       const display = dayAssign[0]
-      let text = display.site?.code ?? '—'
+      // งานจองรอยืนยัน → ? นำหน้า (เส้นประทำใน autotable ไม่ได้) มี legend ใต้ตาราง
+      let text = (dayAssign.some(a => a.isTentative) ? '? ' : '') + (display.site?.code ?? '—')
       if (span > 1 && display.parentId == null) text += ` (${Number(display.estimatedDays)} วัน)`
       const bg: RGB = isConflict ? CONFLICT_BG : teamPdf(teamCode).bg
       const txt: RGB = isConflict ? CONFLICT_TEXT : teamPdf(teamCode).text
@@ -105,6 +106,10 @@ export function exportEquipmentPdf(args: ExportEquipmentPdfArgs): void {
     headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 6, halign: 'center' },
     columnStyles: { 0: { cellWidth: 30, halign: 'left' }, ...dayColStyles, [1 + nDays]: { cellWidth: 10 } },
   })
+
+  const afterY = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 14) + 4
+  doc.setFont('Sarabun', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139)
+  doc.text('?  = งานจองรอลูกค้ายืนยัน (ดูเหตุผลได้ในระบบ)', 8, afterY)
 
   // หน้าหมายเหตุ
   const noteRows: RowInput[] = []

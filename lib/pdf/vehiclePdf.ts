@@ -71,7 +71,8 @@ export function exportVehiclePdf(args: ExportVehiclePdfArgs): void {
 
       const b = dayBook[0]
       const team = bookingTeam(b)
-      let text = bookingLabel(b)
+      // งานจองรอยืนยัน → ? นำหน้า (เส้นประทำใน autotable ไม่ได้) มี legend ใต้ตาราง
+      let text = (dayBook.some(x => x.isTentative) ? '? ' : '') + bookingLabel(b)
       const drv = b.driver?.nickname ?? b.driverName
       if (drv) text += `\n${drv}`
       if (span > 1 && b.parentId == null) text += ` (${Number(b.estimatedDays)} วัน)`
@@ -97,6 +98,10 @@ export function exportVehiclePdf(args: ExportVehiclePdfArgs): void {
     headStyles: { font: 'Sarabun', fontStyle: 'bold', fillColor: HEADER_BG, textColor: 255, fontSize: 6, halign: 'center' },
     columnStyles: { 0: { cellWidth: 30, halign: 'left' }, ...dayColStyles, [1 + nDays]: { cellWidth: 10 } },
   })
+
+  const afterY = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 14) + 4
+  doc.setFont('Sarabun', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139)
+  doc.text('?  = งานจองรอลูกค้ายืนยัน (ดูเหตุผลได้ในระบบ)', 8, afterY)
 
   const noteRows: RowInput[] = []
   for (const v of vehicles) {

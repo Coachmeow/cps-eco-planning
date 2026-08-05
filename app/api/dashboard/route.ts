@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { countWorkdays } from '@/lib/workdays'
 import { getHolidaySet } from '@/lib/holidays'
+import { toDateKey } from '@/lib/dateKey'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -247,7 +248,34 @@ export async function GET(req: NextRequest) {
   ])
   const mileageMismatch = logMismatch + tripMismatch
 
-  const alerts = { calOverdue, calSoon, repairOverdue, stillOut, mileageMismatch }
+  // งานจองรอลูกค้ายืนยัน — ยอดรวมเดือนนี้ + รายการที่ใกล้ถึงวันงานภายใน 7 วัน (ไว้ไล่ตามลูกค้า)
+  const in7 = new Date(todayStart); in7.setDate(in7.getDate() + 7)
+  const tentativeRows = await prisma.staffAssignment.findMany({
+    where: {
+      isTentative: true, status: 'FIELD', siteId: { not: null },
+      assignedDate: { gte: startDate, lte: endDate },
+    },
+    select: {
+      assignedDate: true, estimatedDays: true, parentId: true, tentativeReason: true,
+      employee: { select: { nickname: true, fullName: true } },
+      site:     { select: { code: true } },
+    },
+    orderBy: { assignedDate: 'asc' },
+  })
+  // นับเป็นวัน-คน: วันแม่เก็บจำนวนวันรวมไว้แล้ว วันลูกเป็น 0 จึงไม่นับซ้ำ
+  const tentativeDays = tentativeRows.reduce((s, r) => s + Number(r.estimatedDays), 0)
+  const tentativeSoon = tentativeRows
+    .filter(r => r.parentId == null && r.assignedDate >= todayStart && r.assignedDate <= in7)
+    .slice(0, 15)
+    .map(r => ({
+      date:     toDateKey(r.assignedDate),
+      employee: r.employee.nickname ?? r.employee.fullName,
+      site:     r.site?.code ?? '—',
+      days:     Number(r.estimatedDays),
+      reason:   r.tentativeReason,
+    }))
+
+  const alerts = { calOverdue, calSoon, repairOverdue, stillOut, mileageMismatch, tentativeSoon: tentativeSoon.length }
 
   // ── Equipment Availability (% เครื่องพร้อมใช้) ───────────────
   // available = ACTIVE ; ฐาน = เครื่องที่ยังอยู่ในระบบ (ไม่ RETIRED) → หัก CALIBRATING/BROKEN ออก
@@ -277,5 +305,5 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, workdays, year, month })
 }

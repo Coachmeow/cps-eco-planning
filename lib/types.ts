@@ -327,6 +327,9 @@ export interface DashboardData {
   vehicleUtil?: VehicleUtilRow[]
   alerts?: DashboardAlerts
   equipmentAvail?: { available: number; total: number; pct: number }
+  // งานจองรอลูกค้ายืนยัน — ยอดวัน-คนเดือนนี้ + รายการที่ใกล้ถึงวันงาน (7 วัน)
+  tentativeDays?: number
+  tentativeSoon?: { date: string; employee: string; site: string; days: number; reason: string | null }[]
   workdays: number
   year: number
   month: number

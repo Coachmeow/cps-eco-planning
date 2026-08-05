@@ -113,6 +113,26 @@ export default function DashboardView() {
             </div>
           )}
 
+          {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
+          {(data.tentativeSoon?.length ?? 0) > 0 && (
+            <Card title={`⏳ งานรอยืนยัน ใกล้ถึงวันงาน (${data.tentativeSoon!.length} งาน ภายใน 7 วัน)`}>
+              <div className="divide-y divide-slate-100">
+                {data.tentativeSoon!.map((t, i) => (
+                  <div key={i} className="flex items-start justify-between gap-3 py-1.5 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-medium text-slate-700">{t.employee}</span>
+                      <span className="ml-1.5 text-slate-400">{t.site}{t.days > 1 ? ` · ${t.days} วัน` : ''}</span>
+                      {t.reason && <p className="mt-0.5 break-words text-[11px] text-amber-600">{t.reason}</p>}
+                    </div>
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
+                      {new Date(t.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
             <DemandChart rows={data.equipmentUtil} />
           </Card>
@@ -123,6 +143,12 @@ export default function DashboardView() {
 
           {/* Team capacity remaining — sorted by remaining desc */}
           <Card title="Capacity คงเหลือต่อทีม (วัน-คน)">
+            {/* งานรอยืนยันนับรวมอยู่ในยอด "ใช้" แล้ว (คิวถูกกันไว้จริง) — แยกโชว์ให้เห็นความเสี่ยง */}
+            {(data.tentativeDays ?? 0) > 0 && (
+              <p className="mb-3 rounded border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
+                ⏳ ในยอดนี้เป็น<b>งานรอยืนยัน {data.tentativeDays} วัน-คน</b> — ถ้าลูกค้ายกเลิกจะว่างเพิ่มเท่านี้
+              </p>
+            )}
             {data.teamCapacity.length === 0
               ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
               : (

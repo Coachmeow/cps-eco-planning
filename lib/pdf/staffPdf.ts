@@ -112,7 +112,9 @@ function buildDayCell(
     bg = STATUS_BG; txt = STATUS_TEXT
   }
 
-  const content = (text.trim() + (hasNote ? ' *' : '')).trim()
+  // งานจองรอยืนยัน — เส้นประทำใน autotable ไม่ได้ ใช้ ? นำหน้าแทน (มี legend ใต้ตาราง)
+  const isTentative = dayAssign.some(a => a.isTentative)
+  const content = ((isTentative ? '? ' : '') + text.trim() + (hasNote ? ' *' : '')).trim()
   return { cell: { content, colSpan: span, styles: { fillColor: bg, textColor: txt } }, span }
 }
 
@@ -206,6 +208,11 @@ export function exportStaffPdf(args: ExportStaffPdfArgs): void {
       [2 + nDays]: { cellWidth: 10 },
     },
   })
+
+  // legend ใต้ตาราง — อธิบายเครื่องหมายในช่อง
+  const afterY = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 14) + 4
+  doc.setFont('Sarabun', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 116, 139)
+  doc.text('?  = งานจองรอลูกค้ายืนยัน (ดูเหตุผลได้ในระบบ)          *  = มีหมายเหตุ ดูหน้าถัดไป', 8, afterY)
 
   // ── หน้าหมายเหตุงาน ── รวมหมายเหตุทุกงาน (เรียงตามพนักงาน → วันที่)
   interface NoteRow { emp: string; team: string; date: string; label: string; note: string }
