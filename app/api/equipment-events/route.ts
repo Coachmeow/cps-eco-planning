@@ -6,11 +6,15 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const status = searchParams.get('status') // 'open' | 'all'
   const type   = searchParams.get('type')   // 'REPAIR' | 'CALIBRATION'
+  const year   = searchParams.get('year')   // ค.ศ. — กรองตาม "วันส่ง" (ใช้ในหน้าแผน Cal)
+
+  const y = year && /^\d{4}$/.test(year) ? parseInt(year) : null
 
   const events = await prisma.equipmentEvent.findMany({
     where: {
       ...(status === 'open' ? { returnedDate: null } : {}),
       ...(type ? { type: type as 'REPAIR' | 'CALIBRATION' } : {}),
+      ...(y ? { sentDate: { gte: new Date(Date.UTC(y, 0, 1)), lte: new Date(Date.UTC(y, 11, 31)) } } : {}),
     },
     include: { equipment: { include: { type: true } } },
     orderBy: [{ returnedDate: 'asc' }, { sentDate: 'desc' }],

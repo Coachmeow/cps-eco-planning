@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
+import SearchableSelect from '@/components/SearchableSelect'
 import { useMe } from '@/hooks/useMe'
 import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
@@ -28,7 +29,7 @@ async function resizeImage(file: File, max = 256, quality = 0.8): Promise<string
 
 // ── Types ─────────────────────────────────────────────────────
 interface Team     { id: number; code: string; name: string }
-interface EqType   { id: number; code: string; name: string; primaryTeamId: number }
+interface EqType   { id: number; code: string; name: string; primaryTeamId: number; requiresCal?: boolean }
 interface SubTeamRow { id: number; teamId: number; name: string; sortOrder: number; team?: { code: string }; _count?: { members: number } }
 interface Employee {
   id: number; fullName: string; nickname: string | null; primaryTeamId: number; primaryTeam: Team; isActive: boolean
@@ -593,7 +594,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [viewing,   setViewing]   = useState<Equipment | null>(null)
   // จัดการประเภทเครื่องมือ
   const [typeModal,   setTypeModal]   = useState(false)
-  const [typeForm,    setTypeForm]    = useState({ code: '', name: '', primaryTeamId: '' })
+  const [typeForm,    setTypeForm]    = useState({ code: '', name: '', primaryTeamId: '', requiresCal: false })
   const [editingType, setEditingType] = useState<EqType | null>(null)
   const [typeSaving,  setTypeSaving]  = useState(false)
 
@@ -685,12 +686,12 @@ function EquipmentSection({ role }: { role?: UserRole }) {
 
   // ── จัดการประเภทเครื่องมือ ──
   const typeCount = (typeId: number) => equipment.filter(e => e.typeId === typeId).length
-  function resetTypeForm() { setEditingType(null); setTypeForm({ code: '', name: '', primaryTeamId: teams[0] ? String(teams[0].id) : '' }) }
-  function editType(t: EqType) { setEditingType(t); setTypeForm({ code: t.code, name: t.name, primaryTeamId: String(t.primaryTeamId) }) }
+  function resetTypeForm() { setEditingType(null); setTypeForm({ code: '', name: '', primaryTeamId: teams[0] ? String(teams[0].id) : '', requiresCal: false }) }
+  function editType(t: EqType) { setEditingType(t); setTypeForm({ code: t.code, name: t.name, primaryTeamId: String(t.primaryTeamId), requiresCal: !!t.requiresCal }) }
   async function saveType() {
     if (!typeForm.code || !typeForm.name || !typeForm.primaryTeamId) return
     setTypeSaving(true)
-    const body = { code: typeForm.code, name: typeForm.name, primaryTeamId: parseInt(typeForm.primaryTeamId) }
+    const body = { code: typeForm.code, name: typeForm.name, primaryTeamId: parseInt(typeForm.primaryTeamId), requiresCal: typeForm.requiresCal }
     const res = editingType
       ? await fetch(`/api/equipment-types/${editingType.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       : await fetch('/api/equipment-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -920,6 +921,10 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                 <CustomSelect value={typeForm.primaryTeamId} onChange={(v) => setTypeForm(p => ({ ...p, primaryTeamId: v }))}
                   options={teams.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))} />
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={typeForm.requiresCal} onChange={(e) => setTypeForm(p => ({ ...p, requiresCal: e.target.checked }))} className="h-4 w-4" />
+                <span>📐 ต้องส่ง Calibrate เป็นรอบ <span className="text-xs text-slate-400">(ใช้เตือน + หาเครื่องที่ยังไม่มีแผน)</span></span>
+              </label>
               <div className="flex justify-end gap-2 pt-1">
                 {editingType && <Btn variant="ghost" onClick={resetTypeForm}>ยกเลิกแก้</Btn>}
                 <Btn onClick={saveType}>{typeSaving ? 'กำลังบันทึก...' : editingType ? 'บันทึกการแก้ไข' : '+ เพิ่มประเภท'}</Btn>
@@ -933,11 +938,12 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                   <th className="px-3 py-2 text-left font-medium">โค้ด</th>
                   <th className="px-3 py-2 text-left font-medium">ชื่อ</th>
                   <th className="px-3 py-2 text-left font-medium">ทีม</th>
+                  <th className="px-3 py-2 text-center font-medium">Cal</th>
                   <th className="px-3 py-2 text-right font-medium">เครื่อง</th>
                   <th className="px-3 py-2" />
                 </tr></thead>
                 <tbody>
-                  {eqTypes.length === 0 && <tr><td colSpan={5} className="px-3 py-5 text-center text-xs text-slate-300">ยังไม่มีประเภท</td></tr>}
+                  {eqTypes.length === 0 && <tr><td colSpan={6} className="px-3 py-5 text-center text-xs text-slate-300">ยังไม่มีประเภท</td></tr>}
                   {eqTypes.map(t => {
                     const cnt = typeCount(t.id)
                     return (
@@ -945,6 +951,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                         <td className="px-3 py-2 font-mono text-xs font-medium text-slate-700">{t.code}</td>
                         <td className="px-3 py-2 text-slate-600">{t.name}</td>
                         <td className="px-3 py-2 text-xs text-slate-500">{teams.find(x => x.id === t.primaryTeamId)?.code ?? '—'}</td>
+                        <td className="px-3 py-2 text-center">{t.requiresCal ? <span title="ต้องส่ง Calibrate">📐</span> : <span className="text-slate-300">—</span>}</td>
                         <td className="px-3 py-2 text-right text-slate-400">{cnt}</td>
                         <td className="px-3 py-2 text-right">
                           <div className="flex justify-end gap-1.5">
@@ -1230,59 +1237,162 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
 // ── Section: Calibration annual plan ──────────────────────────
 const CAL_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-function CalPlanSection() {
+// อ่าน ปี/เดือน จาก ISO string ตรงๆ — กัน timezone ทำให้เดือนเพี้ยน (ค่าใน DB เป็น @db.Date)
+const isoYear  = (s: string) => parseInt(s.slice(0, 4))
+const isoMonth = (s: string) => parseInt(s.slice(5, 7)) - 1
+const thShort  = (s: string) => `${parseInt(s.slice(8, 10))} ${CAL_MONTHS[isoMonth(s)]}`
+
+interface CalEventRow {
+  id: number; equipmentId: number; sentDate: string; expectedDate: string | null
+  returnedDate: string | null; nextDueDate: string | null; vendor: string | null; cost: number | null; notes: string | null
+}
+
+// tooltip ของสัญลักษณ์ "ส่งจริง"
+function calEventTip(e: CalEventRow): string {
+  const lines = [
+    e.returnedDate
+      ? `ส่ง ${thShort(e.sentDate)} → รับกลับ ${thShort(e.returnedDate)}`
+      : `ส่ง ${thShort(e.sentDate)} — ยังอยู่ที่ศูนย์${e.expectedDate ? ` (กำหนดเสร็จ ${thShort(e.expectedDate)})` : ''}`,
+  ]
+  if (e.vendor)      lines.push(`ศูนย์: ${e.vendor}`)
+  if (e.cost != null) lines.push(`ค่าใช้จ่าย: ${e.cost.toLocaleString('th-TH')} บาท`)
+  if (e.nextDueDate) lines.push(`กำหนดถัดไป: ${thShort(e.nextDueDate)} ${isoYear(e.nextDueDate) + 543}`)
+  if (e.notes)       lines.push(e.notes)
+  return lines.join('\n')
+}
+
+function CalPlanSection({ role }: { role?: UserRole }) {
+  const canEdit = role === 'ADMIN' || role === 'MANAGER'
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [eqTypes,   setEqTypes]   = useState<EqType[]>([])
+  const [events,    setEvents]    = useState<CalEventRow[]>([])
   const [year,      setYear]      = useState(new Date().getFullYear())
   const [filterType, setFilterType] = useState('')
 
+  // modal ตั้ง/แก้แผน
+  const [planModal, setPlanModal] = useState<null | { mode: 'add' | 'edit'; eqId: string }>(null)
+  const [planDate,  setPlanDate]  = useState('')
+  const [saving,    setSaving]    = useState(false)
+
+  // ใบงาน Cal 2 ชุด: (1) ที่ส่งในปีที่เลือก = เอามาวาด  (2) ที่ยังเปิดค้าง = ใช้ตัดสิน "เกินกำหนด" (อาจส่งข้ามปี)
   const load = useCallback(async () => {
-    const [eRes, tRes] = await Promise.all([
+    const [eRes, tRes, evRes, openRes] = await Promise.all([
       fetch('/api/equipment?all=true').then(r => r.json()),
       fetch('/api/equipment-types').then(r => r.json()),
+      fetch(`/api/equipment-events?type=CALIBRATION&year=${year}`).then(r => r.json()),
+      fetch('/api/equipment-events?type=CALIBRATION&status=open').then(r => r.json()),
     ])
     setEquipment(Array.isArray(eRes) ? eRes : [])
     setEqTypes(Array.isArray(tRes) ? tRes : [])
-  }, [])
+    const merged = new Map<number, CalEventRow>()
+    for (const ev of [...(Array.isArray(evRes) ? evRes : []), ...(Array.isArray(openRes) ? openRes : [])]) merged.set(ev.id, ev)
+    setEvents(Array.from(merged.values()))
+  }, [year])
   useEffect(() => { load() }, [load])
 
   const todayKey = new Date().toISOString().slice(0, 10)
-  // เครื่องที่มีกำหนด Cal และตรงปีที่เลือก
-  const withCal = equipment.filter(eq => {
-    if (!eq.calDueDate) return false
-    if (filterType && String(eq.typeId) !== filterType) return false
-    return new Date(eq.calDueDate).getFullYear() === year
-  })
+  const eqName = (eq: Equipment) => eq.internalNo ?? eq.serialNo ?? `#${eq.id}`
+
+  const byEq = new Map<number, CalEventRow[]>()
+  for (const ev of events) {
+    if (!byEq.has(ev.equipmentId)) byEq.set(ev.equipmentId, [])
+    byEq.get(ev.equipmentId)!.push(ev)
+  }
+
+  // แถวในปีนี้ = มีกำหนดครบในปีนี้ "หรือ" มีใบงานส่งจริงในปีนี้
+  interface Row { eq: Equipment; dueMonth: number | null; overdue: boolean; sent: CalEventRow[] }
+  const rows: Row[] = []
+  for (const eq of equipment) {
+    if (eq.status === 'RETIRED') continue
+    if (filterType && String(eq.typeId) !== filterType) continue
+    const evs     = byEq.get(eq.id) ?? []
+    const sent    = evs.filter(e => isoYear(e.sentDate) === year).sort((a, b) => a.sentDate.localeCompare(b.sentDate))
+    const hasOpen = evs.some(e => !e.returnedDate)
+    const dueThisYear = eq.calDueDate && isoYear(eq.calDueDate) === year
+    if (!dueThisYear && sent.length === 0) continue
+    rows.push({
+      eq,
+      dueMonth: dueThisYear ? isoMonth(eq.calDueDate!) : null,
+      overdue:  !!dueThisYear && eq.calDueDate!.slice(0, 10) < todayKey && !hasOpen,
+      sent,
+    })
+  }
 
   // group by type
-  const groups = new Map<number, { type: EqType; items: Equipment[] }>()
-  for (const eq of withCal) {
-    const t = eqTypes.find(x => x.id === eq.typeId)
+  const groups = new Map<number, { type: EqType; items: Row[] }>()
+  for (const row of rows) {
+    const t = eqTypes.find(x => x.id === row.eq.typeId)
     if (!t) continue
-    if (!groups.has(eq.typeId)) groups.set(eq.typeId, { type: t, items: [] })
-    groups.get(eq.typeId)!.items.push(eq)
+    if (!groups.has(row.eq.typeId)) groups.set(row.eq.typeId, { type: t, items: [] })
+    groups.get(row.eq.typeId)!.items.push(row)
   }
   const groupArr = Array.from(groups.values())
 
-  // สรุปจำนวนต่อเดือน
-  const monthCount = Array(12).fill(0) as number[]
-  withCal.forEach(eq => { monthCount[new Date(eq.calDueDate!).getMonth()]++ })
+  // สรุปต่อเดือน + ชิป
+  const monthDue  = Array(12).fill(0) as number[]
+  const monthSent = Array(12).fill(0) as number[]
+  for (const row of rows) {
+    if (row.dueMonth != null) monthDue[row.dueMonth]++
+    for (const e of row.sent) monthSent[isoMonth(e.sentDate)]++
+  }
+  const sentCount    = rows.reduce((n, r) => n + r.sent.length, 0)
+  const waitingCount = rows.reduce((n, r) => n + r.sent.filter(e => !e.returnedDate).length, 0)
+  const overdueCount = rows.filter(r => r.overdue).length
+
+  // เครื่องที่ "ต้อง Cal" แต่ยังไม่มีทั้งแผนและใบงานเปิด (ช่องโหว่)
+  const noPlan = equipment.filter(eq => {
+    if (eq.status === 'RETIRED') return false
+    if (filterType && String(eq.typeId) !== filterType) return false
+    const t = eqTypes.find(x => x.id === eq.typeId)
+    if (!t?.requiresCal) return false
+    if (eq.calDueDate) return false
+    return !(byEq.get(eq.id) ?? []).some(e => !e.returnedDate)
+  })
+
+  async function savePlan() {
+    if (!planModal || !planDate) return
+    setSaving(true)
+    const res = await fetch(`/api/equipment/${planModal.eqId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ calDueDate: planDate }),
+    })
+    setSaving(false)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'บันทึกไม่สำเร็จ'); return }
+    setPlanModal(null); load()
+  }
+  async function removePlan(eq: Equipment) {
+    if (!confirm(`เอา ${eqName(eq)} ออกจากแผน Cal?`)) return
+    const res = await fetch(`/api/equipment/${eq.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ calDueDate: null }),
+    })
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
+    load()
+  }
+  function openAdd(eqId = '')  { setPlanDate(''); setPlanModal({ mode: 'add', eqId }) }
+  function openEdit(eq: Equipment) { setPlanDate(eq.calDueDate?.slice(0, 10) ?? ''); setPlanModal({ mode: 'edit', eqId: String(eq.id) }) }
+
+  const Chip = ({ color, children }: { color: string; children: React.ReactNode }) => (
+    <span className={`rounded-full border px-2.5 py-1 text-xs ${color}`}>{children}</span>
+  )
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
           <button onClick={() => setYear(y => y - 1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
           <span className="min-w-[70px] text-center text-sm font-medium text-slate-700">ปี {year + 543}</span>
           <button onClick={() => setYear(y => y + 1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
         </div>
-        <CustomSelect value={filterType} onChange={setFilterType} placeholder="ทุกหมวด" className="w-56"
+        <CustomSelect value={filterType} onChange={setFilterType} placeholder="ทุกหมวด" className="w-52"
           options={[{ value: '', label: 'ทุกหมวด' }, ...eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))]} />
-        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">{withCal.length} เครื่องในปีนี้</span>
+        <Chip color="border-slate-200 bg-white text-slate-500">{rows.length} เครื่องในปีนี้</Chip>
+        {sentCount > 0 && <Chip color="border-emerald-200 bg-emerald-50 text-emerald-700">ส่งแล้ว {sentCount}</Chip>}
+        {waitingCount > 0 && <Chip color="border-amber-200 bg-amber-50 text-amber-700">อยู่ที่ศูนย์ {waitingCount}</Chip>}
+        {overdueCount > 0 && <Chip color="border-red-200 bg-red-50 text-red-600">เกินกำหนด {overdueCount}</Chip>}
+        {canEdit && <div className="ml-auto"><Btn onClick={() => openAdd()}>+ เพิ่มแผนแคล</Btn></div>}
       </div>
 
       {groupArr.length === 0 ? (
-        <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีเครื่องที่มีกำหนด Calibrate ในปีนี้<br /><span className="text-xs">กำหนด Cal ครั้งถัดไปได้ตอนรับเครื่องกลับในเมนู ซ่อม/Cal</span></p>
+        <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีเครื่องที่มีแผน Cal หรือส่ง Cal ในปีนี้<br /><span className="text-xs">กด &quot;+ เพิ่มแผนแคล&quot; เพื่อกำหนดวัน หรือกำหนดอัตโนมัติได้ตอนรับเครื่องกลับในเมนู ซ่อม/Cal</span></p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-xs">
@@ -1290,43 +1400,111 @@ function CalPlanSection() {
               <tr>
                 <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2 text-left font-medium min-w-[150px]">เครื่องมือ</th>
                 {CAL_MONTHS.map((m, i) => (
-                  <th key={m} className="border-l border-slate-100 px-1 py-2 text-center font-medium min-w-[40px]">
-                    {m}{monthCount[i] > 0 && <div className="text-[9px] font-normal text-violet-500">{monthCount[i]}</div>}
+                  <th key={m} className="border-l border-slate-100 px-1 py-2 text-center font-medium min-w-[46px]">
+                    {m}
+                    {(monthDue[i] > 0 || monthSent[i] > 0) && (
+                      <div className="flex justify-center gap-1 text-[9px] font-normal">
+                        {monthDue[i]  > 0 && <span className="text-violet-500">{monthDue[i]}</span>}
+                        {monthSent[i] > 0 && <span className="text-emerald-600">{monthSent[i]}</span>}
+                      </div>
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {groupArr.map(({ type, items }) => (
-                <>
-                  <tr key={`g-${type.id}`}>
+                <Fragment key={`g-${type.id}`}>
+                  <tr>
                     <td colSpan={13} className="border-t border-slate-200 bg-slate-100 px-3 py-1 font-semibold text-slate-500">{type.code} — {type.name}</td>
                   </tr>
-                  {items.map(eq => {
-                    const due = new Date(eq.calDueDate!)
-                    const dueMonth = due.getMonth()
-                    const overdue = eq.calDueDate!.slice(0, 10) < todayKey
-                    return (
-                      <tr key={eq.id} className="border-t border-slate-100 hover:bg-slate-50">
-                        <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</td>
-                        {CAL_MONTHS.map((_, i) => (
+                  {items.map(row => (
+                    <tr key={row.eq.id} className="group border-t border-slate-100 hover:bg-slate-50">
+                      <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-medium text-slate-700">
+                        <div className="flex items-center justify-between gap-1">
+                          <span>{eqName(row.eq)}</span>
+                          {canEdit && row.eq.calDueDate && (
+                            <span className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <button onClick={() => openEdit(row.eq)} title="แก้วันแผน" className="text-[11px] text-slate-400 hover:text-slate-700">✎</button>
+                              <button onClick={() => removePlan(row.eq)} title="เอาออกจากแผน" className="text-[11px] text-slate-400 hover:text-red-600">✕</button>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {CAL_MONTHS.map((_, i) => {
+                        const inMonth = row.sent.filter(e => isoMonth(e.sentDate) === i)
+                        return (
                           <td key={i} className="border-l border-slate-100 px-1 py-1.5 text-center">
-                            {i === dueMonth && (
-                              <span title={`${overdue ? 'เกินกำหนด ' : ''}${eq.calDueDate!.slice(0,10)}`}
-                                className={`inline-block h-2.5 w-2.5 rounded-full ${overdue ? 'bg-red-500' : 'bg-violet-500'}`} />
-                            )}
+                            <span className="inline-flex items-center justify-center gap-0.5">
+                              {row.dueMonth === i && (
+                                <span title={`${row.overdue ? 'เกินกำหนด — ' : ''}กำหนดครบ Cal ${thShort(row.eq.calDueDate!)}`}
+                                  className={`inline-block h-2.5 w-2.5 rounded-full ${row.overdue ? 'bg-red-500' : 'bg-violet-500'}`} />
+                              )}
+                              {inMonth.map(e => e.returnedDate ? (
+                                <span key={e.id} title={calEventTip(e)} className="text-[11px] font-bold leading-none text-emerald-600">✓</span>
+                              ) : (
+                                <span key={e.id} title={calEventTip(e)} className="inline-block h-2.5 w-2.5 rounded-full border-2 border-amber-500" />
+                              ))}
+                            </span>
                           </td>
-                        ))}
-                      </tr>
-                    )
-                  })}
-                </>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      <p className="mt-2 text-xs text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-violet-500 align-middle" /> กำหนด Cal · <span className="inline-block h-2 w-2 rounded-full bg-red-500 align-middle" /> เกินกำหนด</p>
+
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+        <span><span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500 align-middle" /> กำหนดครบ Cal (แผน)</span>
+        <span><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-amber-500 align-middle" /> ส่งแล้ว — อยู่ที่ศูนย์</span>
+        <span><span className="font-bold text-emerald-600">✓</span> ส่งและรับกลับแล้ว</span>
+        <span><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" /> เกินกำหนด (ยังไม่ส่ง)</span>
+        <span className="text-slate-300">ตัวเลขใต้เดือน = ครบกำหนด (ม่วง) / ส่งจริง (เขียว)</span>
+      </div>
+
+      {/* เครื่องที่ต้อง Cal แต่ยังไม่มีแผน */}
+      {noPlan.length > 0 && (
+        <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+          <p className="mb-2 text-xs font-semibold text-amber-700">⚠ เครื่องที่ต้อง Cal แต่ยังไม่มีแผน ({noPlan.length})</p>
+          <div className="flex flex-wrap gap-1.5">
+            {noPlan.map(eq => {
+              const t = eqTypes.find(x => x.id === eq.typeId)
+              return (
+                <button key={eq.id} onClick={() => canEdit && openAdd(String(eq.id))} disabled={!canEdit}
+                  className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs text-slate-600 hover:bg-amber-100 disabled:cursor-default disabled:hover:bg-white">
+                  {t?.code} {eqName(eq)} {canEdit && <span className="text-amber-500">+ ตั้งแผน</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal เพิ่ม/แก้แผน */}
+      {planModal && (
+        <Modal title={planModal.mode === 'edit' ? '✎ แก้วันแผน Cal' : '+ เพิ่มแผนแคล'} onClose={() => setPlanModal(null)}>
+          <div className="space-y-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">เครื่องมือ<span className="ml-0.5 text-red-500">*</span></label>
+              <SearchableSelect value={planModal.eqId} onChange={(v) => setPlanModal(m => m && { ...m, eqId: v })}
+                disabled={planModal.mode === 'edit'} placeholder="พิมพ์ค้นหาเครื่อง..."
+                options={equipment.filter(eq => eq.status !== 'RETIRED').map(eq => {
+                  const t = eqTypes.find(x => x.id === eq.typeId)
+                  return { value: String(eq.id), label: `${t?.code ?? ''} ${eqName(eq)}` }
+                })} />
+            </div>
+            <Input label="กำหนดครบ Cal (วันที่)" value={planDate} onChange={setPlanDate} type="date" required />
+            <div className="flex justify-end gap-2 pt-1">
+              <Btn variant="ghost" onClick={() => setPlanModal(null)}>ยกเลิก</Btn>
+              <Btn onClick={savePlan} disabled={saving || !planModal.eqId || !planDate}>{saving ? 'กำลังบันทึก...' : 'บันทึกแผน'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -1763,7 +1941,7 @@ export default function AdminView() {
         {active === 'equipment'   && <EquipmentSection role={role} />}
         {active === 'vehicles'    && <VehiclesSection role={role} />}
         {active === 'maintenance' && <MaintenanceSection role={role} />}
-        {active === 'calplan'     && <CalPlanSection />}
+        {active === 'calplan'     && <CalPlanSection role={role} />}
         {active === 'holidays'    && <HolidaysSection />}
         {active === 'users'     && <UsersSection myUid={me?.uid} />}
       </div>

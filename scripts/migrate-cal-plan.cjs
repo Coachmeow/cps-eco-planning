@@ -88,26 +88,31 @@ async function main() {
   }, null, 2))
   console.log(`💾 backup แล้ว: ${backupFile}\n`)
 
+  // คำนวณสถานะใหม่ล่วงหน้า (นอก transaction เพื่อให้ transaction สั้น กัน timeout)
+  //   ใบงานที่จะลบเป็นวันอนาคตทั้งหมด (sentDate > today) จึงไม่กระทบการนับ "ใบงานที่ถึงวันส่งแล้ว"
+  const affectedIds = plan.map(p => p.equipmentId)
+  const startedOpen = await prisma.equipmentEvent.findMany({
+    where: { equipmentId: { in: affectedIds }, returnedDate: null, sentDate: { lte: today } },
+    select: { equipmentId: true, type: true },
+  })
+  const startedByEq = new Map()
+  for (const ev of startedOpen) {
+    if (startedByEq.get(ev.equipmentId) !== 'REPAIR') startedByEq.set(ev.equipmentId, ev.type)
+  }
+  const statusFor = (equipmentId) => {
+    const eq = byEq.get(equipmentId).eq
+    if (eq.status === 'RETIRED') return 'RETIRED'
+    const s = startedByEq.get(equipmentId)
+    return s === 'REPAIR' ? 'BROKEN' : s === 'CALIBRATION' ? 'CALIBRATING' : 'ACTIVE'
+  }
+
+  // transaction: เขียนอย่างเดียว (2 คำสั่งต่อเครื่อง) — เร็ว ไม่ timeout
   await prisma.$transaction(async (tx) => {
     for (const { equipmentId, newDue, eventIds } of plan) {
-      // 1) ตั้งแผน
-      await tx.equipment.update({ where: { id: equipmentId }, data: { calDueDate: new Date(newDue) } })
-      // 2) ลบใบงาน future Cal
       await tx.equipmentEvent.deleteMany({ where: { id: { in: eventIds } } })
-      // 3) คำนวณสถานะใหม่จากใบงานที่เหลือ (ที่ถึงวันส่งแล้ว) — RETIRED คงเดิม
-      const eq = await tx.equipment.findUnique({ where: { id: equipmentId }, select: { status: true } })
-      if (eq.status !== 'RETIRED') {
-        const started = await tx.equipmentEvent.findMany({
-          where: { equipmentId, returnedDate: null, sentDate: { lte: today } },
-          select: { type: true },
-        })
-        const hasRepair = started.some(e => e.type === 'REPAIR')
-        const hasCal    = started.some(e => e.type === 'CALIBRATION')
-        const status = hasRepair ? 'BROKEN' : hasCal ? 'CALIBRATING' : 'ACTIVE'
-        await tx.equipment.update({ where: { id: equipmentId }, data: { status } })
-      }
+      await tx.equipment.update({ where: { id: equipmentId }, data: { calDueDate: new Date(newDue), status: statusFor(equipmentId) } })
     }
-  })
+  }, { timeout: 60000, maxWait: 15000 })
 
   // สรุปหลังทำ
   const remaining = await prisma.equipmentEvent.count({ where: { type: 'CALIBRATION', returnedDate: null, sentDate: { gt: today } } })

@@ -42,6 +42,7 @@ model EquipmentType {
   name          String
   primaryTeamId Int
   primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
+  requiresCal   Boolean     @default(false)  // ต้องส่ง Calibrate เป็นรอบ → ใช้เตือน/หาเครื่องที่ยังไม่มีแผน
 
   equipment Equipment[]
 

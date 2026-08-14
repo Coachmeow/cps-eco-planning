@@ -12,6 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.code          !== undefined) data.code          = String(body.code).trim()
     if (body.name          !== undefined) data.name          = String(body.name).trim()
     if (body.primaryTeamId !== undefined) data.primaryTeamId = parseInt(String(body.primaryTeamId))
+    if (body.requiresCal   !== undefined) data.requiresCal   = !!body.requiresCal
     const type = await prisma.equipmentType.update({
       where: { id: parseInt(id) }, data, include: { primaryTeam: true },
     })

@@ -65,6 +65,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
+// PATCH = แก้ไขบางฟิลด์ — ตอนนี้ใช้ตั้ง/แก้/ลบ "แผน Cal" (calDueDate) รายเครื่อง
+// calDueDate = null → ลบออกจากแผน ; ADMIN/MANAGER (ทีมจัดแผน)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession()
+  if (!hasRole(session, 'ADMIN', 'MANAGER')) return forbidden()
+  try {
+    const { id } = await params
+    const body = await req.json()
+    const data: Record<string, unknown> = {}
+    if (body.calDueDate !== undefined) data.calDueDate = body.calDueDate ? new Date(body.calDueDate) : null
+    if (Object.keys(data).length === 0) return NextResponse.json({ error: 'ไม่มีข้อมูลให้แก้' }, { status: 400 })
+    const equipment = await prisma.equipment.update({
+      where: { id: parseInt(id) }, data,
+      include: { type: { include: { primaryTeam: true } } },
+    })
+    return NextResponse.json(equipment)
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 400 })
+  }
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!hasRole(session, 'ADMIN', 'MANAGER')) return forbidden()

@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
         code:          String(body.code).trim(),
         name:          String(body.name).trim(),
         primaryTeamId: parseInt(String(body.primaryTeamId)),
+        requiresCal:   !!body.requiresCal,
       },
       include: { primaryTeam: true },
     })
