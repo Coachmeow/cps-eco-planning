@@ -21,8 +21,26 @@ export async function GET(req: NextRequest) {
     include: { type: { include: { primaryTeam: true } } },
     orderBy: [{ typeId: 'asc' }, { internalNo: 'asc' }],
   })
+
+  // สถานะตามวันที่ (D6): CALIBRATING/BROKEN ขึ้นเฉพาะเมื่อมีใบงานเปิดที่ "ถึงวันส่งแล้ว"
+  //   ใบงานที่วันส่งยังเป็นอนาคต (แผนจะส่ง) = เครื่องยังใช้งานได้ → ACTIVE ; RETIRED คงเดิม
+  //   คิดตอนอ่าน เพราะไม่มี cron มาพลิกสถานะตอนถึงวัน (ให้เปลี่ยนเองเมื่อถึงวันส่ง)
+  const openEvents = await prisma.equipmentEvent.findMany({
+    where:  { returnedDate: null, sentDate: { lte: today }, equipmentId: { in: equipment.map(e => e.id) } },
+    select: { equipmentId: true, type: true },
+  })
+  const startedByEq = new Map() // equipmentId → 'REPAIR' | 'CALIBRATION' (REPAIR สำคัญกว่า)
+  for (const ev of openEvents) {
+    if (startedByEq.get(ev.equipmentId) !== 'REPAIR') startedByEq.set(ev.equipmentId, ev.type)
+  }
+  const effectiveStatus = (e: { id: number; status: string }): string => {
+    if (e.status === 'RETIRED') return 'RETIRED'
+    const started = startedByEq.get(e.id)
+    return started === 'REPAIR' ? 'BROKEN' : started === 'CALIBRATION' ? 'CALIBRATING' : 'ACTIVE'
+  }
+
   // strip base64 photoUrl ออกจาก list (โหลดผ่าน /photo) ส่งแค่ hasPhoto
-  const out = equipment.map(({ photoUrl, ...e }) => ({ ...e, hasPhoto: !!photoUrl }))
+  const out = equipment.map(({ photoUrl, ...e }) => ({ ...e, status: effectiveStatus(e), hasPhoto: !!photoUrl }))
   return NextResponse.json(out)
 }
 
