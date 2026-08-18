@@ -332,6 +332,8 @@ export interface DashboardData {
   tentativeSoon?: { date: string; employee: string; site: string; days: number; reason: string | null }[]
   // เครื่องที่ใกล้/เกินกำหนดส่งแคล (30 วัน) และยังไม่เปิดใบงาน — เตือนล่วงหน้า 1 เดือน
   calDueSoonList?: { id: number; label: string; calDueDate: string; overdue: boolean }[]
+  // Sankey man-day: rows ละเอียด (ไซต์ × กลุ่มงาน × คน) สร้าง node/link ฝั่ง client
+  sankeyRows?: { siteId: number; siteCode: string; siteColor: string; teamCode: string; personId: number; personLabel: string; days: number }[]
   workdays: number
   year: number
   month: number

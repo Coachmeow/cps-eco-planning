@@ -225,6 +225,35 @@ export async function GET(req: NextRequest) {
     })
   )).sort((a, b) => b.manDays - a.manDays)
 
+  // ── Sankey man-day: รวม → ไซต์ → กลุ่มงาน → คน (คืน rows ละเอียด, สร้าง node/link ฝั่ง client) ──
+  const sankeyGroups = await prisma.staffAssignment.groupBy({
+    by:    ['siteId', 'serviceTypeId', 'employeeId'],
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
+    _sum:  { estimatedDays: true },
+  })
+  const skEmpIds = Array.from(new Set(sankeyGroups.map((g) => g.employeeId)))
+  const skEmps = await prisma.employee.findMany({
+    where:  { id: { in: skEmpIds } },
+    select: { id: true, nickname: true, fullName: true, primaryTeam: { select: { code: true } } },
+  })
+  const skEmpMap  = new Map(skEmps.map((e) => [e.id, e]))
+  const skSiteMap = new Map(siteMandays.map((s) => [s.siteId, s]))
+  const teamCodeById = new Map(teams.map((t) => [t.id, t.code]))
+  const sankeyRows = sankeyGroups.map((g) => {
+    const emp  = skEmpMap.get(g.employeeId)
+    const site = skSiteMap.get(g.siteId!)
+    const teamCode = (g.serviceTypeId != null ? teamCodeById.get(g.serviceTypeId) : null) ?? emp?.primaryTeam.code ?? 'ไม่ระบุ'
+    return {
+      siteId:      g.siteId!,
+      siteCode:    site?.siteCode ?? '?',
+      siteColor:   site?.color ?? 'emerald',
+      teamCode,
+      personId:    g.employeeId,
+      personLabel: emp?.nickname || emp?.fullName || `#${g.employeeId}`,
+      days:        Number(g._sum.estimatedDays ?? 0),
+    }
+  }).filter((r) => r.days > 0)
+
   // ── Alerts: Cal ใกล้ครบ/เกิน + ส่งซ่อมเกินกำหนด ──────────────
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const in30 = new Date(todayStart); in30.setDate(in30.getDate() + 30)
@@ -318,5 +347,5 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, sankeyRows, workdays, year, month })
 }

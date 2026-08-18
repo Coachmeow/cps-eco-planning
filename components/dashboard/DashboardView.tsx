@@ -8,6 +8,7 @@ import TrendComposed from '@/components/dashboard/charts/TrendComposed'
 import DemandChart from '@/components/dashboard/charts/DemandChart'
 import TeamStackChart from '@/components/dashboard/charts/TeamStackChart'
 import HBarList from '@/components/dashboard/charts/HBarList'
+import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
 import { utilHex, siteHex } from '@/lib/chartTheme'
 
 const TEAM_COLOR: Record<string, string> = {
@@ -31,6 +32,7 @@ export default function DashboardView() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [data,  setData]  = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sankeySite, setSankeySite] = useState('')   // '' = ทุกไซต์
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -92,6 +94,22 @@ export default function DashboardView() {
               </div>
             ))}
           </div>
+
+          {/* Sankey เส้นทาง man-day: รวม → ไซต์ → กลุ่มงาน → คน */}
+          {(data.sankeyRows?.length ?? 0) > 0 && (
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <h2 className="text-sm font-semibold text-slate-700">เส้นทาง Man-day (รวม → ไซต์ → กลุ่มงาน → คน)</h2>
+                <select value={sankeySite} onChange={e => setSankeySite(e.target.value)}
+                  className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none">
+                  <option value="">ทุกไซต์</option>
+                  {(data.siteMandays ?? []).map(s => <option key={s.siteId} value={String(s.siteId)}>{s.siteCode}</option>)}
+                </select>
+                <span className="text-[11px] text-slate-400">โชว์ Top 8 ไซต์ · Top 12 คน (ที่เหลือรวมเป็น &quot;อื่นๆ&quot;)</span>
+              </div>
+              <ManDaySankey rows={data.sankeyRows!} siteFilter={sankeySite || undefined} />
+            </div>
+          )}
 
           {/* แถบเตือน Cal/ซ่อม/ไมล์ ถอดออกจากหน้าแรก — ดูได้ที่หน้า แผน Cal / ซ่อม-Cal โดยตรง */}
 
