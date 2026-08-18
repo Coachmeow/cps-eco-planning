@@ -42,7 +42,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
   const [analyzers, setAnalyzers] = useState<Analyzer[]>([])
   const [employees, setEmployees] = useState<WithdrawEmployee[]>([])
   const [withdraw, setWithdraw] = useState<WithdrawTarget | null>(null)
-  const [siteId, setSiteId] = useState('')
+  const [siteId, setSiteId] = useState('all')   // เปิดมา = แสดงทุกไซต์
   const [year, setYear] = useState(now.getFullYear())
   const [plan, setPlan] = useState<Plan | null>(null)
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -68,7 +68,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
       setParts(Array.isArray(p) ? p : [])
       setAnalyzers(Array.isArray(a) ? a : [])
       setEmployees(Array.isArray(e) ? e : [])
-      if (Array.isArray(s) && s.length && !siteId) setSiteId(String(s[0].id))
+      // default = ทุกไซต์ (ไม่เด้งไปไซต์แรกอีกต่อไป)
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
