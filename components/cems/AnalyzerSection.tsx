@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Btn, Input, Modal, CustomSelect, resizeImage, OWNERSHIP_LABEL, OWNERSHIP_CHIP, AN_STATUS_LABEL, AN_STATUS_CHIP, fmtDate } from '@/components/cems/ui'
+import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import AnalyzerCard from '@/components/cems/AnalyzerCard'
 import type { CemsSiteRow } from '@/components/cems/CemsSitesSection'
 
@@ -30,6 +31,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
   const [saving, setSaving]       = useState(false)
   const [photo, setPhoto]         = useState<string | null>(null)
   const [photoTouched, setPhotoTouched] = useState(false)
+  const [delTarget, setDelTarget] = useState<AnalyzerRow | null>(null)
 
   const init = { tag: '', brand: '', model: '', serialNo: '', parameter: '', ownership: 'POOL_OWN', homeSiteId: '', currentSiteId: '', status: 'READY', receivedDate: '', notes: '' }
   const [form, setForm] = useState(init)
@@ -73,11 +75,6 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
     setModal(false); load()
   }
 
-  async function del(a: AnalyzerRow) {
-    if (!confirm(`ลบเครื่อง "${a.tag}" ? ประวัติทั้งหมดจะถูกลบด้วย`)) return
-    await fetch(`/api/cems/analyzers/${a.id}`, { method: 'DELETE' }); load()
-  }
-
   // ย้ายที่เร็วจากแถว → สร้าง MOVE event (sync สถานะอัตโนมัติ)
   async function quickMove(a: AnalyzerRow, siteId: string) {
     const target = siteId ? sites.find(s => String(s.id) === siteId)?.code : 'หน่วยงาน (Pool)'
@@ -113,7 +110,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
         <CustomSelect value={fOwner} onChange={setFOwner} placeholder="ทุกแหล่งที่มา" className="w-40"
           options={[{ value: '', label: 'ทุกแหล่งที่มา' }, ...OWNERSHIPS.map(o => ({ value: o, label: OWNERSHIP_LABEL[o] }))]} />
         <p className="text-sm text-slate-400">{filtered.length} เครื่อง</p>
-        {canManage && <div className="ml-auto"><Btn onClick={openAdd}>+ เพิ่มเครื่อง</Btn></div>}
+        {canManage && <div className="ml-auto flex gap-2"><DeletionLogButton group="cems" /><Btn onClick={openAdd}>+ เพิ่มเครื่อง</Btn></div>}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -156,12 +153,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
                 </td>
                 <td className="px-3 py-2 text-xs text-slate-400">{fmtDate(a.statusUpdatedAt)}</td>
                 <td className="px-3 py-2 text-right">
-                  {canManage && (
-                    <div className="flex justify-end gap-1.5">
-                      <Btn small onClick={() => openEdit(a)}>แก้ไข</Btn>
-                      <Btn small variant="danger" onClick={() => del(a)}>ลบ</Btn>
-                    </div>
-                  )}
+                  {canManage && <Btn small onClick={() => openEdit(a)}>แก้ไข</Btn>}
                 </td>
               </tr>
             ))}
@@ -219,12 +211,32 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
             </div>
             <Input label="วันรับเข้า (นับอายุใช้งาน)" value={form.receivedDate} onChange={f('receivedDate')} type="date" />
             <Input label="หมายเหตุ" value={form.notes} onChange={f('notes')} placeholder="..." />
+            {editing && canManage && (
+              <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+                <p className="text-xs font-semibold text-red-600">คำเตือน</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-500">แค่เลิกใช้? ตั้งสถานะเป็น <b>&quot;ปลดระวาง&quot;</b> ด้านบนแทน · ลบถาวร — ประวัติทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+                  <Btn small variant="danger" onClick={() => { setDelTarget(editing); setModal(false) }}>ลบถาวร</Btn>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(false)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
           </div>
         </Modal>
+      )}
+
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.tag}
+          label={`Analyzer ${delTarget.tag}`}
+          impact={[`ประวัติการเคลื่อนย้าย/ซ่อม ${delTarget._count?.events ?? 0} รายการจะถูกลบด้วย`]}
+          endpoint={`/api/cems/analyzers/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
       )}
 
       {viewing && <AnalyzerCard analyzerId={viewing.id} sites={sites} canManage={canManage} onClose={() => { setViewing(null); load() }} />}

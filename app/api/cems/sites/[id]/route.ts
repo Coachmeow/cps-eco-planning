@@ -19,11 +19,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 // ลบได้เฉพาะไซต์ที่ไม่มีเครื่อง/ประวัติอ้างอยู่
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCemsAdmin()) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireCemsAdmin()
+  if (!session) return forbidden()
   try {
     const { id } = await params
     const siteId = parseInt(id)
+    const site = await prisma.cemsSite.findUnique({ where: { id: siteId } })
+    if (!site) return NextResponse.json({ error: 'ไม่พบไซต์' }, { status: 404 })
     const [anCur, anHome, evts] = await Promise.all([
       prisma.cemsAnalyzer.count({ where: { currentSiteId: siteId } }),
       prisma.cemsAnalyzer.count({ where: { homeSiteId: siteId } }),
@@ -32,7 +35,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (anCur + anHome + evts > 0) {
       return NextResponse.json({ error: `ลบไม่ได้ — มีเครื่อง/ประวัติอ้างถึงไซต์นี้ (${anCur + anHome} เครื่อง, ${evts} ประวัติ)` }, { status: 400 })
     }
-    await prisma.cemsSite.delete({ where: { id: siteId } })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+    const snapshot = JSON.parse(JSON.stringify({ site }))
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({ data: { entityType: 'cems-site', entityLabel: `CEMS ไซต์ ${site.code}`, reason, snapshot, deletedById: session.uid, deletedByName: session.name || session.username || '—' } })
+      await tx.cemsSite.delete({ where: { id: siteId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })

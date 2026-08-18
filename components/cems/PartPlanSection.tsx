@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from './ui'
+import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import PartWithdrawForm, { type WithdrawSchedule, type WithdrawEmployee } from './PartWithdrawForm'
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -52,6 +53,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
   const [editing, setEditing] = useState<Schedule | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [delTarget, setDelTarget] = useState<Schedule | null>(null)
   // โหมดทุกไซต์: แถวสรุปต่ออะไหล่ กด ▸ กางดูรายไซต์/เครื่อง (key = partId)
   const allSites = siteId === 'all'
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
@@ -129,12 +131,6 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
     } finally { setSaving(false) }
   }
 
-  async function del(s: Schedule) {
-    if (!confirm(`ลบแผน ${s.part.code} (${s.analyzer?.tag ?? s.site?.code ?? ''}) ?`)) return
-    await fetch(`/api/cems/part-schedules/${s.id}`, { method: 'DELETE' })
-    await loadPlan()
-  }
-
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
   const dueScheduleIds = new Set((plan?.upcoming ?? []).map(u => u.scheduleId))
 
@@ -157,6 +153,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
           <span className="rounded px-1.5 py-0.5 bg-red-100 text-red-600">เลยกำหนด</span>
           <span className="rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-700">เปลี่ยนแล้ว</span>
         </div>
+        {canManage && <DeletionLogButton group="cems" />}
         {canManage && <Btn small onClick={openAdd}>+ เพิ่มแผน</Btn>}
       </div>
 
@@ -341,7 +338,6 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                     {canManage && (
                       <div className="flex shrink-0 gap-0.5">
                         <Btn small variant="ghost" onClick={() => openEdit(s)}>แก้</Btn>
-                        <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
                       </div>
                     )}
                   </div>
@@ -398,12 +394,29 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
             <Input label="วันเปลี่ยนล่าสุด (คำนวณรอบถัดไป)" type="date" value={form.lastReplacedDate} onChange={v => setForm(f => ({ ...f, lastReplacedDate: v }))} />
             <Input label="หมายเหตุ" value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="ถ้ามี" />
 
+            {editing && canManage && (
+              <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+                <span className="text-xs text-slate-500">ลบแผนถาวร (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+                <Btn small variant="danger" onClick={() => { setDelTarget(editing); setModalOpen(false) }}>ลบถาวร</Btn>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-1">
               <Btn variant="ghost" onClick={() => setModalOpen(false)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
           </div>
         </Modal>
+      )}
+
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.part.code}
+          label={`แผน ${delTarget.part.code} (${delTarget.analyzer?.tag ?? delTarget.site?.code ?? '—'})`}
+          impact={[]}
+          endpoint={`/api/cems/part-schedules/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); loadPlan() }}
+        />
       )}
 
       {withdraw && (

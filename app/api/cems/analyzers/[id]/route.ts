@@ -50,13 +50,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCemsAdmin()) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireCemsAdmin()
+  if (!session) return forbidden()
   try {
     const { id } = await params
     const aId = parseInt(id)
-    await prisma.cemsAnalyzerEvent.deleteMany({ where: { analyzerId: aId } })
-    await prisma.cemsAnalyzer.delete({ where: { id: aId } })
+    const a = await prisma.cemsAnalyzer.findUnique({ where: { id: aId } })
+    if (!a) return NextResponse.json({ error: 'ไม่พบเครื่อง' }, { status: 404 })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+    const events = await prisma.cemsAnalyzerEvent.count({ where: { analyzerId: aId } })
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { photoUrl, ...aNoPhoto } = a
+    const snapshot = JSON.parse(JSON.stringify({ analyzer: aNoPhoto, events, hadPhoto: !!photoUrl }))
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({ data: { entityType: 'cems-analyzer', entityLabel: `Analyzer ${a.tag}`, reason, snapshot, deletedById: session.uid, deletedByName: session.name || session.username || '—' } })
+      await tx.cemsAnalyzerEvent.deleteMany({ where: { analyzerId: aId } })
+      await tx.cemsAnalyzer.delete({ where: { id: aId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })

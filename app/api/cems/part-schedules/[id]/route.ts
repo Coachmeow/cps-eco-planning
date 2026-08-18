@@ -35,11 +35,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCemsAdmin()) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireCemsAdmin()
+  if (!session) return forbidden()
   const { id } = await params
   try {
-    await prisma.cemsPartSchedule.delete({ where: { id: parseInt(id) } })
+    const sid = parseInt(id)
+    const sched = await prisma.cemsPartSchedule.findUnique({ where: { id: sid }, include: { part: true, analyzer: true, site: true } })
+    if (!sched) return NextResponse.json({ error: 'ไม่พบแผน' }, { status: 404 })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+    const label = `แผน ${sched.part.code} (${sched.analyzer?.tag ?? sched.site?.code ?? '—'})`
+    const snapshot = JSON.parse(JSON.stringify({ schedule: sched }))
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({ data: { entityType: 'cems-schedule', entityLabel: label, reason, snapshot, deletedById: session.uid, deletedByName: session.name || session.username || '—' } })
+      await tx.cemsPartSchedule.delete({ where: { id: sid } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })

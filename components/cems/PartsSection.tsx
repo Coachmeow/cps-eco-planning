@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from '@/components/cems/ui'
+import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 
 interface PartRow {
   id: number; code: string; name: string; brand: string | null; unit: string | null
@@ -57,6 +58,7 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
   const [requests, setRequests] = useState<ReqRow[]>([])
   const [reqModal, setReqModal] = useState(false)
   const [qrPart, setQrPart] = useState<PartRow | null>(null)
+  const [delTarget, setDelTarget] = useState<PartRow | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -83,13 +85,6 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
     if (fileRef.current) fileRef.current.value = ''
     if (!r.ok) { alert(d.error ?? 'นำเข้าไม่สำเร็จ'); return }
     alert(`นำเข้าสำเร็จ ${d.created} รายการ${d.renamed ? ` (รหัสซ้ำแยกเป็นรายการใหม่ ${d.renamed})` : ''}${(d.report ?? []).length ? '\n' + d.report.join('\n') : ''}`)
-    load()
-  }
-
-  async function delPart(p: PartRow) {
-    if (!confirm(`ลบ "${p.code} — ${p.name}" ?\nประวัติรับเข้า/เบิกออกทั้งหมดจะถูกลบด้วย`)) return
-    const r = await fetch(`/api/cems/parts/${p.id}`, { method: 'DELETE' })
-    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
     load()
   }
 
@@ -150,6 +145,7 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
                 onChange={e => importFile(e.target.files?.[0])} />
             </label>
             <Btn onClick={() => { setEditPart(null); setAddOpen(true) }}>+ เพิ่มอะไหล่</Btn>
+            <DeletionLogButton group="cems" />
           </>}
         </div>
       </div>
@@ -199,7 +195,6 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
                       {canManage && <>
                         <span className="mx-0.5 h-4 w-px bg-slate-200" />
                         <Btn small variant="ghost" onClick={() => { setEditPart(p); setAddOpen(true) }}>แก้</Btn>
-                        <Btn small variant="danger" onClick={() => delPart(p)}>ลบ</Btn>
                       </>}
                     </div>
                   </td>
@@ -213,7 +208,17 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
       {txnModal && <TxnModal part={txnModal.part} type={txnModal.type} sites={sites} analyzers={analyzers}
         onClose={() => setTxnModal(null)} onSaved={() => { setTxnModal(null); load() }} />}
       {historyPart && <HistoryModal part={historyPart} canManage={canManage} onClose={() => setHistoryPart(null)} onChanged={load} />}
-      {addOpen && <PartModal part={editPart} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} />}
+      {addOpen && <PartModal part={editPart} canManage={canManage} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} onDelete={(p) => { setAddOpen(false); setDelTarget(p) }} />}
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.code}
+          label={`${delTarget.code} — ${delTarget.name}`}
+          impact={['ประวัติรับเข้า/เบิกออกทั้งหมดจะถูกลบด้วย']}
+          endpoint={`/api/cems/parts/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
+      )}
       {reqModal && <RequestsModal requests={requests} canManage={canManage} onClose={() => setReqModal(false)} onChanged={load} />}
       {qrPart && <QrModal part={qrPart} onClose={() => setQrPart(null)} />}
     </div>
@@ -515,7 +520,7 @@ function HistoryModal({ part, canManage, onClose, onChanged }: { part: PartRow; 
 }
 
 // ── Modal: เพิ่ม/แก้ไขอะไหล่ ─────────────────────────────────
-function PartModal({ part, onClose, onSaved }: { part: PartRow | null; onClose: () => void; onSaved: () => void }) {
+function PartModal({ part, canManage, onClose, onSaved, onDelete }: { part: PartRow | null; canManage?: boolean; onClose: () => void; onSaved: () => void; onDelete?: (p: PartRow) => void }) {
   const [form, setForm] = useState({
     code: part?.code ?? '', name: part?.name ?? '', brand: part?.brand ?? '', unit: part?.unit ?? 'ชิ้น',
     minStock: part ? String(part.minStock) : '0', location: part?.location ?? '',
@@ -552,6 +557,12 @@ function PartModal({ part, onClose, onSaved }: { part: PartRow | null; onClose: 
         <Input label="ราคาอ้างอิง (บาท/หน่วย)" value={form.refCost} onChange={f('refCost')} type="number" placeholder="อัปเดตอัตโนมัติเมื่อรับเข้า" />
         <Input label="หมายเหตุ" value={form.notes} onChange={f('notes')} />
         {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
+        {part && canManage && onDelete && (
+          <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+            <span className="text-xs text-slate-500">ลบถาวร — ประวัติรับเข้า/เบิกออกทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+            <Btn small variant="danger" onClick={() => onDelete(part)}>ลบถาวร</Btn>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
           <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>

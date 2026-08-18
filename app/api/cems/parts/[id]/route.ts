@@ -26,13 +26,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 // ลบอะไหล่ — ลบประวัติ txn ทั้งหมดด้วย (client ต้อง confirm ก่อน)
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCemsAdmin()) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireCemsAdmin()
+  if (!session) return forbidden()
   try {
     const { id } = await params
     const partId = parseInt(id)
-    await prisma.cemsPartTxn.deleteMany({ where: { partId } })
-    await prisma.cemsSparePart.delete({ where: { id: partId } })
+    const part = await prisma.cemsSparePart.findUnique({ where: { id: partId } })
+    if (!part) return NextResponse.json({ error: 'ไม่พบอะไหล่' }, { status: 404 })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+    const txns = await prisma.cemsPartTxn.count({ where: { partId } })
+    const snapshot = JSON.parse(JSON.stringify({ part, txns }))
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({ data: { entityType: 'cems-part', entityLabel: `${part.code} — ${part.name}`, reason, snapshot, deletedById: session.uid, deletedByName: session.name || session.username || '—' } })
+      await tx.cemsPartTxn.deleteMany({ where: { partId } })
+      await tx.cemsSparePart.delete({ where: { id: partId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })

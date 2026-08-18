@@ -54,12 +54,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 // ลบถัง (องค์ประกอบ + การอ่านความดัน ลบตาม onDelete: Cascade)
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireCemsAdmin()) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireCemsAdmin()
+  if (!session) return forbidden()
   const { id } = await params
   const cid = parseInt(id)
-  const exist = await prisma.cemsGasCylinder.findUnique({ where: { id: cid }, select: { id: true } })
-  if (!exist) return NextResponse.json({ error: 'ไม่พบถัง' }, { status: 404 })
-  await prisma.cemsGasCylinder.delete({ where: { id: cid } })
-  return NextResponse.json({ ok: true })
+  try {
+    const cyl = await prisma.cemsGasCylinder.findUnique({ where: { id: cid }, include: { components: true } })
+    if (!cyl) return NextResponse.json({ error: 'ไม่พบถัง' }, { status: 404 })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+    const snapshot = JSON.parse(JSON.stringify({ cylinder: cyl }))
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({ data: { entityType: 'cems-gas', entityLabel: `ถังแก๊ส ${cyl.cylinderNo}`, reason, snapshot, deletedById: session.uid, deletedByName: session.name || session.username || '—' } })
+      await tx.cemsGasCylinder.delete({ where: { id: cid } })
+    })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 400 })
+  }
 }

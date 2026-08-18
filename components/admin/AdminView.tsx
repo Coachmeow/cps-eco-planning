@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
+import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import { useMe } from '@/hooks/useMe'
 import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
 import { toDateKey } from '@/lib/dateKey'
@@ -47,8 +48,6 @@ interface Equipment {
   hasPhoto?: boolean
 }
 
-interface DeletionLogRow { id: number; entityType: string; entityLabel: string; reason: string | null; deletedByName: string; createdAt: string }
-
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',
@@ -88,88 +87,6 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
         <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
-  )
-}
-
-// ── Safe-delete: modal ยืนยันลบถาวร + ปุ่มดูประวัติการลบ (ใช้ร่วมทุก section) ──
-const ENTITY_LABEL: Record<string, string> = { equipment: 'เครื่องมือ', vehicle: 'รถ', employee: 'พนักงาน', site: 'ไซต์งาน' }
-
-// พิมพ์ยืนยัน + เหตุผล → ยิง DELETE ไปที่ endpoint (แนบ reason) ; บันทึก log ฝั่ง server
-function DeleteConfirmModal({ token, label, impact, endpoint, onClose, onDone }: {
-  token: string; label: string; impact: string[]; endpoint: string; onClose: () => void; onDone: () => void
-}) {
-  const [text, setText] = useState(''); const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false)
-  async function go() {
-    if (text.trim() !== token) return
-    setBusy(true)
-    const res = await fetch(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) })
-    setBusy(false)
-    if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error ?? 'ลบไม่สำเร็จ'); return }
-    onDone()
-  }
-  return (
-    <Modal title="⚠ ยืนยันการลบถาวร" onClose={onClose}>
-      <div className="space-y-3">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          กำลังจะลบ <b>{label}</b> ออกจากระบบถาวร
-          {impact.length > 0 && <ul className="mt-1 list-disc pl-5 text-xs text-red-600">{impact.map((s, i) => <li key={i}>{s}</li>)}</ul>}
-          <p className="mt-1.5 text-xs">ข้อมูลคนลบและวันที่ลบจะถูกเก็บในระบบ</p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">พิมพ์ <b className="font-mono text-slate-800">{token}</b> เพื่อยืนยัน</label>
-          <input value={text} onChange={e => setText(e.target.value)}
-            className="rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-red-400 focus:outline-none" />
-        </div>
-        <Input label="เหตุผลที่ลบ (ไม่บังคับ)" value={reason} onChange={setReason} placeholder="เช่น กรอกซ้ำ / กรอกผิด" />
-        <div className="flex justify-end gap-2 pt-1">
-          <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
-          <Btn variant="danger" onClick={go} disabled={busy || text.trim() !== token}>{busy ? 'กำลังลบ...' : 'ลบถาวร'}</Btn>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-// ปุ่ม + modal ดูประวัติการลบทั้งหมด (ทุกประเภท) — ADMIN
-function DeletionLogButton() {
-  const [open, setOpen] = useState(false)
-  const [logs, setLogs] = useState<DeletionLogRow[]>([])
-  async function openLog() {
-    setOpen(true)
-    const d = await fetch('/api/deletion-logs').then(r => r.json()).catch(() => [])
-    setLogs(Array.isArray(d) ? d : [])
-  }
-  return (
-    <>
-      <Btn variant="ghost" onClick={openLog}>🗑 ประวัติการลบ</Btn>
-      {open && (
-        <Modal wide title="🗑 ประวัติการลบข้อมูล" onClose={() => setOpen(false)}>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500"><tr>
-                <th className="px-3 py-2 text-left font-medium">เมื่อ</th>
-                <th className="px-3 py-2 text-left font-medium">ประเภท</th>
-                <th className="px-3 py-2 text-left font-medium">รายการ</th>
-                <th className="px-3 py-2 text-left font-medium">ผู้ลบ</th>
-                <th className="px-3 py-2 text-left font-medium">เหตุผล</th>
-              </tr></thead>
-              <tbody>
-                {logs.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-300">ยังไม่มีประวัติการลบ</td></tr>}
-                {logs.map(l => (
-                  <tr key={l.id} className="border-t border-slate-100">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{new Date(l.createdAt).toLocaleString('th-TH')}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{ENTITY_LABEL[l.entityType] ?? l.entityType}</td>
-                    <td className="px-3 py-2 text-slate-700">{l.entityLabel}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{l.deletedByName}</td>
-                    <td className="px-3 py-2 text-xs text-slate-400">{l.reason ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Modal>
-      )}
-    </>
   )
 }
 
@@ -267,7 +184,7 @@ function SitesSection({ role }: { role?: UserRole }) {
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-500">{sites.length} ไซต์</p>
         <div className="flex gap-2">
-          {role === 'ADMIN' && <DeletionLogButton />}
+          {role === 'ADMIN' && <DeletionLogButton group="planning" />}
           <Btn onClick={openAdd}>+ เพิ่มไซต์</Btn>
         </div>
       </div>
@@ -489,7 +406,7 @@ function EmployeesSection({ role }: { role?: UserRole }) {
       <div className="mb-3 flex items-center gap-3">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
         <p className="text-sm text-slate-400">{filtered.length} คน</p>
-        {role === 'ADMIN' && <DeletionLogButton />}
+        {role === 'ADMIN' && <DeletionLogButton group="planning" />}
         <Btn variant="ghost" onClick={() => { resetSubForm(); setSubModal(true) }}>👥 จัดการทีมย่อย</Btn>
         <Btn onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
       </div>
@@ -896,7 +813,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canManage && (
           <div className="ml-auto flex gap-2">
-            {role === 'ADMIN' && <DeletionLogButton />}
+            {role === 'ADMIN' && <DeletionLogButton group="planning" />}
             <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}>🏷 จัดการประเภท</Btn>
             <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
@@ -1740,7 +1657,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-400">{vehicles.length} คัน</p>
         <div className="flex gap-2">
-          {role === 'ADMIN' && <DeletionLogButton />}
+          {role === 'ADMIN' && <DeletionLogButton group="planning" />}
           <Btn variant="ghost" onClick={() => setSummary(true)}>📊 สรุป/Export ไมล์รถ</Btn>
           {canManage && <Btn onClick={openAdd}>+ เพิ่มรถ</Btn>}
         </div>

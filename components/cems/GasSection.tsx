@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { Btn, Input, Modal, CustomSelect, fmtDate, ageText } from '@/components/cems/ui'
+import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 
 interface Comp { id?: number; gas: string; concentration: number | string; unit: string }
 interface GasRow {
@@ -63,6 +64,7 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
   const [readingRow, setReadingRow] = useState<GasRow | null>(null)
   const [historyRow, setHistoryRow] = useState<GasRow | null>(null)
   const [qrRow, setQrRow] = useState<GasRow | null>(null)
+  const [delTarget, setDelTarget] = useState<GasRow | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,13 +73,6 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
     setLoading(false)
   }, [])
   useEffect(() => { load() }, [load])
-
-  async function delRow(c: GasRow) {
-    if (!confirm(`ลบถัง "${c.cylinderNo}" ?\nองค์ประกอบและประวัติการอ่านความดันทั้งหมดจะถูกลบด้วย`)) return
-    const r = await fetch(`/api/cems/gas/${c.id}`, { method: 'DELETE' })
-    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error ?? 'ลบไม่สำเร็จ'); return }
-    load()
-  }
 
   const filtered = rows.filter(c => {
     if (statusFilter && c.status !== statusFilter) return false
@@ -109,7 +104,8 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
           options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(GAS_STATUS).map(([v, m]) => ({ value: v, label: m.label }))]} />
         <p className="text-sm text-slate-400">{filtered.length} ถัง</p>
         {canManage && (
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <DeletionLogButton group="cems" />
             <Btn onClick={() => { setEditRow(null); setAddOpen(true) }}>+ เพิ่มถังแก๊ส</Btn>
           </div>
         )}
@@ -194,7 +190,6 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
                       {canManage && <>
                         <span className="mx-0.5 h-4 w-px bg-slate-200" />
                         <Btn small variant="ghost" onClick={() => { setEditRow(c); setAddOpen(true) }}>แก้</Btn>
-                        <Btn small variant="danger" onClick={() => delRow(c)}>ลบ</Btn>
                       </>}
                     </div>
                   </td>
@@ -205,10 +200,20 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
         </table>
       </div>
 
-      {addOpen && <CylinderModal row={editRow} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} />}
+      {addOpen && <CylinderModal row={editRow} canManage={canManage} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load() }} onDelete={(c) => { setAddOpen(false); setDelTarget(c) }} />}
       {readingRow && <ReadingModal row={readingRow} onClose={() => setReadingRow(null)} onSaved={() => { setReadingRow(null); load() }} />}
       {historyRow && <HistoryModal row={historyRow} onClose={() => setHistoryRow(null)} />}
       {qrRow && <QrModal row={qrRow} onClose={() => setQrRow(null)} />}
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.cylinderNo}
+          label={`ถังแก๊ส ${delTarget.cylinderNo}`}
+          impact={['องค์ประกอบและประวัติการอ่านความดันทั้งหมดจะถูกลบด้วย']}
+          endpoint={`/api/cems/gas/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
+      )}
     </div>
   )
 }
@@ -225,7 +230,7 @@ function Card({ n, label, tone }: { n: number | string; label: string; tone: 'sl
 }
 
 // ── Modal: เพิ่ม/แก้ไขถัง + องค์ประกอบ ─────────────────────────
-function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose: () => void; onSaved: () => void }) {
+function CylinderModal({ row, canManage, onClose, onSaved, onDelete }: { row: GasRow | null; canManage?: boolean; onClose: () => void; onSaved: () => void; onDelete?: (c: GasRow) => void }) {
   const [form, setForm] = useState({
     cylinderNo: row?.cylinderNo ?? '', brand: row?.brand ?? '', size: row?.size ?? '',
     initialPressure: row ? String(row.initialPressure) : '2000',
@@ -334,6 +339,12 @@ function CylinderModal({ row, onClose, onSaved }: { row: GasRow | null; onClose:
         <Input label="หมายเหตุ" value={form.notes} onChange={f('notes')} />
 
         {err && <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
+        {row && canManage && onDelete && (
+          <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+            <span className="text-xs text-slate-500">ลบถาวร — องค์ประกอบและประวัติการอ่านความดันทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+            <Btn small variant="danger" onClick={() => onDelete(row)}>ลบถาวร</Btn>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
           <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
