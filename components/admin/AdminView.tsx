@@ -91,6 +91,88 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
   )
 }
 
+// ── Safe-delete: modal ยืนยันลบถาวร + ปุ่มดูประวัติการลบ (ใช้ร่วมทุก section) ──
+const ENTITY_LABEL: Record<string, string> = { equipment: 'เครื่องมือ', vehicle: 'รถ', employee: 'พนักงาน', site: 'ไซต์งาน' }
+
+// พิมพ์ยืนยัน + เหตุผล → ยิง DELETE ไปที่ endpoint (แนบ reason) ; บันทึก log ฝั่ง server
+function DeleteConfirmModal({ token, label, impact, endpoint, onClose, onDone }: {
+  token: string; label: string; impact: string[]; endpoint: string; onClose: () => void; onDone: () => void
+}) {
+  const [text, setText] = useState(''); const [reason, setReason] = useState(''); const [busy, setBusy] = useState(false)
+  async function go() {
+    if (text.trim() !== token) return
+    setBusy(true)
+    const res = await fetch(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) })
+    setBusy(false)
+    if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error ?? 'ลบไม่สำเร็จ'); return }
+    onDone()
+  }
+  return (
+    <Modal title="⚠ ยืนยันการลบถาวร" onClose={onClose}>
+      <div className="space-y-3">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          กำลังจะลบ <b>{label}</b> ออกจากระบบถาวร
+          {impact.length > 0 && <ul className="mt-1 list-disc pl-5 text-xs text-red-600">{impact.map((s, i) => <li key={i}>{s}</li>)}</ul>}
+          <p className="mt-1.5 text-xs">ข้อมูลคนลบและวันที่ลบจะถูกเก็บในระบบ</p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">พิมพ์ <b className="font-mono text-slate-800">{token}</b> เพื่อยืนยัน</label>
+          <input value={text} onChange={e => setText(e.target.value)}
+            className="rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-red-400 focus:outline-none" />
+        </div>
+        <Input label="เหตุผลที่ลบ (ไม่บังคับ)" value={reason} onChange={setReason} placeholder="เช่น กรอกซ้ำ / กรอกผิด" />
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+          <Btn variant="danger" onClick={go} disabled={busy || text.trim() !== token}>{busy ? 'กำลังลบ...' : 'ลบถาวร'}</Btn>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ปุ่ม + modal ดูประวัติการลบทั้งหมด (ทุกประเภท) — ADMIN
+function DeletionLogButton() {
+  const [open, setOpen] = useState(false)
+  const [logs, setLogs] = useState<DeletionLogRow[]>([])
+  async function openLog() {
+    setOpen(true)
+    const d = await fetch('/api/deletion-logs').then(r => r.json()).catch(() => [])
+    setLogs(Array.isArray(d) ? d : [])
+  }
+  return (
+    <>
+      <Btn variant="ghost" onClick={openLog}>🗑 ประวัติการลบ</Btn>
+      {open && (
+        <Modal wide title="🗑 ประวัติการลบข้อมูล" onClose={() => setOpen(false)}>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+                <th className="px-3 py-2 text-left font-medium">เมื่อ</th>
+                <th className="px-3 py-2 text-left font-medium">ประเภท</th>
+                <th className="px-3 py-2 text-left font-medium">รายการ</th>
+                <th className="px-3 py-2 text-left font-medium">ผู้ลบ</th>
+                <th className="px-3 py-2 text-left font-medium">เหตุผล</th>
+              </tr></thead>
+              <tbody>
+                {logs.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-300">ยังไม่มีประวัติการลบ</td></tr>}
+                {logs.map(l => (
+                  <tr key={l.id} className="border-t border-slate-100">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{new Date(l.createdAt).toLocaleString('th-TH')}</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{ENTITY_LABEL[l.entityType] ?? l.entityType}</td>
+                    <td className="px-3 py-2 text-slate-700">{l.entityLabel}</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{l.deletedByName}</td>
+                    <td className="px-3 py-2 text-xs text-slate-400">{l.reason ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      )}
+    </>
+  )
+}
+
 // ── Custom Select (styled dropdown) ───────────────────────────
 function CustomSelect({ value, onChange, options, placeholder, className }: {
   value: string
@@ -143,12 +225,14 @@ function CustomSelect({ value, onChange, options, placeholder, className }: {
 }
 
 // ── Section: Sites ────────────────────────────────────────────
-function SitesSection() {
+function SitesSection({ role }: { role?: UserRole }) {
+  const canDelete = role === 'ADMIN' || role === 'MANAGER'
   const [sites, setSites]   = useState<Site[]>([])
   const [modal, setModal]   = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Site | null>(null)
   const [form, setForm]     = useState({ code: '', name: '', clientName: '', province: '', region: '', color: 'emerald', requiresAccess: '' })
   const [saving, setSaving] = useState(false)
+  const [delTarget, setDelTarget] = useState<Site | null>(null)
 
   const load = useCallback(async () => {
     const r = await fetch('/api/sites'); setSites(await r.json())
@@ -176,18 +260,16 @@ function SitesSection() {
     setSaving(false); setModal(null); load()
   }
 
-  async function del(s: Site) {
-    if (!confirm(`ลบไซต์ "${s.name}" ?`)) return
-    await fetch(`/api/sites/${s.id}`, { method: 'DELETE' }); load()
-  }
-
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-500">{sites.length} ไซต์</p>
-        <Btn onClick={openAdd}>+ เพิ่มไซต์</Btn>
+        <div className="flex gap-2">
+          {role === 'ADMIN' && <DeletionLogButton />}
+          <Btn onClick={openAdd}>+ เพิ่มไซต์</Btn>
+        </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
@@ -222,10 +304,7 @@ function SitesSection() {
                       : <span className="text-slate-300 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
-                      <Btn small variant="danger" onClick={() => del(s)}>ลบ</Btn>
-                    </div>
+                    <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
                   </td>
                 </tr>
               )
@@ -268,6 +347,15 @@ function SitesSection() {
                 {form.code || 'CODE'} — {SITE_COLOR_OPTIONS.find(c => c.value === form.color)?.label}
               </div>
             </div>
+            {modal === 'edit' && editing && canDelete && (
+              <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+                <p className="text-xs font-semibold text-red-600">คำเตือน</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-500">ลบไซต์ถาวร — ทำได้เฉพาะไซต์ที่ไม่มีงานผูกอยู่ (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+                  <Btn small variant="danger" onClick={() => { setDelTarget(editing); setModal(null) }}>ลบถาวร</Btn>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
@@ -275,13 +363,26 @@ function SitesSection() {
           </div>
         </Modal>
       )}
+
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.code}
+          label={`${delTarget.code} — ${delTarget.name}`}
+          impact={['ลบได้เฉพาะไซต์ที่ไม่มีงาน/การจองผูกอยู่ — ถ้ามีจะลบไม่ได้']}
+          endpoint={`/api/sites/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
+      )}
     </div>
   )
 }
 
 // ── Section: Employees ────────────────────────────────────────
-function EmployeesSection() {
+function EmployeesSection({ role }: { role?: UserRole }) {
+  const canDelete = role === 'ADMIN' || role === 'MANAGER'
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [delTarget, setDelTarget] = useState<Employee | null>(null)
   const [teams,     setTeams]     = useState<Team[]>([])
   const [subTeams,  setSubTeams]  = useState<SubTeamRow[]>([])
   const [modal, setModal]         = useState<'add' | 'edit' | null>(null)
@@ -355,10 +456,7 @@ function EmployeesSection() {
     load()
   }
 
-  async function del(e: Employee) {
-    if (!confirm(`ลบพนักงาน "${e.fullName}" ? ข้อมูลการทำงานจะถูกลบด้วย`)) return
-    await fetch(`/api/employees/${e.id}`, { method: 'DELETE' }); load()
-  }
+  const empToken = (e: Employee) => e.nickname || e.fullName
 
   // ── จัดการทีมย่อย ──
   const subCount = (subId: number) => employees.filter(e => e.subTeamId === subId).length
@@ -391,6 +489,7 @@ function EmployeesSection() {
       <div className="mb-3 flex items-center gap-3">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
         <p className="text-sm text-slate-400">{filtered.length} คน</p>
+        {role === 'ADMIN' && <DeletionLogButton />}
         <Btn variant="ghost" onClick={() => { resetSubForm(); setSubModal(true) }}>👥 จัดการทีมย่อย</Btn>
         <Btn onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
       </div>
@@ -424,10 +523,7 @@ function EmployeesSection() {
                   </button>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <div className="flex justify-end gap-1.5">
-                    <Btn small onClick={() => openEdit(e)}>แก้ไข</Btn>
-                    <Btn small variant="danger" onClick={() => del(e)}>ลบ</Btn>
-                  </div>
+                  <Btn small onClick={() => openEdit(e)}>แก้ไข</Btn>
                 </td>
               </tr>
             ))}
@@ -509,12 +605,38 @@ function EmployeesSection() {
             <Input label="วุฒิการศึกษา" value={form.eduLevel} onChange={f('eduLevel')} placeholder="ป.ตรี (วท.บ) / ปวส. / ต่ำกว่า ปวส." />
             <Input label="สาขา/คณะ" value={form.eduField} onChange={f('eduField')} placeholder="วิศวกรรมสิ่งแวดล้อม" />
             <Input label="สถาบัน" value={form.eduInstitute} onChange={f('eduInstitute')} placeholder="ม.ขอนแก่น" />
+            {modal === 'edit' && editing && canDelete && (
+              <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+                <p className="text-xs font-semibold text-red-600">คำเตือน</p>
+                {editing.isActive && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-600">แค่พักงาน/ลาออก? <b>แนะนำ &quot;ปิดการใช้งาน&quot;</b> — นำออกจากแผน แต่เก็บประวัติไว้</span>
+                    <Btn small variant="ghost" onClick={() => { toggleActive(editing); setModal(null) }}>ปิดการใช้งาน</Btn>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 border-t border-red-100 pt-2">
+                  <span className="text-xs text-slate-500">ลบถาวร — ประวัติการลงแผนงานทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+                  <Btn small variant="danger" onClick={() => { setDelTarget(editing); setModal(null) }}>ลบถาวร</Btn>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
           </div>
         </Modal>
+      )}
+
+      {delTarget && (
+        <DeleteConfirmModal
+          token={empToken(delTarget)}
+          label={delTarget.fullName}
+          impact={['ประวัติการลงแผนงานทั้งหมดจะถูกลบด้วย']}
+          endpoint={`/api/employees/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
       )}
 
       {/* Modal: จัดการทีมย่อย */}
@@ -599,13 +721,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [typeForm,    setTypeForm]    = useState({ code: '', name: '', primaryTeamId: '', requiresCal: false })
   const [editingType, setEditingType] = useState<EqType | null>(null)
   const [typeSaving,  setTypeSaving]  = useState(false)
-  // ลบเครื่องมือ (ยืนยันเข้ม + log) และประวัติการลบ
+  // ลบเครื่องมือ (ยืนยันเข้ม + log)
   const [delTarget, setDelTarget] = useState<Equipment | null>(null)
-  const [delInfo,   setDelInfo]   = useState<{ events: number; usageDays: number } | null>(null)
-  const [delText,   setDelText]   = useState('')
-  const [delReason, setDelReason] = useState('')
-  const [logModal,  setLogModal]  = useState(false)
-  const [logs,      setLogs]      = useState<DeletionLogRow[]>([])
+  const [delImpact, setDelImpact] = useState<string[]>([])
 
   const initOwned  = { typeId: '', internalNo: '', serialNo: '', status: 'ACTIVE', notes: '', brand: '', model: '', vendor: '', purchaseDate: '', purchasePrice: '', lifespanYears: '' }
   const initRental = { typeId: '', internalNo: '', rentalVendor: '', rentalStartDate: '', rentalEndDate: '', notes: '' }
@@ -698,24 +816,12 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   }
   // ลบถาวร: เปิดกล่องยืนยันเข้ม + ดึงจำนวนประวัติ/การจองที่จะหายไป
   async function openDelete(eq: Equipment) {
-    setDelTarget(eq); setDelText(''); setDelReason(''); setDelInfo(null)
+    setDelTarget(eq); setDelImpact([])
     const d = await fetch(`/api/equipment/${eq.id}`).then(r => r.json()).catch(() => null)
-    setDelInfo({ events: Array.isArray(d?.events) ? d.events.length : 0, usageDays: d?.usageDays ?? 0 })
-  }
-  async function confirmDelete() {
-    if (!delTarget || delText.trim() !== delToken(delTarget)) return
-    setSaving(true)
-    const res = await fetch(`/api/equipment/${delTarget.id}`, {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: delReason }),
-    })
-    setSaving(false)
-    if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error ?? 'ลบไม่สำเร็จ'); return }
-    setDelTarget(null); setModal(null); load()
-  }
-  async function openLogs() {
-    setLogModal(true)
-    const d = await fetch('/api/deletion-logs?type=equipment').then(r => r.json()).catch(() => [])
-    setLogs(Array.isArray(d) ? d : [])
+    setDelImpact([
+      `ประวัติซ่อม/Cal ${Array.isArray(d?.events) ? d.events.length : 0} รายการ (รวมค่าใช้จ่าย)`,
+      `การจองในปฏิทิน ${d?.usageDays ?? 0} รายการ`,
+    ])
   }
 
   // ── จัดการประเภทเครื่องมือ ──
@@ -790,7 +896,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canManage && (
           <div className="ml-auto flex gap-2">
-            {role === 'ADMIN' && <Btn variant="ghost" onClick={openLogs}>🗑 ประวัติการลบ</Btn>}
+            {role === 'ADMIN' && <DeletionLogButton />}
             <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}>🏷 จัดการประเภท</Btn>
             <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
@@ -1023,57 +1129,15 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         </Modal>
       )}
 
-      {/* Modal: ยืนยันลบถาวร (พิมพ์ยืนยัน + เหตุผล + แสดงผลกระทบ) */}
       {delTarget && (
-        <Modal title="⚠ ลบเครื่องมือถาวร" onClose={() => setDelTarget(null)}>
-          <div className="space-y-3">
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              กำลังจะลบ <b>{delTarget.type.code} {delToken(delTarget)}</b> ออกจากระบบถาวร พร้อมกับ:
-              <ul className="mt-1 list-disc pl-5 text-xs text-red-600">
-                <li>ประวัติซ่อม/Cal {delInfo ? delInfo.events : '…'} รายการ (รวมค่าใช้จ่าย)</li>
-                <li>การจองในปฏิทิน {delInfo ? delInfo.usageDays : '…'} รายการ</li>
-              </ul>
-              <p className="mt-1.5 text-xs">แค่เลิกใช้เฉยๆ? ปิดหน้านี้แล้วกด <b>&quot;ปลดระวาง&quot;</b> แทน จะเก็บประวัติไว้</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">พิมพ์ <b className="font-mono text-slate-800">{delToken(delTarget)}</b> เพื่อยืนยัน</label>
-              <input value={delText} onChange={e => setDelText(e.target.value)}
-                className="rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-red-400 focus:outline-none" />
-            </div>
-            <Input label="เหตุผลที่ลบ (ไม่บังคับ)" value={delReason} onChange={setDelReason} placeholder="เช่น กรอกซ้ำ / กรอกผิด" />
-            <div className="flex justify-end gap-2 pt-1">
-              <Btn variant="ghost" onClick={() => setDelTarget(null)}>ยกเลิก</Btn>
-              <Btn variant="danger" onClick={confirmDelete} disabled={saving || delText.trim() !== delToken(delTarget)}>{saving ? 'กำลังลบ...' : 'ลบถาวร'}</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal: ประวัติการลบ (ADMIN) */}
-      {logModal && (
-        <Modal wide title="🗑 ประวัติการลบเครื่องมือ" onClose={() => setLogModal(false)}>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500"><tr>
-                <th className="px-3 py-2 text-left font-medium">เมื่อ</th>
-                <th className="px-3 py-2 text-left font-medium">เครื่องมือ</th>
-                <th className="px-3 py-2 text-left font-medium">ผู้ลบ</th>
-                <th className="px-3 py-2 text-left font-medium">เหตุผล</th>
-              </tr></thead>
-              <tbody>
-                {logs.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-slate-300">ยังไม่มีประวัติการลบ</td></tr>}
-                {logs.map(l => (
-                  <tr key={l.id} className="border-t border-slate-100">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{new Date(l.createdAt).toLocaleString('th-TH')}</td>
-                    <td className="px-3 py-2 text-slate-700">{l.entityLabel}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{l.deletedByName}</td>
-                    <td className="px-3 py-2 text-xs text-slate-400">{l.reason ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Modal>
+        <DeleteConfirmModal
+          token={delToken(delTarget)}
+          label={`${delTarget.type.code} ${delToken(delTarget)}`}
+          impact={delImpact}
+          endpoint={`/api/equipment/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); setModal(null); load() }}
+        />
       )}
 
       {viewing && <EquipmentCard equipmentId={viewing.id} onClose={() => setViewing(null)} />}
@@ -1636,6 +1700,8 @@ function VehiclesSection({ role }: { role?: UserRole }) {
   const [viewing, setViewing] = useState<VehicleRow | null>(null)
   const [logbook, setLogbook] = useState<VehicleRow | null>(null)  // สมุดไมล์รายคัน
   const [summary, setSummary] = useState(false)                    // สรุปไมล์ทุกคัน
+  const [delTarget, setDelTarget] = useState<VehicleRow | null>(null)
+  const [delImpact, setDelImpact] = useState<string[]>([])
 
   const load = useCallback(async () => {
     const r = await fetch('/api/vehicles?all=true'); if (r.ok) setVehicles(await r.json())
@@ -1663,9 +1729,10 @@ function VehiclesSection({ role }: { role?: UserRole }) {
       body: JSON.stringify({ licensePlate: v.licensePlate, name: v.name, vehicleType: v.vehicleType, brand: v.brand, model: v.model, seats: v.seats, status, notes: v.notes }) })
     load()
   }
-  async function del(v: VehicleRow) {
-    if (!confirm(`ลบรถ "${v.licensePlate}" ? ประวัติการจองจะถูกลบด้วย`)) return
-    await fetch(`/api/vehicles/${v.id}`, { method: 'DELETE' }); load()
+  async function openDelete(v: VehicleRow) {
+    setDelTarget(v); setDelImpact([])
+    const d = await fetch(`/api/vehicles/${v.id}`).then(r => r.json()).catch(() => null)
+    setDelImpact([`ประวัติการจอง/ใช้รถ ${d?.usageDays ?? 0} รายการ`, 'บันทึกไมล์รถทั้งหมดจะถูกลบด้วย'])
   }
 
   return (
@@ -1673,6 +1740,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm text-slate-400">{vehicles.length} คัน</p>
         <div className="flex gap-2">
+          {role === 'ADMIN' && <DeletionLogButton />}
           <Btn variant="ghost" onClick={() => setSummary(true)}>📊 สรุป/Export ไมล์รถ</Btn>
           {canManage && <Btn onClick={openAdd}>+ เพิ่มรถ</Btn>}
         </div>
@@ -1708,10 +1776,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
                   </div>
                 </td>
                 <td className="px-4 py-2 text-right">
-                  {canManage && <div className="flex justify-end gap-1.5">
-                    <Btn small onClick={() => openEdit(v)}>แก้ไข</Btn>
-                    {role === 'ADMIN' && <Btn small variant="danger" onClick={() => del(v)}>ลบ</Btn>}
-                  </div>}
+                  {canManage && <Btn small onClick={() => openEdit(v)}>แก้ไข</Btn>}
                 </td>
               </tr>
             ))}
@@ -1746,12 +1811,32 @@ function VehiclesSection({ role }: { role?: UserRole }) {
               <CustomSelect value={form.status} onChange={f('status')} options={VEHICLE_STATUS.map(s => ({ value: s, label: VSTATUS_LABEL[s] }))} />
             </div>
             <Input label="หมายเหตุ" value={form.notes} onChange={f('notes')} placeholder="..." />
+            {modal === 'edit' && editing && role === 'ADMIN' && (
+              <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+                <p className="text-xs font-semibold text-red-600">คำเตือน</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-500">แค่เลิกใช้? ตั้งสถานะเป็น <b>&quot;ปลดระวาง&quot;</b> ด้านบนแทน จะเก็บประวัติไว้ · ลบถาวร — ประวัติการจอง/ไมล์ทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
+                  <Btn small variant="danger" onClick={() => { openDelete(editing); setModal(null) }}>ลบถาวร</Btn>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={save}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
             </div>
           </div>
         </Modal>
+      )}
+
+      {delTarget && (
+        <DeleteConfirmModal
+          token={delTarget.licensePlate}
+          label={delTarget.licensePlate}
+          impact={delImpact}
+          endpoint={`/api/vehicles/${delTarget.id}`}
+          onClose={() => setDelTarget(null)}
+          onDone={() => { setDelTarget(null); load() }}
+        />
       )}
 
       {viewing && <VehicleCard vehicleId={viewing.id} onClose={() => setViewing(null)} />}
@@ -2042,8 +2127,8 @@ export default function AdminView() {
       </div>
 
       <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-200">
-        {active === 'sites'     && <SitesSection />}
-        {active === 'employees' && <EmployeesSection />}
+        {active === 'sites'     && <SitesSection role={role} />}
+        {active === 'employees' && <EmployeesSection role={role} />}
         {active === 'equipment'   && <EquipmentSection role={role} />}
         {active === 'vehicles'    && <VehiclesSection role={role} />}
         {active === 'maintenance' && <MaintenanceSection role={role} />}

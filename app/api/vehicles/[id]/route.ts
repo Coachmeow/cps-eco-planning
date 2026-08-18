@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole, forbidden } from '@/lib/auth'
+import { requireRole, getSession, hasRole, forbidden } from '@/lib/auth'
 
 // รายละเอียดรถ + ปริมาณใช้งานสะสม (วันจอง) + ประวัติการจอง
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -62,16 +62,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession()
+  if (!hasRole(session, 'ADMIN', 'MANAGER')) return forbidden()
   try {
     const { id } = await params
     const vId = parseInt(id)
+    const v = await prisma.vehicle.findUnique({ where: { id: vId } })
+    if (!v) return NextResponse.json({ error: 'ไม่พบรถ' }, { status: 404 })
+
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+
+    const [bookings, logsCount, tripsCount] = await Promise.all([
+      prisma.vehicleBooking.count({ where: { vehicleId: vId } }),
+      prisma.vehicleLog.count({ where: { vehicleId: vId } }),
+      prisma.vehicleTrip.count({ where: { vehicleId: vId } }),
+    ])
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { photoUrl, ...vNoPhoto } = v
+    const snapshot = JSON.parse(JSON.stringify({ vehicle: vNoPhoto, bookings, logsCount, tripsCount, hadPhoto: !!photoUrl }))
+
     // ลบลูกก่อน (FK): log + ทริป อ้าง booking + vehicle ; แล้วค่อยลบ booking และ vehicle
-    await prisma.vehicleLog.deleteMany({ where: { vehicleId: vId } })
-    await prisma.vehicleTrip.deleteMany({ where: { vehicleId: vId } })
-    await prisma.vehicleBooking.deleteMany({ where: { vehicleId: vId } })
-    await prisma.vehicle.delete({ where: { id: vId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({
+        data: {
+          entityType: 'vehicle', entityLabel: `${v.licensePlate}${v.name ? ` (${v.name})` : ''}`,
+          reason, snapshot, deletedById: session!.uid, deletedByName: session!.name || session!.username || '—',
+        },
+      })
+      await tx.vehicleLog.deleteMany({ where: { vehicleId: vId } })
+      await tx.vehicleTrip.deleteMany({ where: { vehicleId: vId } })
+      await tx.vehicleBooking.deleteMany({ where: { vehicleId: vId } })
+      await tx.vehicle.delete({ where: { id: vId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })

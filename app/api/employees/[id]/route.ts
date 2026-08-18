@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireRole, forbidden } from '@/lib/auth'
+import { requireRole, getSession, hasRole, forbidden } from '@/lib/auth'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
@@ -36,15 +36,35 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await requireRole('ADMIN', 'MANAGER')) return forbidden()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession()
+  if (!hasRole(session, 'ADMIN', 'MANAGER')) return forbidden()
   try {
     const { id } = await params
     const empId = parseInt(id)
+    const emp = await prisma.employee.findUnique({ where: { id: empId }, include: { primaryTeam: true } })
+    if (!emp) return NextResponse.json({ error: 'ไม่พบพนักงาน' }, { status: 404 })
+
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+
+    const assignmentCount = await prisma.staffAssignment.count({ where: { employeeId: empId } })
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { photoUrl, ...empNoPhoto } = emp
+    const snapshot = JSON.parse(JSON.stringify({ employee: empNoPhoto, assignmentCount, hadPhoto: !!photoUrl }))
+
     // ลบ assignments และ access ก่อน แล้วค่อยลบพนักงาน
-    await prisma.staffAssignment.deleteMany({ where: { employeeId: empId } })
-    await prisma.employeeSiteAccess.deleteMany({ where: { employeeId: empId } })
-    await prisma.employee.delete({ where: { id: empId } })
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({
+        data: {
+          entityType: 'employee', entityLabel: `${emp.fullName}${emp.nickname ? ` (${emp.nickname})` : ''}`,
+          reason, snapshot, deletedById: session!.uid, deletedByName: session!.name || session!.username || '—',
+        },
+      })
+      await tx.staffAssignment.deleteMany({ where: { employeeId: empId } })
+      await tx.employeeSiteAccess.deleteMany({ where: { employeeId: empId } })
+      await tx.employee.delete({ where: { id: empId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })
