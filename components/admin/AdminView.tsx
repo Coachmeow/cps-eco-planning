@@ -1360,9 +1360,10 @@ function CalPlanSection({ role }: { role?: UserRole }) {
   const [planModal, setPlanModal] = useState<null | { mode: 'add' | 'edit'; eqId: string }>(null)
   const [planDate,  setPlanDate]  = useState('')
   const [saving,    setSaving]    = useState(false)
-  // เปิดใบงานส่งแคลจากแบนเนอร์เตือน (เชื่อม 🟣 แผน → 🟠 ส่งจริง)
+  // เปิดใบงานส่งแคลจากชิปเตือน (เชื่อม 🟣 แผน → 🟠 ส่งจริง)
   const [woTarget, setWoTarget] = useState<Equipment | null>(null)
   const [woForm,   setWoForm]   = useState({ sentDate: '', expectedDate: '', vendor: '' })
+  const [dueModal, setDueModal] = useState(false)   // popup รายการใกล้ถึงกำหนด
 
   // ใบงาน Cal 2 ชุด: (1) ที่ส่งในปีที่เลือก = เอามาวาด  (2) ที่ยังเปิดค้าง = ใช้ตัดสิน "เกินกำหนด" (อาจส่งข้ามปี)
   const load = useCallback(async () => {
@@ -1498,28 +1499,14 @@ function CalPlanSection({ role }: { role?: UserRole }) {
         {sentCount > 0 && <Chip color="border-emerald-200 bg-emerald-50 text-emerald-700">ส่งแล้ว {sentCount}</Chip>}
         {waitingCount > 0 && <Chip color="border-amber-200 bg-amber-50 text-amber-700">อยู่ระหว่างส่งแคล {waitingCount}</Chip>}
         {overdueCount > 0 && <Chip color="border-red-200 bg-red-50 text-red-600">เกินกำหนด {overdueCount}</Chip>}
+        {dueSoon.length > 0 && (
+          <button onClick={() => setDueModal(true)}
+            className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">
+            🔔 ใกล้ถึงกำหนด {dueSoon.length}
+          </button>
+        )}
         {canEdit && <div className="ml-auto"><Btn onClick={() => openAdd()}>+ เพิ่มแผนแคล</Btn></div>}
       </div>
-
-      {/* แบนเนอร์เตือนล่วงหน้า 1 เดือน */}
-      {dueSoon.length > 0 && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
-          <p className="mb-2 text-xs font-semibold text-amber-800">🔔 ใกล้ถึงกำหนดส่งแคล (ภายใน 1 เดือน) — {dueSoon.length} เครื่อง</p>
-          <div className="flex flex-wrap gap-1.5">
-            {dueSoon.map(eq => {
-              const overdue = eq.calDueDate!.slice(0, 10) < todayKey
-              const t = eqTypes.find(x => x.id === eq.typeId)
-              return (
-                <div key={eq.id} className={`flex items-center gap-2 rounded-full border bg-white px-2.5 py-1 text-xs ${overdue ? 'border-red-300' : 'border-amber-300'}`}>
-                  <span className="text-slate-600">{t?.code} {eqName(eq)}</span>
-                  <span className={overdue ? 'font-semibold text-red-600' : 'text-amber-600'}>{overdue ? 'เกินกำหนด' : 'ครบ'} {thShort(eq.calDueDate!)}</span>
-                  {canEdit && <button onClick={() => openWO(eq)} className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700">เปิดใบงาน</button>}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {groupArr.length === 0 ? (
         <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีเครื่องที่มีแผน Cal หรือส่ง Cal ในปีนี้<br /><span className="text-xs">กด &quot;+ เพิ่มแผนแคล&quot; เพื่อกำหนดวัน หรือกำหนดอัตโนมัติได้ตอนรับเครื่องกลับในเมนู ซ่อม/Cal</span></p>
@@ -1636,7 +1623,33 @@ function CalPlanSection({ role }: { role?: UserRole }) {
         </Modal>
       )}
 
-      {/* Modal เปิดใบงานส่งแคล (จากแบนเนอร์เตือน) */}
+      {/* Popup รายการใกล้ถึงกำหนดส่งแคล */}
+      {dueModal && (
+        <Modal title={`🔔 ใกล้ถึงกำหนดส่งแคล (ภายใน 1 เดือน) — ${dueSoon.length} เครื่อง`} onClose={() => setDueModal(false)}>
+          <div className="divide-y divide-slate-100">
+            {dueSoon.length === 0 && <p className="py-6 text-center text-sm text-slate-300">ไม่มีเครื่องใกล้ถึงกำหนด</p>}
+            {dueSoon.map(eq => {
+              const overdue = eq.calDueDate!.slice(0, 10) < todayKey
+              const t = eqTypes.find(x => x.id === eq.typeId)
+              return (
+                <div key={eq.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 text-sm">
+                    <span className="font-medium text-slate-700">{t?.code} {eqName(eq)}</span>
+                    <span className={`ml-2 text-xs ${overdue ? 'font-semibold text-red-600' : 'text-amber-600'}`}>
+                      {overdue ? 'เกินกำหนด' : 'ครบ'} {thShort(eq.calDueDate!)}
+                    </span>
+                  </div>
+                  {canEdit && (
+                    <Btn small onClick={() => { setDueModal(false); openWO(eq) }}>เปิดใบงาน</Btn>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal เปิดใบงานส่งแคล (จากชิปเตือน) */}
       {woTarget && (
         <Modal title="📐 เปิดใบงานส่งแคล" onClose={() => setWoTarget(null)}>
           <div className="space-y-3">
