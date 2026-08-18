@@ -330,6 +330,8 @@ export interface DashboardData {
   // งานจองรอลูกค้ายืนยัน — ยอดวัน-คนเดือนนี้ + รายการที่ใกล้ถึงวันงาน (7 วัน)
   tentativeDays?: number
   tentativeSoon?: { date: string; employee: string; site: string; days: number; reason: string | null }[]
+  // เครื่องที่ใกล้/เกินกำหนดส่งแคล (30 วัน) และยังไม่เปิดใบงาน — เตือนล่วงหน้า 1 เดือน
+  calDueSoonList?: { id: number; label: string; calDueDate: string; overdue: boolean }[]
   workdays: number
   year: number
   month: number

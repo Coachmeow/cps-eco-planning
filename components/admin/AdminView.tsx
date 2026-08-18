@@ -1360,6 +1360,9 @@ function CalPlanSection({ role }: { role?: UserRole }) {
   const [planModal, setPlanModal] = useState<null | { mode: 'add' | 'edit'; eqId: string }>(null)
   const [planDate,  setPlanDate]  = useState('')
   const [saving,    setSaving]    = useState(false)
+  // เปิดใบงานส่งแคลจากแบนเนอร์เตือน (เชื่อม 🟣 แผน → 🟠 ส่งจริง)
+  const [woTarget, setWoTarget] = useState<Equipment | null>(null)
+  const [woForm,   setWoForm]   = useState({ sentDate: '', expectedDate: '', vendor: '' })
 
   // ใบงาน Cal 2 ชุด: (1) ที่ส่งในปีที่เลือก = เอามาวาด  (2) ที่ยังเปิดค้าง = ใช้ตัดสิน "เกินกำหนด" (อาจส่งข้ามปี)
   const load = useCallback(async () => {
@@ -1457,6 +1460,26 @@ function CalPlanSection({ role }: { role?: UserRole }) {
   function openAdd(eqId = '')  { setPlanDate(''); setPlanModal({ mode: 'add', eqId }) }
   function openEdit(eq: Equipment) { setPlanDate(eq.calDueDate?.slice(0, 10) ?? ''); setPlanModal({ mode: 'edit', eqId: String(eq.id) }) }
 
+  // เตือนล่วงหน้า 1 เดือน: เครื่องที่ถึง/ใกล้ครบกำหนด (ภายใน 30 วัน รวมที่เกินแล้ว) และยังไม่เปิดใบงานส่ง
+  const soonKey = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10) })()
+  const dueSoon = equipment
+    .filter(eq => eq.status !== 'RETIRED' && eq.calDueDate && eq.calDueDate.slice(0, 10) <= soonKey
+      && !(byEq.get(eq.id) ?? []).some(e => !e.returnedDate))
+    .sort((a, b) => a.calDueDate!.localeCompare(b.calDueDate!))
+
+  function openWO(eq: Equipment) { setWoForm({ sentDate: todayKey, expectedDate: '', vendor: '' }); setWoTarget(eq) }
+  async function saveWO() {
+    if (!woTarget || !woForm.sentDate) return
+    setSaving(true)
+    const res = await fetch('/api/equipment-events', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ equipmentId: woTarget.id, type: 'CALIBRATION', sentDate: woForm.sentDate, expectedDate: woForm.expectedDate || null, vendor: woForm.vendor || null }),
+    })
+    setSaving(false)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'เปิดใบงานไม่สำเร็จ'); return }
+    setWoTarget(null); load()
+  }
+
   const Chip = ({ color, children }: { color: string; children: React.ReactNode }) => (
     <span className={`rounded-full border px-2.5 py-1 text-xs ${color}`}>{children}</span>
   )
@@ -1477,6 +1500,26 @@ function CalPlanSection({ role }: { role?: UserRole }) {
         {overdueCount > 0 && <Chip color="border-red-200 bg-red-50 text-red-600">เกินกำหนด {overdueCount}</Chip>}
         {canEdit && <div className="ml-auto"><Btn onClick={() => openAdd()}>+ เพิ่มแผนแคล</Btn></div>}
       </div>
+
+      {/* แบนเนอร์เตือนล่วงหน้า 1 เดือน */}
+      {dueSoon.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="mb-2 text-xs font-semibold text-amber-800">🔔 ใกล้ถึงกำหนดส่งแคล (ภายใน 1 เดือน) — {dueSoon.length} เครื่อง</p>
+          <div className="flex flex-wrap gap-1.5">
+            {dueSoon.map(eq => {
+              const overdue = eq.calDueDate!.slice(0, 10) < todayKey
+              const t = eqTypes.find(x => x.id === eq.typeId)
+              return (
+                <div key={eq.id} className={`flex items-center gap-2 rounded-full border bg-white px-2.5 py-1 text-xs ${overdue ? 'border-red-300' : 'border-amber-300'}`}>
+                  <span className="text-slate-600">{t?.code} {eqName(eq)}</span>
+                  <span className={overdue ? 'font-semibold text-red-600' : 'text-amber-600'}>{overdue ? 'เกินกำหนด' : 'ครบ'} {thShort(eq.calDueDate!)}</span>
+                  {canEdit && <button onClick={() => openWO(eq)} className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700">เปิดใบงาน</button>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {groupArr.length === 0 ? (
         <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีเครื่องที่มีแผน Cal หรือส่ง Cal ในปีนี้<br /><span className="text-xs">กด &quot;+ เพิ่มแผนแคล&quot; เพื่อกำหนดวัน หรือกำหนดอัตโนมัติได้ตอนรับเครื่องกลับในเมนู ซ่อม/Cal</span></p>
@@ -1588,6 +1631,26 @@ function CalPlanSection({ role }: { role?: UserRole }) {
             <div className="flex justify-end gap-2 pt-1">
               <Btn variant="ghost" onClick={() => setPlanModal(null)}>ยกเลิก</Btn>
               <Btn onClick={savePlan} disabled={saving || !planModal.eqId || !planDate}>{saving ? 'กำลังบันทึก...' : 'บันทึกแผน'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal เปิดใบงานส่งแคล (จากแบนเนอร์เตือน) */}
+      {woTarget && (
+        <Modal title="📐 เปิดใบงานส่งแคล" onClose={() => setWoTarget(null)}>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">{eqTypes.find(t => t.id === woTarget.typeId)?.code} {eqName(woTarget)}
+              {woTarget.calDueDate && <span className="text-slate-400"> · ครบกำหนด {thShort(woTarget.calDueDate)}</span>}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="วันส่ง" value={woForm.sentDate} onChange={v => setWoForm(p => ({ ...p, sentDate: v }))} type="date" required />
+              <Input label="กำหนดเสร็จ" value={woForm.expectedDate} onChange={v => setWoForm(p => ({ ...p, expectedDate: v }))} type="date" />
+            </div>
+            <Input label="ศูนย์ / ผู้รับงาน" value={woForm.vendor} onChange={v => setWoForm(p => ({ ...p, vendor: v }))} placeholder="บ. ..." />
+            <div className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">เปิดใบงานแล้วเครื่องจะขึ้น 🟠 &quot;อยู่ระหว่างส่งแคล&quot; ในแผน และล็อกช่วงจองในปฏิทินเครื่องมือ</div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Btn variant="ghost" onClick={() => setWoTarget(null)}>ยกเลิก</Btn>
+              <Btn onClick={saveWO} disabled={saving || !woForm.sentDate}>{saving ? 'กำลังบันทึก...' : 'เปิดใบงาน'}</Btn>
             </div>
           </div>
         </Modal>

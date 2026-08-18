@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
   const in30 = new Date(todayStart); in30.setDate(in30.getDate() + 30)
   const calList = await prisma.equipment.findMany({
     where:  { calDueDate: { not: null }, status: { not: 'RETIRED' } },
-    select: { calDueDate: true },
+    select: { id: true, internalNo: true, serialNo: true, calDueDate: true, type: { select: { code: true } } },
   })
   let calOverdue = 0, calSoon = 0
   for (const e of calList) {
@@ -238,6 +238,19 @@ export async function GET(req: NextRequest) {
     if (d < todayStart) calOverdue++
     else if (d <= in30) calSoon++
   }
+  // รายการที่ควรเปิดใบงานส่งแคล (ครบ/เกินภายใน 30 วัน และยังไม่มีใบงาน Cal เปิดค้าง) — เตือนล่วงหน้า 1 เดือน
+  const openCalEqIds = new Set((await prisma.equipmentEvent.findMany({
+    where: { type: 'CALIBRATION', returnedDate: null }, select: { equipmentId: true },
+  })).map(e => e.equipmentId))
+  const calDueSoonList = calList
+    .filter(e => e.calDueDate! <= in30 && !openCalEqIds.has(e.id))
+    .sort((a, b) => a.calDueDate!.getTime() - b.calDueDate!.getTime())
+    .map(e => ({
+      id: e.id,
+      label: `${e.type.code} ${e.internalNo ?? e.serialNo ?? `#${e.id}`}`,
+      calDueDate: e.calDueDate!.toISOString().slice(0, 10),
+      overdue: e.calDueDate! < todayStart,
+    }))
   const repairOverdue = await prisma.equipmentEvent.count({
     where: { returnedDate: null, expectedDate: { lt: todayStart } },
   })
@@ -305,5 +318,5 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, workdays, year, month })
 }

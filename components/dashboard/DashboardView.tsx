@@ -133,6 +133,20 @@ export default function DashboardView() {
             </Card>
           )}
 
+          {/* เครื่องใกล้/เกินกำหนดส่งแคล (1 เดือน) — ยังไม่เปิดใบงาน → ไปเปิดที่เมนู แผน Cal */}
+          {(data.calDueSoonList?.length ?? 0) > 0 && (
+            <Card title={`🔔 ใกล้ถึงกำหนดส่งแคล (${data.calDueSoonList!.length} เครื่อง ภายใน 1 เดือน)`}>
+              <div className="flex flex-wrap gap-1.5">
+                {data.calDueSoonList!.map(e => (
+                  <span key={e.id} className={`rounded-full border px-2.5 py-1 text-xs ${e.overdue ? 'border-red-300 bg-red-50 text-red-600' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                    {e.label} · {e.overdue ? 'เกินกำหนด' : 'ครบ'} {new Date(e.calDueDate + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">ไปเปิดใบงานส่งแคลได้ที่ จัดการข้อมูล → แผน Cal (แบนเนอร์ด้านบน)</p>
+            </Card>
+          )}
+
           <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
             <DemandChart rows={data.equipmentUtil} />
           </Card>
