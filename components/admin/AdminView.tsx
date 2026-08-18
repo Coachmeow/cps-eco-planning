@@ -75,10 +75,10 @@ function Input({ label, value, onChange, type = 'text', placeholder, required }:
   )
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl bg-white shadow-2xl">
+      <div className={`flex max-h-[90vh] w-full ${wide ? 'max-w-2xl' : 'max-w-md'} flex-col rounded-xl bg-white shadow-2xl`}>
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-3">
           <h3 className="font-semibold text-slate-800">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
@@ -907,7 +907,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
 
       {/* Modal: จัดการประเภทเครื่องมือ */}
       {typeModal && (
-        <Modal title="🏷 จัดการประเภทเครื่องมือ" onClose={() => { setTypeModal(false); resetTypeForm() }}>
+        <Modal wide title="🏷 จัดการประเภทเครื่องมือ" onClose={() => { setTypeModal(false); resetTypeForm() }}>
           <div className="space-y-4">
             {/* ฟอร์มเพิ่ม/แก้ */}
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
@@ -932,7 +932,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
             </div>
 
             {/* รายการประเภท */}
-            <div className="overflow-hidden rounded-lg border border-slate-200">
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500"><tr>
                   <th className="px-3 py-2 text-left font-medium">โค้ด</th>
@@ -953,7 +953,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                         <td className="px-3 py-2 text-xs text-slate-500">{teams.find(x => x.id === t.primaryTeamId)?.code ?? '—'}</td>
                         <td className="px-3 py-2 text-center">{t.requiresCal ? <span title="ต้องส่ง Calibrate">📐</span> : <span className="text-slate-300">—</span>}</td>
                         <td className="px-3 py-2 text-right text-slate-400">{cnt}</td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
                           <div className="flex justify-end gap-1.5">
                             <Btn small onClick={() => editType(t)}>แก้</Btn>
                             <Btn small variant="danger" onClick={() => delType(t)}>ลบ</Btn>
