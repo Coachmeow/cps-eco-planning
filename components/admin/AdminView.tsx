@@ -753,7 +753,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   function DangerZone({ eq }: { eq: Equipment }) {
     return (
       <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
-        <p className="text-xs font-semibold text-red-600">โซนอันตราย</p>
+        <p className="text-xs font-semibold text-red-600">คำเตือน</p>
         {eq.status !== 'RETIRED' && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-slate-600">เลิกใช้เครื่องนี้? <b>แนะนำ &quot;ปลดระวาง&quot;</b> — ซ่อนจากการใช้งาน แต่เก็บประวัติไว้</span>
@@ -762,7 +762,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canDelete(eq) && (
           <div className="flex items-center justify-between gap-2 border-t border-red-100 pt-2">
-            <span className="text-xs text-slate-500">ลบถาวร — ประวัติซ่อม/Cal และการจองทั้งหมดจะหายด้วย</span>
+            <span className="text-xs text-slate-500">ลบถาวร — ประวัติซ่อม/Cal และการจองทั้งหมดจะหายด้วย (ข้อมูลคนลบ วันที่ลบจะถูกเก็บในระบบ)</span>
             <Btn small variant="danger" onClick={() => openDelete(eq)}>ลบถาวร</Btn>
           </div>
         )}
