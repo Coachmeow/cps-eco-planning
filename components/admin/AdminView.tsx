@@ -1252,7 +1252,7 @@ function calEventTip(e: CalEventRow): string {
   const lines = [
     e.returnedDate
       ? `ส่ง ${thShort(e.sentDate)} → รับกลับ ${thShort(e.returnedDate)}`
-      : `ส่ง ${thShort(e.sentDate)} — ยังอยู่ที่ศูนย์${e.expectedDate ? ` (กำหนดเสร็จ ${thShort(e.expectedDate)})` : ''}`,
+      : `ส่ง ${thShort(e.sentDate)} — อยู่ระหว่างส่งแคล${e.expectedDate ? ` (กำหนดเสร็จ ${thShort(e.expectedDate)})` : ''}`,
   ]
   if (e.vendor)      lines.push(`ศูนย์: ${e.vendor}`)
   if (e.cost != null) lines.push(`ค่าใช้จ่าย: ${e.cost.toLocaleString('th-TH')} บาท`)
@@ -1386,7 +1386,7 @@ function CalPlanSection({ role }: { role?: UserRole }) {
           options={[{ value: '', label: 'ทุกหมวด' }, ...eqTypes.map(t => ({ value: String(t.id), label: `${t.code} — ${t.name}` }))]} />
         <Chip color="border-slate-200 bg-white text-slate-500">{rows.length} เครื่องในปีนี้</Chip>
         {sentCount > 0 && <Chip color="border-emerald-200 bg-emerald-50 text-emerald-700">ส่งแล้ว {sentCount}</Chip>}
-        {waitingCount > 0 && <Chip color="border-amber-200 bg-amber-50 text-amber-700">อยู่ที่ศูนย์ {waitingCount}</Chip>}
+        {waitingCount > 0 && <Chip color="border-amber-200 bg-amber-50 text-amber-700">อยู่ระหว่างส่งแคล {waitingCount}</Chip>}
         {overdueCount > 0 && <Chip color="border-red-200 bg-red-50 text-red-600">เกินกำหนด {overdueCount}</Chip>}
         {canEdit && <div className="ml-auto"><Btn onClick={() => openAdd()}>+ เพิ่มแผนแคล</Btn></div>}
       </div>
@@ -1460,7 +1460,7 @@ function CalPlanSection({ role }: { role?: UserRole }) {
 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
         <span><span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500 align-middle" /> กำหนดครบ Cal (แผน)</span>
-        <span><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-amber-500 align-middle" /> ส่งแล้ว — อยู่ที่ศูนย์</span>
+        <span><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-amber-500 align-middle" /> อยู่ระหว่างส่งแคล</span>
         <span><span className="font-bold text-emerald-600">✓</span> ส่งและรับกลับแล้ว</span>
         <span><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle" /> เกินกำหนด (ยังไม่ส่ง)</span>
         <span className="text-slate-300">ตัวเลขใต้เดือน = ครบกำหนด (ม่วง) / ส่งจริง (เขียว)</span>
