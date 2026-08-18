@@ -93,25 +93,7 @@ export default function DashboardView() {
             ))}
           </div>
 
-          {data.alerts && (data.alerts.calOverdue + data.alerts.calSoon + data.alerts.repairOverdue + (data.alerts.mileageMismatch ?? 0)) > 0 && (
-            <div className="col-span-full flex flex-wrap gap-2">
-              {data.alerts.calOverdue > 0 && (
-                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">📐 Cal เกินกำหนด {data.alerts.calOverdue} เครื่อง</span>
-              )}
-              {data.alerts.calSoon > 0 && (
-                <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-600">📐 Cal ใกล้ครบ (30 วัน) {data.alerts.calSoon} เครื่อง</span>
-              )}
-              {data.alerts.repairOverdue > 0 && (
-                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">🔧 ส่งซ่อม/Cal เกินกำหนดรับกลับ {data.alerts.repairOverdue} เครื่อง</span>
-              )}
-              {data.alerts.stillOut > 0 && (
-                <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500">กำลังส่งซ่อม/Cal รวม {data.alerts.stillOut} เครื่อง</span>
-              )}
-              {(data.alerts.mileageMismatch ?? 0) > 0 && (
-                <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600">🚗 ไมล์รถไม่ตรง {data.alerts.mileageMismatch} รายการ</span>
-              )}
-            </div>
-          )}
+          {/* แถบเตือน Cal/ซ่อม/ไมล์ ถอดออกจากหน้าแรก — ดูได้ที่หน้า แผน Cal / ซ่อม-Cal โดยตรง */}
 
           {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
           {(data.tentativeSoon?.length ?? 0) > 0 && (
@@ -133,19 +115,7 @@ export default function DashboardView() {
             </Card>
           )}
 
-          {/* เครื่องใกล้/เกินกำหนดส่งแคล (1 เดือน) — ยังไม่เปิดใบงาน → ไปเปิดที่เมนู แผน Cal */}
-          {(data.calDueSoonList?.length ?? 0) > 0 && (
-            <Card title={`🔔 ใกล้ถึงกำหนดส่งแคล (${data.calDueSoonList!.length} เครื่อง ภายใน 1 เดือน)`}>
-              <div className="flex flex-wrap gap-1.5">
-                {data.calDueSoonList!.map(e => (
-                  <span key={e.id} className={`rounded-full border px-2.5 py-1 text-xs ${e.overdue ? 'border-red-300 bg-red-50 text-red-600' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
-                    {e.label} · {e.overdue ? 'เกินกำหนด' : 'ครบ'} {new Date(e.calDueDate + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-slate-400">ไปเปิดใบงานส่งแคลได้ที่ จัดการข้อมูล → แผน Cal (แบนเนอร์ด้านบน)</p>
-            </Card>
-          )}
+          {/* การ์ดใกล้ถึงกำหนดส่งแคล ถอดออกจากหน้าแรก — ไปดู/เปิดใบงานที่ชิปในหน้า แผน Cal แทน */}
 
           <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
             <DemandChart rows={data.equipmentUtil} />
