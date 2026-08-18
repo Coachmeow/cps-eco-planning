@@ -7,6 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// บันทึกประวัติการลบข้อมูลออกจากระบบ (เก็บ snapshot ไว้กู้/ตรวจสอบย้อนหลัง)
+model DeletionLog {
+  id            Int      @id @default(autoincrement())
+  entityType    String   // เช่น 'equipment'
+  entityLabel   String   // ป้ายอ่านง่าย เช่น "SO2 A-5552 (serial 5552)"
+  reason        String?  // เหตุผลที่ลบ
+  snapshot      Json     // ข้อมูลเต็มก่อนลบ (ไม่รวมรูปภาพ)
+  deletedById   Int?     // uid ผู้ลบ
+  deletedByName String   // ชื่อผู้ลบ (เก็บไว้เผื่อ user ถูกลบภายหลัง)
+  createdAt     DateTime @default(now())
+
+  @@index([entityType])
+  @@map("deletion_logs")
+}
+
 model ServiceTeam {
   id        Int    @id @default(autoincrement())
   code      String @unique

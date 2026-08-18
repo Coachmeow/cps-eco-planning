@@ -47,6 +47,8 @@ interface Equipment {
   hasPhoto?: boolean
 }
 
+interface DeletionLogRow { id: number; entityType: string; entityLabel: string; reason: string | null; deletedByName: string; createdAt: string }
+
 const TEAM_COLOR: Record<string, string> = {
   ST: 'bg-slate-200 text-slate-700', AMB: 'bg-teal-100 text-teal-700',
   WP: 'bg-purple-100 text-purple-700', CEMS: 'bg-orange-100 text-orange-700',
@@ -597,6 +599,13 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [typeForm,    setTypeForm]    = useState({ code: '', name: '', primaryTeamId: '', requiresCal: false })
   const [editingType, setEditingType] = useState<EqType | null>(null)
   const [typeSaving,  setTypeSaving]  = useState(false)
+  // ลบเครื่องมือ (ยืนยันเข้ม + log) และประวัติการลบ
+  const [delTarget, setDelTarget] = useState<Equipment | null>(null)
+  const [delInfo,   setDelInfo]   = useState<{ events: number; usageDays: number } | null>(null)
+  const [delText,   setDelText]   = useState('')
+  const [delReason, setDelReason] = useState('')
+  const [logModal,  setLogModal]  = useState(false)
+  const [logs,      setLogs]      = useState<DeletionLogRow[]>([])
 
   const initOwned  = { typeId: '', internalNo: '', serialNo: '', status: 'ACTIVE', notes: '', brand: '', model: '', vendor: '', purchaseDate: '', purchasePrice: '', lifespanYears: '' }
   const initRental = { typeId: '', internalNo: '', rentalVendor: '', rentalStartDate: '', rentalEndDate: '', notes: '' }
@@ -679,9 +688,34 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   }
   const changeStatus = (eq: Equipment, status: string) => putEquipment(eq, { status })
 
-  async function del(eq: Equipment) {
-    if (!confirm(`ลบ "${eq.internalNo ?? eq.serialNo}" ? ประวัติการใช้งานจะถูกลบด้วย`)) return
-    await fetch(`/api/equipment/${eq.id}`, { method: 'DELETE' }); load()
+  const delToken = (eq: Equipment) => eq.internalNo ?? eq.serialNo ?? `#${eq.id}`
+  const canDelete = (eq: Equipment) => role === 'ADMIN' || (role === 'MANAGER' && eq.isRental)
+
+  // ปลดระวาง = ทางแนะนำ (เก็บประวัติ) — ต่างจากลบถาวร
+  function retire(eq: Equipment) {
+    if (!confirm(`ปลดระวาง "${delToken(eq)}" ?\nเครื่องจะถูกซ่อนจากการใช้งานและปฏิทิน แต่เก็บประวัติทั้งหมดไว้ (เปิดกลับมาใช้ได้ภายหลัง)`)) return
+    putEquipment(eq, { status: 'RETIRED' }); setModal(null)
+  }
+  // ลบถาวร: เปิดกล่องยืนยันเข้ม + ดึงจำนวนประวัติ/การจองที่จะหายไป
+  async function openDelete(eq: Equipment) {
+    setDelTarget(eq); setDelText(''); setDelReason(''); setDelInfo(null)
+    const d = await fetch(`/api/equipment/${eq.id}`).then(r => r.json()).catch(() => null)
+    setDelInfo({ events: Array.isArray(d?.events) ? d.events.length : 0, usageDays: d?.usageDays ?? 0 })
+  }
+  async function confirmDelete() {
+    if (!delTarget || delText.trim() !== delToken(delTarget)) return
+    setSaving(true)
+    const res = await fetch(`/api/equipment/${delTarget.id}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: delReason }),
+    })
+    setSaving(false)
+    if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error ?? 'ลบไม่สำเร็จ'); return }
+    setDelTarget(null); setModal(null); load()
+  }
+  async function openLogs() {
+    setLogModal(true)
+    const d = await fetch('/api/deletion-logs?type=equipment').then(r => r.json()).catch(() => [])
+    setLogs(Array.isArray(d) ? d : [])
   }
 
   // ── จัดการประเภทเครื่องมือ ──
@@ -715,6 +749,27 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const of = (k: keyof typeof ownedForm) => (v: string) => setOwnedForm(p => ({ ...p, [k]: v }))
   const rf = (k: keyof typeof rentalForm) => (v: string) => setRentalForm(p => ({ ...p, [k]: v }))
 
+  // โซนอันตรายใน modal แก้ไข — ปลดระวาง (แนะนำ) / ลบถาวร
+  function DangerZone({ eq }: { eq: Equipment }) {
+    return (
+      <div className="mt-1 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+        <p className="text-xs font-semibold text-red-600">โซนอันตราย</p>
+        {eq.status !== 'RETIRED' && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-600">เลิกใช้เครื่องนี้? <b>แนะนำ &quot;ปลดระวาง&quot;</b> — ซ่อนจากการใช้งาน แต่เก็บประวัติไว้</span>
+            <Btn small variant="ghost" onClick={() => retire(eq)}>ปลดระวาง</Btn>
+          </div>
+        )}
+        {canDelete(eq) && (
+          <div className="flex items-center justify-between gap-2 border-t border-red-100 pt-2">
+            <span className="text-xs text-slate-500">ลบถาวร — ประวัติซ่อม/Cal และการจองทั้งหมดจะหายด้วย</span>
+            <Btn small variant="danger" onClick={() => openDelete(eq)}>ลบถาวร</Btn>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="mb-3 flex items-center gap-3 flex-wrap">
@@ -735,6 +790,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         )}
         {canManage && (
           <div className="ml-auto flex gap-2">
+            {role === 'ADMIN' && <Btn variant="ghost" onClick={openLogs}>🗑 ประวัติการลบ</Btn>}
             <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}>🏷 จัดการประเภท</Btn>
             <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
@@ -798,13 +854,8 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                         </select>}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <div className="flex justify-end gap-1.5">
-                      {canManage && <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>}
-                      {/* ลบเครื่องซื้อ = ADMIN เท่านั้น · เครื่องเช่า = ADMIN/MANAGER */}
-                      {(role === 'ADMIN' || (role === 'MANAGER' && eq.isRental)) && (
-                        <Btn small variant="danger" onClick={() => del(eq)}>ลบ</Btn>
-                      )}
-                    </div>
+                    {/* ปุ่มลบย้ายเข้าไปใน modal แก้ไข (โซนอันตราย) — กันมือลั่นในลิสต์ยาว */}
+                    {canManage && <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>}
                   </td>
                 </tr>
               )
@@ -867,6 +918,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                   />}
             </div>
             <Input label="หมายเหตุ" value={ownedForm.notes} onChange={of('notes')} placeholder="..." />
+            {editing && <DangerZone eq={editing} />}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={saveOwned}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
@@ -897,6 +949,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               ⏱ เครื่องมือจะหายออกจากปฏิทินอัตโนมัติหลังวันที่คืน แต่ประวัติการใช้งานยังคงอยู่
             </div>
             <Input label="หมายเหตุ" value={rentalForm.notes} onChange={rf('notes')} placeholder="..." />
+            {editing && <DangerZone eq={editing} />}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" onClick={() => setModal(null)}>ยกเลิก</Btn>
               <Btn onClick={saveRental}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</Btn>
@@ -966,6 +1019,59 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               </table>
             </div>
             <p className="text-[11px] text-slate-400">ลบได้เฉพาะประเภทที่ไม่มีเครื่องมือ (คอลัมน์ "เครื่อง" = 0) — ถ้ามีเครื่องให้ย้ายประเภทออกก่อน (dropdown ประเภทในตารางเครื่องมือ)</p>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: ยืนยันลบถาวร (พิมพ์ยืนยัน + เหตุผล + แสดงผลกระทบ) */}
+      {delTarget && (
+        <Modal title="⚠ ลบเครื่องมือถาวร" onClose={() => setDelTarget(null)}>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              กำลังจะลบ <b>{delTarget.type.code} {delToken(delTarget)}</b> ออกจากระบบถาวร พร้อมกับ:
+              <ul className="mt-1 list-disc pl-5 text-xs text-red-600">
+                <li>ประวัติซ่อม/Cal {delInfo ? delInfo.events : '…'} รายการ (รวมค่าใช้จ่าย)</li>
+                <li>การจองในปฏิทิน {delInfo ? delInfo.usageDays : '…'} รายการ</li>
+              </ul>
+              <p className="mt-1.5 text-xs">แค่เลิกใช้เฉยๆ? ปิดหน้านี้แล้วกด <b>&quot;ปลดระวาง&quot;</b> แทน จะเก็บประวัติไว้</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">พิมพ์ <b className="font-mono text-slate-800">{delToken(delTarget)}</b> เพื่อยืนยัน</label>
+              <input value={delText} onChange={e => setDelText(e.target.value)}
+                className="rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-red-400 focus:outline-none" />
+            </div>
+            <Input label="เหตุผลที่ลบ (ไม่บังคับ)" value={delReason} onChange={setDelReason} placeholder="เช่น กรอกซ้ำ / กรอกผิด" />
+            <div className="flex justify-end gap-2 pt-1">
+              <Btn variant="ghost" onClick={() => setDelTarget(null)}>ยกเลิก</Btn>
+              <Btn variant="danger" onClick={confirmDelete} disabled={saving || delText.trim() !== delToken(delTarget)}>{saving ? 'กำลังลบ...' : 'ลบถาวร'}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal: ประวัติการลบ (ADMIN) */}
+      {logModal && (
+        <Modal wide title="🗑 ประวัติการลบเครื่องมือ" onClose={() => setLogModal(false)}>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500"><tr>
+                <th className="px-3 py-2 text-left font-medium">เมื่อ</th>
+                <th className="px-3 py-2 text-left font-medium">เครื่องมือ</th>
+                <th className="px-3 py-2 text-left font-medium">ผู้ลบ</th>
+                <th className="px-3 py-2 text-left font-medium">เหตุผล</th>
+              </tr></thead>
+              <tbody>
+                {logs.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-slate-300">ยังไม่มีประวัติการลบ</td></tr>}
+                {logs.map(l => (
+                  <tr key={l.id} className="border-t border-slate-100">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{new Date(l.createdAt).toLocaleString('th-TH')}</td>
+                    <td className="px-3 py-2 text-slate-700">{l.entityLabel}</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{l.deletedByName}</td>
+                    <td className="px-3 py-2 text-xs text-slate-400">{l.reason ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Modal>
       )}

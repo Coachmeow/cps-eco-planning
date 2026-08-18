@@ -86,13 +86,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!hasRole(session, 'ADMIN', 'MANAGER')) return forbidden()
   try {
     const { id } = await params
     const eqId = parseInt(id)
-    const eq = await prisma.equipment.findUnique({ where: { id: eqId }, select: { isRental: true } })
+    const eq = await prisma.equipment.findUnique({ where: { id: eqId }, include: { type: true } })
     if (!eq) return NextResponse.json({ error: 'ไม่พบเครื่องมือ' }, { status: 404 })
 
     // เครื่องมือที่ซื้อ ลบได้เฉพาะ ADMIN — เครื่องเช่า ADMIN/MANAGER ลบได้
@@ -100,8 +100,34 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'เครื่องมือที่ซื้อ ลบได้เฉพาะผู้ดูแลระบบ' }, { status: 403 })
     }
 
-    await prisma.equipmentAssignment.deleteMany({ where: { equipmentId: eqId } })
-    await prisma.equipment.delete({ where: { id: eqId } })
+    let reason: string | null = null
+    try { const b = await req.json(); reason = b?.reason ? String(b.reason) : null } catch { /* no body */ }
+
+    // ประวัติ + การจอง ที่จะถูกลบไปด้วย — เก็บลง snapshot ก่อน
+    const events = await prisma.equipmentEvent.findMany({ where: { equipmentId: eqId } })
+    const assignmentCount = await prisma.equipmentAssignment.count({ where: { equipmentId: eqId } })
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { photoUrl, ...eqNoPhoto } = eq   // ตัดรูป base64 ออกจาก snapshot กัน log บวม
+    const label = `${eq.type.code} ${eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}${eq.serialNo ? ` (serial ${eq.serialNo})` : ''}`
+    // แปลงเป็น plain JSON (Date → string) ให้ Prisma Json รับได้
+    const snapshot = JSON.parse(JSON.stringify({ equipment: eqNoPhoto, events, assignmentCount, hadPhoto: !!photoUrl }))
+
+    await prisma.$transaction(async (tx) => {
+      await tx.deletionLog.create({
+        data: {
+          entityType:    'equipment',
+          entityLabel:   label,
+          reason,
+          snapshot,
+          deletedById:   session!.uid,
+          deletedByName: session!.name || session!.username || '—',
+        },
+      })
+      await tx.equipmentEvent.deleteMany({ where: { equipmentId: eqId } })
+      await tx.equipmentAssignment.deleteMany({ where: { equipmentId: eqId } })
+      await tx.equipment.delete({ where: { id: eqId } })
+    })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 })
