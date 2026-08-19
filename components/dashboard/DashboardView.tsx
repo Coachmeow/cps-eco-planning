@@ -31,15 +31,16 @@ function AvatarBubble({ p, delay }: { p: PersonUtilRow; delay: number }) {
   const [noPhoto, setNoPhoto] = useState(false)
   const name = p.nickname || p.fullName
   return (
-    <div className="animate-floaty" style={{ animationDelay: `${delay}s` }}>
-      <div className="group relative transition-transform duration-200 hover:z-30 hover:scale-[1.9]">
+    // hover: เพิ่ม margin ดันเพื่อนซ้าย/ขวาให้หนี ; ตัวเองขยาย (inner) ไม่กระทบ layout เพื่อนแนวตั้ง
+    <div className="group animate-floaty transition-[margin] duration-200 hover:mx-4" style={{ animationDelay: `${delay}s` }}>
+      <div className="relative transition-transform duration-200 group-hover:z-30 group-hover:scale-[1.6]">
         {noPhoto ? (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white shadow ring-2 ring-white">{name.charAt(0)}</div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white shadow ring-2 ring-white">{name.charAt(0)}</div>
         ) : (
           <img src={`/api/employees/${p.employeeId}/photo`} onError={() => setNoPhoto(true)} alt={name}
-            className="h-11 w-11 rounded-full object-cover shadow ring-2 ring-white" />
+            className="h-10 w-10 rounded-full object-cover shadow ring-2 ring-white" />
         )}
-        <span className="pointer-events-none absolute left-1/2 top-[112%] z-40 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-white group-hover:block">
+        <span className="pointer-events-none absolute left-1/2 top-[150%] z-40 hidden -translate-x-1/2 whitespace-nowrap text-[11px] font-medium text-slate-900 group-hover:block">
           {name} · Util {p.utilPct}%
         </span>
       </div>
@@ -49,9 +50,9 @@ function AvatarBubble({ p, delay }: { p: PersonUtilRow; delay: number }) {
 
 function TopWorkersCluster({ people }: { people: PersonUtilRow[] }) {
   return (
-    <div className="flex w-56 flex-col items-center gap-2">
+    <div className="flex w-64 flex-col items-center gap-2.5">
       <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">🏆 กลุ่มคนรักงาน</span>
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-2.5">
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-5">
         {people.map((p, i) => <AvatarBubble key={p.employeeId} p={p} delay={(i % 5) * 0.5} />)}
       </div>
     </div>
