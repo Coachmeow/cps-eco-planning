@@ -31,8 +31,8 @@ function AvatarBubble({ p, delay }: { p: PersonUtilRow; delay: number }) {
   const [noPhoto, setNoPhoto] = useState(false)
   const name = p.nickname || p.fullName
   return (
-    // hover: เพิ่ม margin ดันเพื่อนซ้าย/ขวาให้หนี ; ตัวเองขยาย (inner) ไม่กระทบ layout เพื่อนแนวตั้ง
-    <div className="group animate-floaty transition-[margin] duration-200 hover:mx-4" style={{ animationDelay: `${delay}s` }}>
+    // hover: เพิ่ม margin ดันเพื่อนซ้าย/ขวาให้หนี + ยกทั้ง bubble ขึ้นบนสุด (z) ให้ป้ายไม่โดนรูปอื่นทับ
+    <div className="group relative z-0 animate-floaty transition-[margin] duration-200 hover:z-50 hover:mx-4" style={{ animationDelay: `${delay}s` }}>
       <div className="relative transition-transform duration-200 group-hover:z-30 group-hover:scale-[1.6]">
         {noPhoto ? (
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white shadow ring-2 ring-white">{name.charAt(0)}</div>
