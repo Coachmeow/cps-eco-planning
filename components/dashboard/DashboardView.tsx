@@ -98,8 +98,7 @@ export default function DashboardView() {
           {(data.sankeyRows?.length ?? 0) > 0 && (
             <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
-                Man-day รวม {Math.round((data.sankeyRows ?? []).reduce((s, r) => s + r.days, 0)).toLocaleString('th-TH')} วัน-คน
-                <span className="ml-1.5 font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
+                Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
               <ManDaySankey rows={data.sankeyRows!} />
             </div>
