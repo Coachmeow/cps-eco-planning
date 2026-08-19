@@ -31,20 +31,19 @@ function TopWorkerBubble({ p }: { p: PersonUtilRow }) {
   const [noPhoto, setNoPhoto] = useState(false)
   const name = p.nickname || p.fullName
   return (
-    <div className="flex flex-col items-center gap-2.5 text-center">
-      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">🏆 คนขยันของเดือน</span>
+    <div className="flex w-32 flex-col items-center gap-1.5 text-center">
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">🏆 คนขยันของเดือน</span>
       <div className="animate-floaty">
         {noPhoto ? (
-          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-emerald-500 text-3xl font-bold text-white shadow-lg ring-4 ring-emerald-100">{name.charAt(0)}</div>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-xl font-bold text-white shadow-md ring-2 ring-emerald-100">{name.charAt(0)}</div>
         ) : (
           <img src={`/api/employees/${p.employeeId}/photo`} onError={() => setNoPhoto(true)} alt={name}
-            className="h-28 w-28 rounded-full object-cover shadow-lg ring-4 ring-emerald-100" />
+            className="h-16 w-16 rounded-full object-cover shadow-md ring-2 ring-emerald-100" />
         )}
       </div>
       <div className="leading-tight">
-        <p className="text-base font-semibold text-slate-700">{name}</p>
-        <p className="text-xs text-slate-400">ทีม {p.primaryTeam} · Utilization <span className="font-semibold text-emerald-600">{p.utilPct}%</span></p>
-        <p className="text-xs text-slate-400">ออกงาน {p.fieldDays} วัน-คน เดือนนี้</p>
+        <p className="text-xs font-semibold text-slate-700">{name}</p>
+        <p className="text-[10px] text-slate-400">{p.primaryTeam} · Util <span className="font-semibold text-emerald-600">{p.utilPct}%</span></p>
       </div>
     </div>
   )
@@ -120,18 +119,17 @@ export default function DashboardView() {
 
           {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
-            <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="relative col-span-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
-              <div className="flex items-center gap-6">
-                <div className="min-w-0 max-w-[1120px] flex-1"><ManDaySankey rows={data.sankeyRows!} /></div>
-                {data.personUtil && data.personUtil[0] && (
-                  <aside className="hidden min-w-0 flex-1 items-center justify-center 2xl:flex">
-                    <TopWorkerBubble p={data.personUtil[0]} />
-                  </aside>
-                )}
-              </div>
+              <ManDaySankey rows={data.sankeyRows!} />
+              {/* กิมมิคลอยทับที่ว่างขวา — absolute จึงไม่กระทบขนาด/ตำแหน่ง Sankey */}
+              {data.personUtil && data.personUtil[0] && (
+                <div className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 2xl:block">
+                  <TopWorkerBubble p={data.personUtil[0]} />
+                </div>
+              )}
             </div>
           )}
 
