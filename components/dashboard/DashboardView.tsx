@@ -26,39 +26,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-// กิมมิค "กลุ่มคนรักงาน" — Top 10 Utilization รูปเล็กลอยเบาๆ ; hover แล้วขยาย + โชว์ชื่อ
-function AvatarBubble({ p, delay }: { p: PersonUtilRow; delay: number }) {
-  const [noPhoto, setNoPhoto] = useState(false)
-  const name = p.nickname || p.fullName
-  return (
-    // hover: เพิ่ม margin ดันเพื่อนซ้าย/ขวาให้หนี + ยกทั้ง bubble ขึ้นบนสุด (z) ให้ป้ายไม่โดนรูปอื่นทับ
-    <div className="group relative z-0 animate-floaty transition-[margin] duration-200 hover:z-50 hover:mx-4" style={{ animationDelay: `${delay}s` }}>
-      <div className="relative transition-transform duration-200 group-hover:z-30 group-hover:scale-[1.6]">
-        {noPhoto ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white shadow ring-2 ring-white">{name.charAt(0)}</div>
-        ) : (
-          <img src={`/api/employees/${p.employeeId}/photo`} onError={() => setNoPhoto(true)} alt={name}
-            className="h-10 w-10 rounded-full object-cover shadow ring-2 ring-white" />
-        )}
-        <span className="pointer-events-none absolute left-1/2 top-[150%] z-40 hidden -translate-x-1/2 whitespace-nowrap text-[11px] font-medium text-slate-900 group-hover:block">
-          {name} · Util {p.utilPct}%
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function TopWorkersCluster({ people }: { people: PersonUtilRow[] }) {
-  return (
-    <div className="flex w-64 flex-col items-center gap-2.5">
-      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">🏆 กลุ่มคนรักงาน</span>
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-5">
-        {people.map((p, i) => <AvatarBubble key={p.employeeId} p={p} delay={(i % 5) * 0.5} />)}
-      </div>
-    </div>
-  )
-}
-
 export default function DashboardView() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
@@ -129,17 +96,11 @@ export default function DashboardView() {
 
           {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
-            <div className="relative col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
               <ManDaySankey rows={data.sankeyRows!} />
-              {/* กิมมิคลอยทับที่ว่างขวา — absolute จึงไม่กระทบขนาด/ตำแหน่ง Sankey */}
-              {(data.personUtil?.length ?? 0) > 0 && (
-                <div className="absolute right-6 top-1/2 hidden -translate-y-1/2 2xl:block">
-                  <TopWorkersCluster people={data.personUtil!.slice(0, 10)} />
-                </div>
-              )}
             </div>
           )}
 
