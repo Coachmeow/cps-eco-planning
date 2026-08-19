@@ -155,7 +155,7 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
         </span>
         <select value={focusSite} onChange={e => { setFocusSite(e.target.value); setFocusTeam('') }}
           className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none">
-          <option value="">— กระโดดไปไซต์ —</option>
+          <option value="">เลือกเพื่อดูรายไซต์งาน</option>
           {siteOpts.map(([id, code]) => <option key={id} value={id}>{code}</option>)}
         </select>
       </div>

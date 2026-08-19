@@ -20,3 +20,10 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* บับเบิ้ล "คนขยันของเดือน" — ลอยขึ้นลงเบาๆ */
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50%      { transform: translateY(-10px) rotate(1.5deg); }
+}
+.animate-floaty { animation: floaty 3.6s ease-in-out infinite; }

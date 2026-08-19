@@ -26,6 +26,30 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+// กิมมิค "คนขยันของเดือน" — พนักงาน Utilization สูงสุด ลอยเบาๆ ในที่ว่างฝั่งขวาของ Sankey
+function TopWorkerBubble({ p }: { p: PersonUtilRow }) {
+  const [noPhoto, setNoPhoto] = useState(false)
+  const name = p.nickname || p.fullName
+  return (
+    <div className="flex flex-col items-center gap-2.5 text-center">
+      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">🏆 คนขยันของเดือน</span>
+      <div className="animate-floaty">
+        {noPhoto ? (
+          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-emerald-500 text-3xl font-bold text-white shadow-lg ring-4 ring-emerald-100">{name.charAt(0)}</div>
+        ) : (
+          <img src={`/api/employees/${p.employeeId}/photo`} onError={() => setNoPhoto(true)} alt={name}
+            className="h-28 w-28 rounded-full object-cover shadow-lg ring-4 ring-emerald-100" />
+        )}
+      </div>
+      <div className="leading-tight">
+        <p className="text-base font-semibold text-slate-700">{name}</p>
+        <p className="text-xs text-slate-400">ทีม {p.primaryTeam} · Utilization <span className="font-semibold text-emerald-600">{p.utilPct}%</span></p>
+        <p className="text-xs text-slate-400">ออกงาน {p.fieldDays} วัน-คน เดือนนี้</p>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardView() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
@@ -100,7 +124,14 @@ export default function DashboardView() {
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
-              <ManDaySankey rows={data.sankeyRows!} />
+              <div className="flex items-center gap-6">
+                <div className="min-w-0 max-w-[1120px] flex-1"><ManDaySankey rows={data.sankeyRows!} /></div>
+                {data.personUtil && data.personUtil[0] && (
+                  <aside className="hidden min-w-0 flex-1 items-center justify-center 2xl:flex">
+                    <TopWorkerBubble p={data.personUtil[0]} />
+                  </aside>
+                )}
+              </div>
             </div>
           )}
 
