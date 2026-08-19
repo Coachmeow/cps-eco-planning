@@ -11,7 +11,7 @@ export interface SankeyRow {
   teamCode: string; personId: number; personLabel: string; days: number
 }
 
-const N_SITES = 12, N_PEOPLE = 14
+const N_SITES = 12, N_PEOPLE = 10
 const round1 = (n: number) => Math.round(n * 10) / 10
 type Kind = 'site' | 'team' | 'person'
 interface GNode { name: string; color: string; kind: Kind; key?: string }
@@ -73,8 +73,8 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string): { 
 }
 
 const isOther = (n: { name?: string }) => n.name === 'ไซต์อื่นๆ' || n.name === 'อื่นๆ'
-const VB_W = 900
-const COL0 = 150   // ขอบซ้ายคอลัมน์ไซต์ (เว้นที่ให้วงกลม Man-day รวม + funnel)
+const VB_W = 960
+const COL0 = 215   // ขอบซ้ายคอลัมน์ไซต์ (เว้นที่ตัวเลขรวม + ป้ายชื่อไซต์ไว้หน้าแถบ)
 
 export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const [focusSite, setFocusSite] = useState('')
@@ -93,25 +93,38 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
     const counts = { site: 0, team: 0, person: 0 } as Record<Kind, number>
     for (const n of g.nodes) counts[n.kind]++
     const maxCol = Math.max(counts.site, counts.team, counts.person)
-    const H = Math.min(Math.max(maxCol * 19 + 12, 260), 620)
+    const H = Math.min(Math.max(maxCol * 15 + 10, 240), 520)
     const top = 6, bottom = H - 6
     const gen = sankey<GNode, GLink>()
-      .nodeWidth(13).nodePadding(9).nodeAlign(sankeyLeft)
+      .nodeWidth(13).nodePadding(7).nodeAlign(sankeyLeft)
       .nodeSort((a, b) => (isOther(a) ? 1 : 0) - (isOther(b) ? 1 : 0) || (b.value ?? 0) - (a.value ?? 0))
       .extent([[COL0, top], [VB_W - 150, bottom]])
     const graph = gen({ nodes: g.nodes.map(d => ({ ...d })), links: g.links.map(d => ({ ...d })) })
 
-    // จัดทุกคอลัมน์ให้กึ่งกลางแนวตั้ง (d3 วางชิดบน คอลัมน์ node น้อยเลยลอย) + ขยับปลายเส้นตามด้วย
-    const cols = new Map<number, typeof graph.nodes>()
+    type LNode = typeof graph.nodes[number]
+    const shiftNode = (n: LNode, dy: number) => {
+      n.y0! += dy; n.y1! += dy
+      for (const l of graph.links) { if (l.source === n) l.y0! += dy; if (l.target === n) l.y1! += dy }
+    }
+    // group เป็นคอลัมน์
+    const cols = new Map<number, LNode[]>()
     for (const n of graph.nodes) { const k = Math.round(n.x0 ?? 0); if (!cols.has(k)) cols.set(k, []); cols.get(k)!.push(n) }
+    const avail = bottom - top
     for (const list of cols.values()) {
-      const minY = Math.min(...list.map(n => n.y0 ?? 0))
-      const maxY = Math.max(...list.map(n => n.y1 ?? 0))
-      const dy = top + (bottom - top - (maxY - minY)) / 2 - minY
-      if (Math.abs(dy) < 0.5) continue
-      const set = new Set(list)
-      for (const n of list) { n.y0! += dy; n.y1! += dy }
-      for (const l of graph.links) { if (set.has(l.source as typeof graph.nodes[number])) l.y0! += dy; if (set.has(l.target as typeof graph.nodes[number])) l.y1! += dy }
+      if (list[0].kind === 'team') {
+        // กลุ่มงาน: เพิ่มช่องไฟระหว่างแถบ (ไว้วางชื่อเหนือแถบ) แล้วจัดกึ่งกลาง
+        list.sort((a, b) => (a.y0 ?? 0) - (b.y0 ?? 0))
+        const sumH = list.reduce((s, n) => s + ((n.y1 ?? 0) - (n.y0 ?? 0)), 0)
+        let gap = 22
+        if (sumH + gap * (list.length - 1) > avail) gap = Math.max(3, (avail - sumH) / (list.length - 1))
+        let y = top + (avail - (sumH + gap * (list.length - 1))) / 2
+        for (const n of list) { const h = (n.y1 ?? 0) - (n.y0 ?? 0); shiftNode(n, y - (n.y0 ?? 0)); y += h + gap }
+      } else {
+        // ไซต์/คน: เลื่อนทั้งคอลัมน์ให้กึ่งกลาง (คง layout ของ d3)
+        const minY = Math.min(...list.map(n => n.y0 ?? 0)), maxY = Math.max(...list.map(n => n.y1 ?? 0))
+        const dy = top + (avail - (maxY - minY)) / 2 - minY
+        if (Math.abs(dy) >= 0.5) for (const n of list) shiftNode(n, dy)
+      }
     }
 
     const sites = graph.nodes.filter(n => n.kind === 'site')
@@ -172,15 +185,20 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
                   const w = (n.x1 ?? 0) - (n.x0 ?? 0)
                   const h = Math.max((n.y1 ?? 0) - (n.y0 ?? 0), 1)
                   const mid = (n.y0 ?? 0) + h / 2
+                  const val = Math.round(n.value ?? 0)
+                  const arrow = clickable ? ' ›' : ''
+                  // ไซต์ = ป้ายหน้าแถบ (ซ้าย) · หมวดงาน = ป้ายเหนือแถบ · คน = ป้ายหลังแถบ (ขวา)
+                  const label = n.kind === 'site'
+                    ? <text x={(n.x0 ?? 0) - 6} y={mid} textAnchor="end" dominantBaseline="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                    : n.kind === 'team'
+                    ? <text x={(n.x0 ?? 0) + w / 2} y={(n.y0 ?? 0) - 5} textAnchor="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                    : <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}</tspan></text>
                   return (
                     <g key={i} style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(n.kind, n.key)}>
                       <rect x={n.x0} y={n.y0} width={w} height={h} rx={2} fill={n.color} fillOpacity={0.92}>
-                        <title>{n.name}: {Math.round(n.value ?? 0)}</title>
+                        <title>{n.name}: {val}</title>
                       </rect>
-                      <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={11} fill={INK}>
-                        {n.name} <tspan fill={MUTED}>{Math.round(n.value ?? 0)}</tspan>
-                        {clickable && <tspan fill="#38b787"> ›</tspan>}
-                      </text>
+                      {label}
                     </g>
                   )
                 })}
