@@ -168,7 +168,7 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
             const cy = layout.H / 2
             const cx = 62
             return (
-              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Sankey man-day">
+              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 560, maxWidth: 1120 }} role="img" aria-label="Sankey man-day">
                 {/* Man-day รวม — ตัวเลขใหญ่ฝั่งซ้าย */}
                 <text x={cx} y={cy - 18} textAnchor="middle" fontSize={11} fill={MUTED}>Man-day รวม</text>
                 <text x={cx} y={cy + 12} textAnchor="middle" fontSize={38} fontWeight={700} fill={INK}>{Math.round(layout.total)}</text>
@@ -189,10 +189,10 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
                   const arrow = clickable ? ' ›' : ''
                   // ไซต์ = ป้ายหน้าแถบ (ซ้าย) · หมวดงาน = ป้ายเหนือแถบ · คน = ป้ายหลังแถบ (ขวา)
                   const label = n.kind === 'site'
-                    ? <text x={(n.x0 ?? 0) - 6} y={mid} textAnchor="end" dominantBaseline="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                    ? <text x={(n.x0 ?? 0) - 6} y={mid} textAnchor="end" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
                     : n.kind === 'team'
-                    ? <text x={(n.x0 ?? 0) + w / 2} y={(n.y0 ?? 0) - 5} textAnchor="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
-                    : <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={13} fill={INK}>{n.name} <tspan fill={MUTED}>{val}</tspan></text>
+                    ? <text x={(n.x0 ?? 0) + w / 2} y={(n.y0 ?? 0) - 4} textAnchor="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                    : <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}</tspan></text>
                   return (
                     <g key={i} style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(n.kind, n.key)}>
                       <rect x={n.x0} y={n.y0} width={w} height={h} rx={2} fill={n.color} fillOpacity={0.92}>
