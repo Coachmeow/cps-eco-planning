@@ -26,24 +26,33 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-// กิมมิค "คนขยันของเดือน" — พนักงาน Utilization สูงสุด ลอยเบาๆ ในที่ว่างฝั่งขวาของ Sankey
-function TopWorkerBubble({ p }: { p: PersonUtilRow }) {
+// กิมมิค "กลุ่มคนรักงาน" — Top 10 Utilization รูปเล็กลอยเบาๆ ; hover แล้วขยาย + โชว์ชื่อ
+function AvatarBubble({ p, delay }: { p: PersonUtilRow; delay: number }) {
   const [noPhoto, setNoPhoto] = useState(false)
   const name = p.nickname || p.fullName
   return (
-    <div className="flex w-32 flex-col items-center gap-1.5 text-center">
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">🏆 คนขยันของเดือน</span>
-      <div className="animate-floaty">
+    <div className="animate-floaty" style={{ animationDelay: `${delay}s` }}>
+      <div className="group relative transition-transform duration-200 hover:z-30 hover:scale-[1.9]">
         {noPhoto ? (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-xl font-bold text-white shadow-md ring-2 ring-emerald-100">{name.charAt(0)}</div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white shadow ring-2 ring-white">{name.charAt(0)}</div>
         ) : (
           <img src={`/api/employees/${p.employeeId}/photo`} onError={() => setNoPhoto(true)} alt={name}
-            className="h-16 w-16 rounded-full object-cover shadow-md ring-2 ring-emerald-100" />
+            className="h-11 w-11 rounded-full object-cover shadow ring-2 ring-white" />
         )}
+        <span className="pointer-events-none absolute left-1/2 top-[112%] z-40 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-white group-hover:block">
+          {name} · Util {p.utilPct}%
+        </span>
       </div>
-      <div className="leading-tight">
-        <p className="text-xs font-semibold text-slate-700">{name}</p>
-        <p className="text-[10px] text-slate-400">{p.primaryTeam} · Util <span className="font-semibold text-emerald-600">{p.utilPct}%</span></p>
+    </div>
+  )
+}
+
+function TopWorkersCluster({ people }: { people: PersonUtilRow[] }) {
+  return (
+    <div className="flex w-56 flex-col items-center gap-2">
+      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">🏆 กลุ่มคนรักงาน</span>
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-2.5">
+        {people.map((p, i) => <AvatarBubble key={p.employeeId} p={p} delay={(i % 5) * 0.5} />)}
       </div>
     </div>
   )
@@ -119,15 +128,15 @@ export default function DashboardView() {
 
           {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
-            <div className="relative col-span-full overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="relative col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
               <ManDaySankey rows={data.sankeyRows!} />
               {/* กิมมิคลอยทับที่ว่างขวา — absolute จึงไม่กระทบขนาด/ตำแหน่ง Sankey */}
-              {data.personUtil && data.personUtil[0] && (
-                <div className="pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 2xl:block">
-                  <TopWorkerBubble p={data.personUtil[0]} />
+              {(data.personUtil?.length ?? 0) > 0 && (
+                <div className="absolute right-6 top-1/2 hidden -translate-y-1/2 2xl:block">
+                  <TopWorkersCluster people={data.personUtil!.slice(0, 10)} />
                 </div>
               )}
             </div>
