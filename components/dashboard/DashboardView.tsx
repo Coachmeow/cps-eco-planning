@@ -94,10 +94,13 @@ export default function DashboardView() {
             ))}
           </div>
 
-          {/* Sankey เส้นทาง man-day: รวม → ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
+          {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
             <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">เส้นทาง Man-day (รวม → ไซต์ → กลุ่มงาน → คน)</h2>
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                Man-day รวม {Math.round((data.sankeyRows ?? []).reduce((s, r) => s + r.days, 0)).toLocaleString('th-TH')} วัน-คน
+                <span className="ml-1.5 font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
+              </h2>
               <ManDaySankey rows={data.sankeyRows!} />
             </div>
           )}

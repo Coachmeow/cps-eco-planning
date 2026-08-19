@@ -1,9 +1,9 @@
 'use client'
 
-// Sankey man-day แบบ drill ทีละชั้น: รวม → ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน
-// เส้นน้อยเสมอเพราะกางเฉพาะกิ่งที่เลือก ; recharts <Sankey> + rebuild กราฟตอนคลิก
+// Sankey man-day (d3-sankey) แบบ drill: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน
+// ไม่มี node "รวม" (ยอดรวมไปอยู่หัวชาร์ต) ; "ไซต์อื่นๆ"/"อื่นๆ" อยู่ล่างสุดเสมอ
 import { useMemo, useState } from 'react'
-import { Sankey, Tooltip, ResponsiveContainer } from 'recharts'
+import { sankey, sankeyLinkHorizontal, sankeyLeft } from 'd3-sankey'
 import { teamHex, siteHex, INK, MUTED } from '@/lib/chartTheme'
 
 export interface SankeyRow {
@@ -11,16 +11,16 @@ export interface SankeyRow {
   teamCode: string; personId: number; personLabel: string; days: number
 }
 
-const N_SITES = 10, N_PEOPLE = 14
+const N_SITES = 12, N_PEOPLE = 14
 const round1 = (n: number) => Math.round(n * 10) / 10
-
-type Kind = 'total' | 'site' | 'team' | 'person'
+type Kind = 'site' | 'team' | 'person'
 interface GNode { name: string; color: string; kind: Kind; key?: string }
+interface GLink { source: number; target: number; value: number }
 
-function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string) {
+function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string): { nodes: GNode[]; links: GLink[] } {
   let r = rows
   if (focusSite) r = r.filter(x => String(x.siteId) === focusSite)
-  if (focusSite && focusTeam) r = r.filter(x => x.teamCode === focusTeam)
+  if (focusTeam) r = r.filter(x => x.teamCode === focusTeam)
 
   const nodes: GNode[] = []
   const idx = new Map<string, number>()
@@ -28,10 +28,12 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string) {
   const linkMap = new Map<string, number>()
   const add = (s: number, t: number, v: number) => linkMap.set(`${s}>${t}`, (linkMap.get(`${s}>${t}`) ?? 0) + v)
 
-  const total = nid('total', () => ({ name: 'รวม', color: '#64748b', kind: 'total' }))
-
-  if (!focusSite) {
-    // ชั้น 1: รวม → ไซต์ (Top-N + อื่นๆ) — สร้าง node ไซต์เรียงมาก→น้อย แล้ว "ไซต์อื่นๆ" ท้ายสุด (ล่างสุด)
+  // ── ชั้นไซต์ (คอลัมน์แรก) ──
+  let siteOf: (x: SankeyRow) => number
+  if (focusSite) {
+    const s = nid('site', () => ({ name: r[0]?.siteCode ?? '', color: siteHex(r[0]?.siteColor), kind: 'site' }))
+    siteOf = () => s
+  } else {
     const sum = new Map<number, number>()
     for (const x of r) sum.set(x.siteId, (sum.get(x.siteId) ?? 0) + x.days)
     const sorted = Array.from(sum.entries()).sort((a, b) => b[1] - a[1])
@@ -39,35 +41,31 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string) {
     const meta = new Map<number, { code: string; color: string }>()
     for (const x of r) meta.set(x.siteId, { code: x.siteCode, color: x.siteColor })
     for (const [id] of sorted) if (top.has(id)) nid(`s${id}`, () => ({ name: meta.get(id)!.code, color: siteHex(meta.get(id)!.color), kind: 'site', key: String(id) }))
-    const hasOther = sorted.some(([id]) => !top.has(id))
-    if (hasOther) nid('s_other', () => ({ name: 'ไซต์อื่นๆ', color: '#cbd5e1', kind: 'site' }))   // สร้างท้ายสุด → ล่างสุด
-    for (const x of r) add(total, top.has(x.siteId) ? idx.get(`s${x.siteId}`)! : idx.get('s_other')!, x.days)
-  } else {
-    const siteMeta = r[0]
-    const site = nid('site', () => ({ name: siteMeta?.siteCode ?? '', color: siteHex(siteMeta?.siteColor), kind: 'site' }))
-    add(total, site, r.reduce((s, x) => s + x.days, 0))
-    if (!focusTeam) {
-      // ชั้น 2: ไซต์ → กลุ่มงาน
-      for (const x of r) {
-        const tm = nid(`t${x.teamCode}`, () => ({ name: x.teamCode, color: teamHex(x.teamCode), kind: 'team', key: x.teamCode }))
-        add(site, tm, x.days)
-      }
-    } else {
-      // ชั้น 3: ไซต์ → กลุ่มงาน → คน (Top-N + อื่นๆ)
-      const tm = nid(`t${focusTeam}`, () => ({ name: focusTeam, color: teamHex(focusTeam), kind: 'team' }))
-      add(site, tm, r.reduce((s, x) => s + x.days, 0))
-      const sum = new Map<number, number>()
-      for (const x of r) sum.set(x.personId, (sum.get(x.personId) ?? 0) + x.days)
-      const sorted = Array.from(sum.entries()).sort((a, b) => b[1] - a[1])
-      const top = new Set(sorted.slice(0, N_PEOPLE).map(([id]) => id))
-      const meta = new Map<number, string>()
-      for (const x of r) meta.set(x.personId, x.personLabel)
-      for (const [id] of sorted) if (top.has(id)) nid(`p${id}`, () => ({ name: meta.get(id)!, color: '#38b787', kind: 'person' }))
-      const hasOther = sorted.some(([id]) => !top.has(id))
-      if (hasOther) nid('p_other', () => ({ name: 'อื่นๆ', color: '#a7d9c3', kind: 'person' }))   // ท้ายสุด → ล่างสุด
-      for (const x of r) add(tm, top.has(x.personId) ? idx.get(`p${x.personId}`)! : idx.get('p_other')!, x.days)
-    }
+    if (sorted.some(([id]) => !top.has(id))) nid('s_other', () => ({ name: 'ไซต์อื่นๆ', color: '#cbd5e1', kind: 'site' }))
+    siteOf = (x) => top.has(x.siteId) ? idx.get(`s${x.siteId}`)! : idx.get('s_other')!
   }
+
+  // ── ชั้นกลุ่มงาน ──
+  const teamSum = new Map<string, number>()
+  for (const x of r) teamSum.set(x.teamCode, (teamSum.get(x.teamCode) ?? 0) + x.days)
+  for (const [code] of Array.from(teamSum.entries()).sort((a, b) => b[1] - a[1]))
+    nid(`t${code}`, () => ({ name: code, color: teamHex(code), kind: 'team', key: focusTeam ? undefined : code }))
+  for (const x of r) add(siteOf(x), idx.get(`t${x.teamCode}`)!, x.days)
+
+  // ── ชั้นคน (เฉพาะเมื่อเจาะกลุ่มงาน) ──
+  if (focusTeam) {
+    const sum = new Map<number, number>()
+    for (const x of r) sum.set(x.personId, (sum.get(x.personId) ?? 0) + x.days)
+    const sorted = Array.from(sum.entries()).sort((a, b) => b[1] - a[1])
+    const top = new Set(sorted.slice(0, N_PEOPLE).map(([id]) => id))
+    const meta = new Map<number, string>()
+    for (const x of r) meta.set(x.personId, x.personLabel)
+    for (const [id] of sorted) if (top.has(id)) nid(`p${id}`, () => ({ name: meta.get(id)!, color: '#38b787', kind: 'person' }))
+    if (sorted.some(([id]) => !top.has(id))) nid('p_other', () => ({ name: 'อื่นๆ', color: '#a7d9c3', kind: 'person' }))
+    const tm = idx.get(`t${focusTeam}`)!
+    for (const x of r) add(tm, top.has(x.personId) ? idx.get(`p${x.personId}`)! : idx.get('p_other')!, x.days)
+  }
+
   const links = Array.from(linkMap.entries()).map(([k, v]) => {
     const [source, target] = k.split('>').map(Number)
     return { source, target, value: round1(v) }
@@ -75,32 +73,8 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string) {
   return { nodes, links }
 }
 
-function makeNode(onFocus: (kind: Kind, key?: string) => void, containerWidth: number) {
-  return function SankeyNode(props: any) {
-    const { x, y, width, height, payload } = props
-    const right = x > containerWidth / 2
-    const clickable = (payload?.kind === 'site' && payload?.key) || (payload?.kind === 'team' && payload?.key)
-    return (
-      <g style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(payload.kind, payload.key)}>
-        <rect x={x} y={y} width={width} height={Math.max(height, 1)} rx={2} fill={payload?.color ?? MUTED} fillOpacity={0.92} />
-        <text x={right ? x - 6 : x + width + 6} y={y + height / 2} textAnchor={right ? 'end' : 'start'}
-          dominantBaseline="middle" fontSize={11} fill={INK}>
-          {payload?.name} <tspan fill={MUTED}>{Math.round(payload?.value ?? 0)}</tspan>
-          {clickable && <tspan fill="#38b787"> ›</tspan>}
-        </text>
-      </g>
-    )
-  }
-}
-
-function SankeyLink(props: any) {
-  const { sourceX, targetX, sourceY, targetY, sourceControlX, targetControlX, linkWidth, payload } = props
-  const color = payload?.target?.color ?? payload?.source?.color ?? MUTED
-  return (
-    <path d={`M${sourceX},${sourceY} C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
-      fill="none" stroke={color} strokeWidth={Math.max(linkWidth, 1)} strokeOpacity={0.3} />
-  )
-}
+const isOther = (n: { name?: string }) => n.name === 'ไซต์อื่นๆ' || n.name === 'อื่นๆ'
+const VB_W = 900
 
 export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const [focusSite, setFocusSite] = useState('')
@@ -111,29 +85,41 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
     for (const r of rows) m.set(String(r.siteId), r.siteCode)
     return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1]))
   }, [rows])
-
   const siteLabel = focusSite ? (rows.find(r => String(r.siteId) === focusSite)?.siteCode ?? '') : ''
-  const graph = useMemo(() => buildGraph(rows, focusSite, focusTeam), [rows, focusSite, focusTeam])
+
+  const layout = useMemo(() => {
+    const g = buildGraph(rows, focusSite, focusTeam)
+    if (g.links.length === 0) return null
+    const counts = { site: 0, team: 0, person: 0 } as Record<Kind, number>
+    for (const n of g.nodes) counts[n.kind]++
+    const maxCol = Math.max(counts.site, counts.team, counts.person)
+    const H = Math.min(Math.max(maxCol * 32 + 16, 300), 900)
+    const gen = sankey<GNode, GLink>()
+      .nodeWidth(14).nodePadding(14).nodeAlign(sankeyLeft)
+      .nodeSort((a, b) => (isOther(a) ? 1 : 0) - (isOther(b) ? 1 : 0) || (b.value ?? 0) - (a.value ?? 0))
+      .extent([[95, 6], [VB_W - 150, H - 6]])
+    const graph = gen({ nodes: g.nodes.map(d => ({ ...d })), links: g.links.map(d => ({ ...d })) })
+    return { ...graph, H }
+  }, [rows, focusSite, focusTeam])
 
   function onFocus(kind: Kind, key?: string) {
     if (kind === 'site' && key) { setFocusSite(key); setFocusTeam('') }
     else if (kind === 'team' && key) setFocusTeam(key)
   }
 
-  const height = Math.min(Math.max(graph.nodes.length * 30 + 60, 340), 900)
+  const linkPath = sankeyLinkHorizontal<GNode, GLink>()
 
   return (
     <div>
-      {/* breadcrumb + jump */}
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <button onClick={() => { setFocusSite(''); setFocusTeam('') }}
-          className={`rounded px-2 py-0.5 ${focusSite ? 'text-emerald-700 hover:bg-emerald-50' : 'bg-slate-100 font-medium text-slate-700'}`}>ทั้งหมด</button>
+          className={`rounded px-2 py-0.5 ${focusSite || focusTeam ? 'text-emerald-700 hover:bg-emerald-50' : 'bg-slate-100 font-medium text-slate-700'}`}>ทุกไซต์</button>
         {focusSite && <><span className="text-slate-300">›</span>
           <button onClick={() => setFocusTeam('')}
             className={`rounded px-2 py-0.5 ${focusTeam ? 'text-emerald-700 hover:bg-emerald-50' : 'bg-slate-100 font-medium text-slate-700'}`}>{siteLabel}</button></>}
         {focusTeam && <><span className="text-slate-300">›</span><span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{focusTeam}</span></>}
         <span className="ml-auto text-slate-400">
-          {!focusSite ? 'คลิกไซต์เพื่อกางกลุ่มงาน' : !focusTeam ? 'คลิกกลุ่มงานเพื่อกางรายคน' : `รายคนของ ${focusTeam} @ ${siteLabel}`}
+          {focusTeam ? `รายคนของ ${focusTeam}${siteLabel ? ` @ ${siteLabel}` : ''}` : 'คลิกกลุ่มงาน → กางรายคน · คลิกไซต์ → เจาะไซต์'}
         </span>
         <select value={focusSite} onChange={e => { setFocusSite(e.target.value); setFocusTeam('') }}
           className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 focus:outline-none">
@@ -142,27 +128,39 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
         </select>
       </div>
 
-      {graph.links.length === 0 ? (
+      {!layout ? (
         <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีข้อมูล man-day</p>
       ) : (
         <div className="overflow-x-auto">
-          <div style={{ minWidth: 560, height }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <Sankey data={graph} nodePadding={16} nodeWidth={12} linkCurvature={0.5}
-                margin={{ top: 10, right: 110, bottom: 10, left: 50 }}
-                node={<NodeWrap onFocus={onFocus} />} link={<SankeyLink />}>
-                <Tooltip formatter={(v) => [`${v} วัน-คน`, '']} />
-              </Sankey>
-            </ResponsiveContainer>
-          </div>
+          <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 560 }} role="img" aria-label="Sankey man-day">
+            {layout.links.map((l, i) => (
+              <path key={i} d={linkPath(l) ?? ''} fill="none"
+                stroke={(l.target as GNode).color} strokeOpacity={0.32} strokeWidth={Math.max(1, l.width ?? 1)}>
+                <title>{(l.source as GNode).name} → {(l.target as GNode).name}: {round1(l.value)}</title>
+              </path>
+            ))}
+            {layout.nodes.map((n, i) => {
+              const clickable = !!n.key
+              const w = (n.x1 ?? 0) - (n.x0 ?? 0)
+              const h = Math.max((n.y1 ?? 0) - (n.y0 ?? 0), 1)
+              const mid = (n.y0 ?? 0) + h / 2
+              const leftCol = (n.x0 ?? 0) < VB_W / 2
+              const lx = leftCol ? (n.x1 ?? 0) + 6 : (n.x0 ?? 0) - 6
+              return (
+                <g key={i} style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(n.kind, n.key)}>
+                  <rect x={n.x0} y={n.y0} width={w} height={h} rx={2} fill={n.color} fillOpacity={0.92}>
+                    <title>{n.name}: {Math.round(n.value ?? 0)}</title>
+                  </rect>
+                  <text x={lx} y={mid} textAnchor={leftCol ? 'start' : 'end'} dominantBaseline="middle" fontSize={11} fill={INK}>
+                    {n.name} <tspan fill={MUTED}>{Math.round(n.value ?? 0)}</tspan>
+                    {clickable && <tspan fill="#38b787"> ›</tspan>}
+                  </text>
+                </g>
+              )
+            })}
+          </svg>
         </div>
       )}
     </div>
   )
-}
-
-// recharts clone node element ด้วย layout props → wrapper รับ containerWidth มาสร้าง node จริง
-function NodeWrap(props: any) {
-  const Node = makeNode(props.onFocus, props.containerWidth ?? 800)
-  return <Node {...props} />
 }
