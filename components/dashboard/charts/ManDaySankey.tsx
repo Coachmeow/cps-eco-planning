@@ -93,8 +93,8 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
     const counts = { site: 0, team: 0, person: 0 } as Record<Kind, number>
     for (const n of g.nodes) counts[n.kind]++
     const maxCol = Math.max(counts.site, counts.team, counts.person)
-    const H = Math.min(Math.max(maxCol * 15 + 10, 240), 520)
-    const top = 6, bottom = H - 6
+    const H = Math.min(Math.max(maxCol * 20 + 30, 320), 680)
+    const top = 20, bottom = H - 8   // เว้นบนไว้ป้ายกลุ่มงาน (อยู่เหนือแถบ) ไม่ให้ตัด
     const gen = sankey<GNode, GLink>()
       .nodeWidth(13).nodePadding(7).nodeAlign(sankeyLeft)
       .nodeSort((a, b) => (isOther(a) ? 1 : 0) - (isOther(b) ? 1 : 0) || (b.value ?? 0) - (a.value ?? 0))
