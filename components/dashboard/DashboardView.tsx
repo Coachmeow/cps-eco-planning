@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ExportButton from '@/components/ExportButton'
-import type { DashboardData, PersonUtilRow, SiteMandayRow, TeamCapacityRow } from '@/lib/types'
+import type { DashboardData, SiteMandayRow, TeamCapacityRow } from '@/lib/types'
 import CapacityDonut from '@/components/dashboard/charts/CapacityDonut'
 import TrendComposed from '@/components/dashboard/charts/TrendComposed'
 import DemandChart from '@/components/dashboard/charts/DemandChart'
 import TeamStackChart from '@/components/dashboard/charts/TeamStackChart'
 import HBarList from '@/components/dashboard/charts/HBarList'
 import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
+import PersonUtilBars from '@/components/dashboard/charts/PersonUtilBars'
 import { utilHex, siteHex } from '@/lib/chartTheme'
 
 const TEAM_COLOR: Record<string, string> = {
@@ -24,14 +25,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       {children}
     </div>
   )
-}
-
-// รูปพนักงานวงกลมเล็ก + fallback ตัวอักษรแรกถ้าไม่มีรูป
-function PersonAvatar({ id, name }: { id: number; name: string }) {
-  const [noPhoto, setNoPhoto] = useState(false)
-  return noPhoto
-    ? <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">{name.charAt(0)}</div>
-    : <img src={`/api/employees/${id}/photo`} onError={() => setNoPhoto(true)} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
 }
 
 export default function DashboardView() {
@@ -114,50 +107,6 @@ export default function DashboardView() {
 
           {/* แถบเตือน Cal/ซ่อม/ไมล์ ถอดออกจากหน้าแรก — ดูได้ที่หน้า แผน Cal / ซ่อม-Cal โดยตรง */}
 
-          {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
-          {(data.tentativeSoon?.length ?? 0) > 0 && (
-            <Card title={`⏳ งานรอยืนยัน ใกล้ถึงวันงาน (${data.tentativeSoon!.length} งาน ภายใน 7 วัน)`}>
-              <div className="divide-y divide-slate-100">
-                {data.tentativeSoon!.map((t, i) => (
-                  <div key={i} className="flex items-start justify-between gap-3 py-1.5 text-xs">
-                    <div className="min-w-0">
-                      <span className="font-medium text-slate-700">{t.employee}</span>
-                      <span className="ml-1.5 text-slate-400">{t.site}{t.days > 1 ? ` · ${t.days} วัน` : ''}</span>
-                      {t.reason && <p className="mt-0.5 break-words text-[11px] text-amber-600">{t.reason}</p>}
-                    </div>
-                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
-                      {new Date(t.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* การ์ดใกล้ถึงกำหนดส่งแคล ถอดออกจากหน้าแรก — ไปดู/เปิดใบงานที่ชิปในหน้า แผน Cal แทน */}
-
-          {/* Per-person Utilization — มีรูปพนักงาน, scrollable, sorted desc */}
-          <Card title="Utilization รายคน (%)">
-            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-              {data.personUtil.map((p: PersonUtilRow) => {
-                const name = p.nickname || p.fullName.split(' ')[1] || p.fullName
-                const pct = p.utilPct
-                return (
-                  <div key={p.employeeId} className="flex items-center gap-2">
-                    <PersonAvatar id={p.employeeId} name={name} />
-                    <span className="w-16 shrink-0 truncate text-xs text-slate-600" title={`${p.primaryTeam} · ${p.fullName}`}>{name}</span>
-                    <div className="relative h-2.5 flex-1 rounded-full bg-slate-100">
-                      <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: utilHex(pct) }} />
-                      <div className="absolute inset-y-0 w-px bg-slate-400/60" style={{ left: '80%' }} />
-                    </div>
-                    <span className="w-9 shrink-0 text-right text-xs font-semibold" style={{ color: utilHex(pct) }}>{pct}%</span>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="mt-2 text-[11px] text-slate-400">สีตามระดับ: เขียว &lt;50 · เหลือง 50–79 · แดง ≥80 · เส้น = 80%</p>
-          </Card>
-
           <Card title="ภาระงานต่อทีม (วัน-คน)">
             <TeamStackChart rows={data.teamWorkload} />
           </Card>
@@ -195,6 +144,18 @@ export default function DashboardView() {
             )}
           </Card>
 
+          <Card title="สัดส่วนกำลังคนต่อทีม (Capacity)">
+            <CapacityDonut rows={data.teamCapacity} />
+          </Card>
+
+          {/* Utilization รายคน — กราฟแท่งแนวตั้งเต็มความกว้าง (รูปพนักงาน + %) */}
+          <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-slate-700">Utilization รายคน (%)
+              <span className="font-normal text-slate-400"> · เรียงมาก→น้อย · เส้นประ = 80/100% · สีเขียว&lt;50 เหลือง 50–79 แดง≥80</span>
+            </h2>
+            <PersonUtilBars people={data.personUtil} />
+          </div>
+
           <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
             <DemandChart rows={data.equipmentUtil} />
           </Card>
@@ -218,10 +179,6 @@ export default function DashboardView() {
               </div>
             </Card>
           )}
-
-          <Card title="สัดส่วนกำลังคนต่อทีม (Capacity)">
-            <CapacityDonut rows={data.teamCapacity} />
-          </Card>
 
           {/* แนวโน้ม 6 เดือน — card ปกติ อยู่กลุ่ม util/man-day */}
           <Card title="แนวโน้ม 6 เดือน">
@@ -254,6 +211,26 @@ export default function DashboardView() {
                 </table>
             </div>
           </Card>
+
+          {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
+          {(data.tentativeSoon?.length ?? 0) > 0 && (
+            <Card title={`⏳ งานรอยืนยัน ใกล้ถึงวันงาน (${data.tentativeSoon!.length} งาน ภายใน 7 วัน)`}>
+              <div className="divide-y divide-slate-100">
+                {data.tentativeSoon!.map((t, i) => (
+                  <div key={i} className="flex items-start justify-between gap-3 py-1.5 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-medium text-slate-700">{t.employee}</span>
+                      <span className="ml-1.5 text-slate-400">{t.site}{t.days > 1 ? ` · ${t.days} วัน` : ''}</span>
+                      {t.reason && <p className="mt-0.5 break-words text-[11px] text-amber-600">{t.reason}</p>}
+                    </div>
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
+                      {new Date(t.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Cross-team compact — ล่างสุด */}
           {data.crossContrib.length > 0 && (
