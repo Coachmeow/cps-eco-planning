@@ -10,6 +10,7 @@ import TeamStackChart from '@/components/dashboard/charts/TeamStackChart'
 import HBarList from '@/components/dashboard/charts/HBarList'
 import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
 import PersonUtilBars from '@/components/dashboard/charts/PersonUtilBars'
+import ProvinceMap from '@/components/dashboard/charts/ProvinceMap'
 import { utilHex, siteHex } from '@/lib/chartTheme'
 
 const TEAM_COLOR: Record<string, string> = {
@@ -93,6 +94,14 @@ export default function DashboardView() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* แผนที่กระจายงานรายจังหวัด — heatmap + รถ + พนักงาน (สะสม/วันนี้/เลือกวันที่) */}
+          <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-slate-700">
+              แผนที่กระจายงานรายจังหวัด <span className="font-normal text-slate-400">· ปริมาณงาน + รถ + พนักงาน</span>
+            </h2>
+            <ProvinceMap year={year} month={month} />
           </div>
 
           {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
