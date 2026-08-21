@@ -26,6 +26,14 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+// รูปพนักงานวงกลมเล็ก + fallback ตัวอักษรแรกถ้าไม่มีรูป
+function PersonAvatar({ id, name }: { id: number; name: string }) {
+  const [noPhoto, setNoPhoto] = useState(false)
+  return noPhoto
+    ? <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[10px] font-bold text-white">{name.charAt(0)}</div>
+    : <img src={`/api/employees/${id}/photo`} onError={() => setNoPhoto(true)} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+}
+
 export default function DashboardView() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
@@ -128,8 +136,26 @@ export default function DashboardView() {
 
           {/* การ์ดใกล้ถึงกำหนดส่งแคล ถอดออกจากหน้าแรก — ไปดู/เปิดใบงานที่ชิปในหน้า แผน Cal แทน */}
 
-          <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
-            <DemandChart rows={data.equipmentUtil} />
+          {/* Per-person Utilization — มีรูปพนักงาน, scrollable, sorted desc */}
+          <Card title="Utilization รายคน (%)">
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {data.personUtil.map((p: PersonUtilRow) => {
+                const name = p.nickname || p.fullName.split(' ')[1] || p.fullName
+                const pct = p.utilPct
+                return (
+                  <div key={p.employeeId} className="flex items-center gap-2">
+                    <PersonAvatar id={p.employeeId} name={name} />
+                    <span className="w-16 shrink-0 truncate text-xs text-slate-600" title={`${p.primaryTeam} · ${p.fullName}`}>{name}</span>
+                    <div className="relative h-2.5 flex-1 rounded-full bg-slate-100">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: utilHex(pct) }} />
+                      <div className="absolute inset-y-0 w-px bg-slate-400/60" style={{ left: '80%' }} />
+                    </div>
+                    <span className="w-9 shrink-0 text-right text-xs font-semibold" style={{ color: utilHex(pct) }}>{pct}%</span>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">สีตามระดับ: เขียว &lt;50 · เหลือง 50–79 · แดง ≥80 · เส้น = 80%</p>
           </Card>
 
           <Card title="ภาระงานต่อทีม (วัน-คน)">
@@ -169,17 +195,8 @@ export default function DashboardView() {
             )}
           </Card>
 
-          {/* Per-person Utilization — scrollable, sorted desc */}
-          <Card title="Utilization รายคน (%)">
-            <div className="max-h-64 overflow-y-auto pr-1">
-              <HBarList unit="%" maxDomain={100} refLine={80}
-                items={data.personUtil.map((p: PersonUtilRow) => ({
-                  label: p.nickname || p.fullName.split(' ')[1] || p.fullName,
-                  title: `${p.primaryTeam} · ${p.fullName}`,
-                  value: p.utilPct, hex: utilHex(p.utilPct),
-                }))} />
-            </div>
-            <p className="mt-2 text-[11px] text-slate-400">สีตามระดับ: เขียว &lt;50 · เหลือง 50–79 · แดง ≥80 · เส้นประ = 80%</p>
+          <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
+            <DemandChart rows={data.equipmentUtil} />
           </Card>
 
           {/* Man-days per site — scrollable, sorted desc */}
