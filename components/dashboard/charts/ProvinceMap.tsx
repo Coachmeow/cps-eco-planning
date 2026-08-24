@@ -312,7 +312,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 )}
                 <g>
                   {PROVINCES.map((geo) => {
-                    if (travelView) return <path key={geo.th} d={geo.d} fill="#eef2f5" stroke="#ffffff" strokeWidth={0.5} />
+                    if (travelView) return <path key={geo.th} d={geo.d} fill="#eef2f5" stroke="#c3cddb" strokeWidth={0.5} />
                     const p = byName.get(geo.th)
                     const isPinned = geo.th === pinnedName
                     return (
@@ -321,7 +321,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                         data-prov={geo.th}
                         d={geo.d}
                         fill={heat(valOf(p) / maxVal)}
-                        stroke={isPinned ? '#059669' : '#ffffff'}
+                        stroke={isPinned ? '#059669' : '#c3cddb'}
                         strokeWidth={isPinned ? 2 : 0.6}
                         className="cursor-pointer transition-[fill] duration-200 hover:stroke-slate-500 hover:[stroke-width:1.4]"
                         onMouseEnter={() => setHover(geo.th)}
@@ -378,24 +378,25 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                   </>
                 )}
               </svg>
-
-              {travelView ? (
-                <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
-                  <div className="mb-1 flex items-center gap-1.5 text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" /> ฐาน (สระบุรี)</div>
-                  <div className="mb-1 flex items-center gap-1.5 text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> ต้นทาง (ไซต์เมื่อวาน)</div>
-                  <div className="flex items-center gap-1.5 text-slate-500"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางย้ายข้ามจังหวัด</div>
-                </div>
-              ) : (
-                <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
-                  <div className="mb-1 font-semibold uppercase tracking-wide text-slate-400">{legendLabel}</div>
-                  <div className="h-2 w-32 rounded" style={{ background: `linear-gradient(90deg, ${SEQ_GREEN[0]}, ${SEQ_GREEN[2]}, ${SEQ_GREEN[5]})` }} />
-                  <div className="mt-0.5 flex justify-between text-slate-400"><span>น้อย</span><span>สูงสุด {maxVal}</span></div>
-                </div>
-              )}
             </div>
-            <p className="mt-2 text-xs text-slate-400">
+
+            {/* legend + คำอธิบาย — อยู่ใต้แผนที่ ไม่ทับตัวแผนที่ */}
+            {travelView ? (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" /> ฐาน (สระบุรี)</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> ต้นทาง (ไซต์ล่าสุด)</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางข้ามจังหวัด</span>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                <span className="font-semibold uppercase tracking-wide text-slate-400">{legendLabel}</span>
+                <span className="h-2 w-28 rounded" style={{ background: `linear-gradient(90deg, ${SEQ_GREEN[0]}, ${SEQ_GREEN[2]}, ${SEQ_GREEN[5]})` }} />
+                <span className="text-slate-400">น้อย → สูงสุด {maxVal}</span>
+              </div>
+            )}
+            <p className="mt-1.5 text-xs text-slate-400">
               {travelView
-                ? 'รถที่ออกไซต์ใหม่ ' + travelDayLabel + ' · เส้นบนแผนที่ = ย้ายข้ามจังหวัด (ต้นทาง=ไซต์เมื่อวาน/ฐาน=สระบุรี)'
+                ? 'รถที่ออกไซต์ใหม่ ' + travelDayLabel + ' · เส้นบนแผนที่ = ย้ายข้ามจังหวัด (ต้นทาง=ไซต์ล่าสุด/ฐาน=สระบุรี)'
                 : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
