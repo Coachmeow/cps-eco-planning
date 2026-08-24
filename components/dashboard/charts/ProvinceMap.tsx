@@ -384,7 +384,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             {travelView ? (
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
                 <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" /> ฐาน (สระบุรี)</span>
-                <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> ต้นทาง (ไซต์ล่าสุด)</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> ต้นทาง (ไซต์เมื่อวาน)</span>
                 <span className="flex items-center gap-1.5"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางข้ามจังหวัด</span>
               </div>
             ) : (
@@ -396,7 +396,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             )}
             <p className="mt-1.5 text-xs text-slate-400">
               {travelView
-                ? 'รถที่ออกไซต์ใหม่ ' + travelDayLabel + ' · เส้นบนแผนที่ = ย้ายข้ามจังหวัด (ต้นทาง=ไซต์ล่าสุด/ฐาน=สระบุรี)'
+                ? 'รถที่ออกไซต์ใหม่ ' + travelDayLabel + ' · เส้นบนแผนที่ = ย้ายข้ามจังหวัด (ต้นทาง=ไซต์เมื่อวาน/ฐาน=สระบุรี)'
                 : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}

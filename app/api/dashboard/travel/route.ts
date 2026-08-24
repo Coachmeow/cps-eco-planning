@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const dk = req.nextUrl.searchParams.get('date') ?? toDateKey(new Date())
   const [y, m, d] = dk.split('-').map(Number)
   const day = new Date(y, m - 1, d)
-  const lookback = new Date(day); lookback.setDate(day.getDate() - 14) // มองย้อนหาไซต์ล่าสุดก่อนวันนี้
+  const prevDay = new Date(day); prevDay.setDate(day.getDate() - 1) // ตำแหน่ง "เมื่อวาน" เป๊ะๆ
 
   const sel = {
     estimatedDays: true,
@@ -23,14 +23,14 @@ export async function GET(req: NextRequest) {
     driverName: true,
     site: { select: { province: true, code: true, name: true } },
   }
-  const [onDay, before] = await Promise.all([
+  const [onDay, onPrev] = await Promise.all([
     prisma.vehicleBooking.findMany({ where: { assignedDate: { gte: day, lte: day }, siteId: { not: null }, purpose: 'FIELD' }, select: sel }),
-    prisma.vehicleBooking.findMany({ where: { assignedDate: { gte: lookback, lt: day }, siteId: { not: null }, purpose: 'FIELD' }, select: { vehicleId: true, siteId: true, site: { select: { province: true, code: true } } }, orderBy: { assignedDate: 'desc' } }),
+    prisma.vehicleBooking.findMany({ where: { assignedDate: { gte: prevDay, lte: prevDay }, siteId: { not: null }, purpose: 'FIELD' }, select: { vehicleId: true, siteId: true, site: { select: { province: true, code: true } } } }),
   ])
 
-  // ไซต์ล่าสุดก่อนวันนี้ต่อคัน (orderBy desc → ตัวแรกคือล่าสุด)
+  // ตำแหน่งของ "เมื่อวาน" ต่อคัน (ถ้าเมื่อวานว่าง = อยู่ออฟฟิศ/ฐานสระบุรี)
   const prevByVeh = new Map<number, { siteId: number | null; prov: string | null; code: string | null }>()
-  for (const b of before) {
+  for (const b of onPrev) {
     if (!prevByVeh.has(b.vehicleId)) prevByVeh.set(b.vehicleId, { siteId: b.siteId, prov: matchProvince(b.site?.province), code: b.site?.code ?? null })
   }
 
