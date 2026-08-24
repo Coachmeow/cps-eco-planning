@@ -1,10 +1,12 @@
 'use client'
 
-// แผนที่กระจายงานรายจังหวัด — heatmap (คน-วัน/จำนวนไซต์/หัวคน) + กล่องรายละเอียดถาวรข้างแผนที่
-//  hover จังหวัด = พรีวิว · คลิก = ปักหมุดค้าง (เลือก/ก็อปเบอร์ได้) · ไม่ชี้เลย = โชว์สภาพอากาศเสี่ยง 3 วัน
-//  โหมด: สะสม(เดือน) · ปัจจุบัน(วันนี้) · เลือกวันที่ — งานจาก /api/dashboard/province-map · อากาศจาก /api/dashboard/weather
+// แผนที่ Dashboard — แผนที่ไทยอันเดียว สลับ 2 มุมมองด้วย toggle:
+//  1) กระจายงาน (heatmap คน-วัน/ไซต์/หัวคน) + hover/ปักหมุดจังหวัด + สภาพอากาศเสี่ยง (idle)
+//  2) เส้นทางเดินทาง (arcs ฐานสระบุรี→ไซต์ วันนี้/พรุ่งนี้) + รายการรถที่กำลังเดินทาง
+// ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ (พร้อมใช้งาน)
+// API: province-map · weather · office-staff · office-vehicles · travel
 import { useState, useEffect, useMemo } from 'react'
-import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, type LucideIcon } from 'lucide-react'
+import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
 
@@ -19,6 +21,25 @@ interface Wx { days: string[]; provinces: WxProv[]; error?: boolean }
 
 interface Office { id: number; nick: string; team: string; tel: string | null }
 interface OfficeResp { date: string; office: Office[]; onLeave: number; field: number; error?: boolean }
+
+interface Trip { plate: string; driver: string; team: string; site: string; prov: string; days: number }
+interface TravelResp { date: string; trips: Trip[]; error?: boolean }
+interface OfficeVeh { id: number; plate: string; name: string | null; type: string | null }
+interface OfficeVehResp { date: string; vehicles: OfficeVeh[]; booked: number; total: number; error?: boolean }
+
+// จุดกลางจังหวัด (พิกัด SVG) + ฐานสระบุรี — สำหรับวาดเส้นทางเดินทาง
+const CENT = new Map(PROVINCES.map((p) => [p.th, { x: p.cx, y: p.cy }]))
+const HUB = CENT.get('สระบุรี') ?? { x: 214, y: 353 }
+function arcPath(o: { x: number; y: number }, d: { x: number; y: number }): string {
+  const mx = (o.x + d.x) / 2, my = (o.y + d.y) / 2
+  const dx = d.x - o.x, dy = d.y - o.y, len = Math.hypot(dx, dy) || 1
+  const cx = mx + (-dy / len) * len * 0.22, cy = my + (dx / len) * len * 0.22
+  return `M ${o.x} ${o.y} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${d.x} ${d.y}`
+}
+function offsetDayKey(n: number): string {
+  const d = new Date(); d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 const ZERO = '#f1f5f9'
 function hexToRgb(h: string): [number, number, number] {
@@ -57,9 +78,15 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [pinnedName, setPinnedName] = useState<string | null>(null)
   const [wx, setWx] = useState<Wx | null>(null)
   const [office, setOffice] = useState<OfficeResp | null>(null)
+  const [viewMode, setViewMode] = useState<'heat' | 'travel'>('heat')
+  const [travelDay, setTravelDay] = useState<'today' | 'tomorrow'>('today')
+  const [travel, setTravel] = useState<(TravelResp & { key: string }) | null>(null)
+  const [officeVeh, setOfficeVeh] = useState<OfficeVehResp | null>(null)
+  const [hoverRoute, setHoverRoute] = useState<number | null>(null)
 
   // วันที่สำหรับ "อยู่ออฟฟิศ" = วันที่เลือก (โหมด date) มิฉะนั้นวันนี้
   const officeDate = mode === 'date' ? pickDate : todayKey()
+  const travelDateKey = travelDay === 'today' ? todayKey() : offsetDayKey(1)
 
   const reqKey =
     mode === 'month' ? `m:${year}-${month}`
@@ -107,6 +134,27 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
     return () => { cancelled = true }
   }, [officeDate])
 
+  // รถอยู่ออฟฟิศ (พร้อมใช้งาน) — ตามวันที่ officeDate
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/dashboard/office-vehicles?date=${officeDate}`)
+      .then((r) => r.json())
+      .then((d: OfficeVehResp) => { if (!cancelled) setOfficeVeh(d) })
+      .catch(() => { if (!cancelled) setOfficeVeh({ date: officeDate, vehicles: [], booked: 0, total: 0, error: true }) })
+    return () => { cancelled = true }
+  }, [officeDate])
+
+  // เส้นทางเดินทาง — ดึงเมื่ออยู่โหมดเส้นทาง
+  useEffect(() => {
+    if (viewMode !== 'travel') return
+    let cancelled = false
+    fetch(`/api/dashboard/travel?date=${travelDateKey}`)
+      .then((r) => r.json())
+      .then((d: TravelResp) => { if (!cancelled) setTravel({ ...d, key: travelDateKey }) })
+      .catch(() => { if (!cancelled) setTravel({ date: travelDateKey, trips: [], error: true, key: travelDateKey }) })
+    return () => { cancelled = true }
+  }, [viewMode, travelDateKey])
+
   const loading = !resp || resp.key !== reqKey
   const live = mode !== 'month'
   const byName = useMemo(() => {
@@ -125,43 +173,103 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const shown = shownName ? byName.get(shownName) : undefined
   const legendLabel = live ? 'คนอยู่พื้นที่' : metric === 'sites' ? 'จำนวนไซต์' : 'ปริมาณงาน (คน-วัน)'
 
+  const travelView = viewMode === 'travel'
+  const routes = useMemo(() => {
+    const list = (travel?.trips ?? []).map((t, i) => {
+      const d = CENT.get(t.prov)
+      if (!d) return null
+      return { t, i, d, path: arcPath(HUB, d), col: teamHex(t.team) }
+    })
+    return list.filter((r): r is NonNullable<typeof r> => r !== null)
+  }, [travel])
+  const travelLoading = travelView && (!travel || travel.key !== travelDateKey)
+
   function togglePin(name: string) { setPinnedName((cur) => (cur === name ? null : name)) }
 
   return (
     <div>
       {/* controls */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* มุมมอง: กระจายงาน ↔ เส้นทาง */}
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-          {([['month', 'สะสม (เดือน)'], ['today', 'วันนี้'], ['date', 'เลือกวันที่']] as const).map(([k, label]) => (
+          {([['heat', 'กระจายงาน', Layers], ['travel', 'เส้นทาง', Plane]] as const).map(([k, label, Icon]) => (
             <button
               key={k}
-              onClick={() => setMode(k)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                mode === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              onClick={() => setViewMode(k)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              {label}
+              <Icon className="h-3.5 w-3.5" /> {label}
             </button>
           ))}
         </div>
 
-        {mode === 'date' && (
-          <input
-            type="date"
-            value={pickDate}
-            onChange={(e) => setPickDate(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
-          />
+        {!travelView && (
+          <>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {([['month', 'สะสม (เดือน)'], ['today', 'วันนี้'], ['date', 'เลือกวันที่']] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setMode(k)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    mode === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'date' && (
+              <input
+                type="date"
+                value={pickDate}
+                onChange={(e) => setPickDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
+              />
+            )}
+
+            {!live && (
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                {([['md', 'คน-วัน'], ['sites', 'จำนวนไซต์']] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setMetric(k)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                      metric === k ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              <label className="text-xs text-slate-400">ปักหมุด</label>
+              <select
+                value={pinnedName ?? ''}
+                onChange={(e) => setPinnedName(e.target.value || null)}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
+              >
+                <option value="">— เลือกจังหวัด —</option>
+                {PROVINCES.map((p) => (
+                  <option key={p.th} value={p.th}>{p.th}</option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
 
-        {!live && (
+        {travelView && (
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-            {([['md', 'คน-วัน'], ['sites', 'จำนวนไซต์']] as const).map(([k, label]) => (
+            {([['today', 'วันนี้'], ['tomorrow', 'พรุ่งนี้']] as const).map(([k, label]) => (
               <button
                 key={k}
-                onClick={() => setMetric(k)}
+                onClick={() => setTravelDay(k)}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  metric === k ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  travelDay === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {label}
@@ -169,76 +277,125 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             ))}
           </div>
         )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs text-slate-400">ปักหมุด</label>
-          <select
-            value={pinnedName ?? ''}
-            onChange={(e) => setPinnedName(e.target.value || null)}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
-          >
-            <option value="">— เลือกจังหวัด —</option>
-            {PROVINCES.map((p) => (
-              <option key={p.th} value={p.th}>{p.th}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
-      {loading || !resp ? (
+      {(!travelView && (loading || !resp)) ? (
         <div className="flex h-72 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
-      ) : resp.error ? (
+      ) : (!travelView && resp && resp.error) ? (
         <p className="py-8 text-center text-sm text-slate-300">โหลดข้อมูลไม่สำเร็จ</p>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:max-w-[1140px]">
-          {/* ซ้าย: แผนที่ + legend + คำอธิบาย (ชิดซ้าย) */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:max-w-[1180px]">
+          {/* ซ้าย: แผนที่ (heatmap หรือ เส้นทาง) + legend */}
           <div className="lg:flex-1">
             <div className="relative w-full max-w-[500px]" style={{ aspectRatio: '1 / 1' }}>
-              <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่กระจายงานรายจังหวัด">
-                {PROVINCES.map((geo) => {
-                  const p = byName.get(geo.th)
-                  const isPinned = geo.th === pinnedName
-                  return (
-                    <path
-                      key={geo.th}
-                      data-prov={geo.th}
-                      d={geo.d}
-                      fill={heat(valOf(p) / maxVal)}
-                      stroke={isPinned ? '#059669' : '#ffffff'}
-                      strokeWidth={isPinned ? 2 : 0.6}
-                      className="cursor-pointer transition-[fill] duration-200 hover:stroke-slate-500 hover:[stroke-width:1.4]"
-                      onMouseEnter={() => setHover(geo.th)}
-                      onMouseLeave={() => setHover(null)}
-                      onClick={() => togglePin(geo.th)}
-                    />
-                  )
-                })}
+              <svg viewBox={travelView ? '-45 -15 583 915' : `0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่">
+                {travelView && (
+                  <defs>
+                    <marker id="arrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+                      <path d="M0 0 L6 3 L0 6 Z" fill="context-stroke" />
+                    </marker>
+                  </defs>
+                )}
+                <g>
+                  {PROVINCES.map((geo) => {
+                    if (travelView) return <path key={geo.th} d={geo.d} fill="#eef2f5" stroke="#ffffff" strokeWidth={0.5} />
+                    const p = byName.get(geo.th)
+                    const isPinned = geo.th === pinnedName
+                    return (
+                      <path
+                        key={geo.th}
+                        data-prov={geo.th}
+                        d={geo.d}
+                        fill={heat(valOf(p) / maxVal)}
+                        stroke={isPinned ? '#059669' : '#ffffff'}
+                        strokeWidth={isPinned ? 2 : 0.6}
+                        className="cursor-pointer transition-[fill] duration-200 hover:stroke-slate-500 hover:[stroke-width:1.4]"
+                        onMouseEnter={() => setHover(geo.th)}
+                        onMouseLeave={() => setHover(null)}
+                        onClick={() => togglePin(geo.th)}
+                      />
+                    )
+                  })}
+                </g>
+                {travelView && (
+                  <>
+                    <g>
+                      {routes.map((r) => (
+                        <path
+                          key={r.i}
+                          d={r.path}
+                          fill="none"
+                          stroke={r.col}
+                          strokeWidth={hoverRoute === r.i ? 3.4 : 2.2}
+                          strokeLinecap="round"
+                          strokeDasharray="6 6"
+                          markerEnd="url(#arrow)"
+                          className="cursor-pointer transition-[opacity,stroke-width]"
+                          style={{ opacity: hoverRoute != null && hoverRoute !== r.i ? 0.12 : 0.85 }}
+                          onMouseEnter={() => setHoverRoute(r.i)}
+                          onMouseLeave={() => setHoverRoute(null)}
+                        >
+                          <title>{r.t.plate} · สระบุรี → {r.t.prov} · {r.t.site}</title>
+                        </path>
+                      ))}
+                    </g>
+                    <g>
+                      {routes.map((r) => (
+                        <g key={r.i} className="cursor-pointer" onMouseEnter={() => setHoverRoute(r.i)} onMouseLeave={() => setHoverRoute(null)}>
+                          <circle cx={r.d.x} cy={r.d.y} r={4.5} fill={r.col} stroke="#ffffff" strokeWidth={1.5} />
+                          <text x={r.d.x} y={r.d.y - 7} textAnchor="middle" fontSize={9} fontWeight={600} fill="#334155">{r.t.site}</text>
+                        </g>
+                      ))}
+                    </g>
+                    <g>
+                      <circle cx={HUB.x} cy={HUB.y} r={6} fill="#059669" stroke="#ffffff" strokeWidth={2} />
+                      <text x={HUB.x} y={HUB.y - 11} textAnchor="middle" fontFamily="IBM Plex Sans Thai, sans-serif" fontSize={12} fontWeight={700} fill="#059669">ฐาน สระบุรี</text>
+                    </g>
+                  </>
+                )}
               </svg>
-              <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
-                <div className="mb-1 font-semibold uppercase tracking-wide text-slate-400">{legendLabel}</div>
-                <div className="h-2 w-32 rounded" style={{ background: `linear-gradient(90deg, ${SEQ_GREEN[0]}, ${SEQ_GREEN[2]}, ${SEQ_GREEN[5]})` }} />
-                <div className="mt-0.5 flex justify-between text-slate-400"><span>น้อย</span><span>สูงสุด {maxVal}</span></div>
-              </div>
+
+              {travelView ? (
+                <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
+                  <div className="mb-1 flex items-center gap-1.5 text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" /> ฐาน (สระบุรี)</div>
+                  <div className="flex items-center gap-1.5 text-slate-500"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางรถ (สีตามทีม)</div>
+                </div>
+              ) : (
+                <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
+                  <div className="mb-1 font-semibold uppercase tracking-wide text-slate-400">{legendLabel}</div>
+                  <div className="h-2 w-32 rounded" style={{ background: `linear-gradient(90deg, ${SEQ_GREEN[0]}, ${SEQ_GREEN[2]}, ${SEQ_GREEN[5]})` }} />
+                  <div className="mt-0.5 flex justify-between text-slate-400"><span>น้อย</span><span>สูงสุด {maxVal}</span></div>
+                </div>
+              )}
             </div>
             <p className="mt-2 text-xs text-slate-400">
-              {live
+              {travelView
+                ? 'เส้นทางรถ ฐานสระบุรี → ไซต์งาน ' + (travelDay === 'today' ? 'วันนี้' : 'พรุ่งนี้') + ' · ชี้เส้น/หมุด = ไฮไลต์'
+                : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
             </p>
           </div>
 
-          {/* กลาง: กล่องถาวร — จังหวัดที่ชี้/ปักหมุด หรือ สภาพอากาศเสี่ยง (สูงเท่าแผนที่ · เลื่อนในกล่อง) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[340px] lg:shrink-0">
-            {shown ? (
-              <ProvincePanel prov={shown} live={live} mode={mode} date={resp.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
+          {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) */}
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[300px] lg:shrink-0">
+            {travelView ? (
+              <TravelPanel routes={routes} day={travelDay} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
+            ) : shown ? (
+              <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
               <WeatherPanel wx={wx} />
             )}
           </div>
 
-          {/* ขวา: พนักงานอยู่ออฟฟิศ (ไม่มีแผนออกภาคสนามวันนั้น) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[240px] lg:shrink-0">
-            <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+          {/* ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ */}
+          <div className="flex flex-col gap-4 sm:flex-row lg:shrink-0">
+            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[185px] lg:flex-none">
+              <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+            </div>
+            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[185px] lg:flex-none">
+              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+            </div>
           </div>
         </div>
       )}
@@ -405,6 +562,74 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TravelPanel({ routes, day, loading, error, hoverRoute, setHoverRoute }: {
+  routes: { t: Trip; i: number; d: { x: number; y: number }; path: string; col: string }[]
+  day: 'today' | 'tomorrow'; loading: boolean; error: boolean
+  hoverRoute: number | null; setHoverRoute: (i: number | null) => void
+}) {
+  if (loading) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
+  if (error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
+  if (routes.length === 0) return (
+    <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-slate-400">
+      <Plane className="h-8 w-8 text-slate-300" />
+      <span>ไม่มีการเดินทาง{day === 'today' ? 'วันนี้' : 'พรุ่งนี้'}</span>
+    </div>
+  )
+  return (
+    <div className="text-sm">
+      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Plane className="h-4 w-4 text-emerald-600" /> รถที่กำลังเดินทาง</h3>
+      <p className="mb-3 text-xs text-slate-400">{routes.length} คัน · {day === 'today' ? 'วันนี้' : 'พรุ่งนี้'} — ชี้เพื่อไฮไลต์เส้นทาง</p>
+      <div className="space-y-2">
+        {routes.map((r) => (
+          <div
+            key={r.i}
+            onMouseEnter={() => setHoverRoute(r.i)}
+            onMouseLeave={() => setHoverRoute(null)}
+            className={`cursor-pointer rounded-lg border p-2.5 transition ${hoverRoute === r.i ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.col }} />
+              <span className="font-mono text-xs font-semibold text-slate-700">{r.t.plate}</span>
+              <span className="ml-auto font-mono text-[11px] text-slate-400">~{r.t.days} วัน</span>
+            </div>
+            <div className="mt-1 text-[13px]"><span className="text-slate-400">สระบุรี</span> → <span className="font-semibold text-slate-700">{r.t.prov}</span></div>
+            <div className="truncate text-[11px] text-slate-400">{r.t.site} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OfficeVehPanel({ data, loading, dateLabel }: { data: OfficeVehResp | null; loading: boolean; dateLabel: string }) {
+  if (loading || !data) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
+  if (data.error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
+  return (
+    <div className="text-sm">
+      <div className="flex items-center gap-1.5">
+        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Truck className="h-4 w-4" /> รถอยู่ออฟฟิศ</h3>
+        <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{data.vehicles.length}</span>
+      </div>
+      <p className="mb-3 text-xs text-slate-400">พร้อมใช้งาน · {dateLabel}</p>
+      {data.vehicles.length === 0 ? (
+        <p className="text-xs text-slate-300">รถถูกจองครบทุกคัน</p>
+      ) : (
+        <div>
+          {data.vehicles.map((v) => (
+            <div key={v.id} className="flex items-center gap-2.5 border-t border-slate-100 py-1.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400"><Truck className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1 leading-tight">
+                <b className="font-mono text-[11.5px] text-slate-700">{v.plate}</b>
+                <span className="block truncate text-[11px] text-slate-400">{[v.name, v.type].filter(Boolean).join(' · ') || '—'}</span>
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
