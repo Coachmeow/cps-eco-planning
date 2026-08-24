@@ -192,9 +192,10 @@ export default function DashboardView() {
               </h2>
               <PersonUtilBars people={data.personUtil} />
             </div>
-            <div className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:w-[360px] lg:shrink-0">
+            {/* Man-days: ความสูงถูกกำหนดโดยกล่อง Utilization ข้างๆ (inner absolute ไม่ดันความสูง) แล้ว scroll ภายใน */}
+            <div className="relative flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:w-[360px] lg:shrink-0">
               <h2 className="mb-4 text-sm font-semibold text-slate-700">Man-days รายไซต์ (วัน-คน)</h2>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="max-h-80 overflow-y-auto pr-1 lg:absolute lg:inset-x-5 lg:bottom-5 lg:top-14 lg:max-h-none">
                 <HBarList valueFmt={v => `${v} วัน`}
                   items={(data.siteMandays ?? []).map((s: SiteMandayRow) => ({
                     label: s.siteCode, title: s.siteName ?? s.siteCode, value: s.manDays, hex: siteHex(s.color),
