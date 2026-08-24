@@ -137,7 +137,10 @@ export default function Sidebar() {
         {groups.map(g => (
           <div key={g.title} className="mb-4">
             {!collapsed && (
-              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{g.title}</p>
+              <div className="mb-1.5 flex items-center gap-2 px-2">
+                <span className="whitespace-nowrap text-[13px] font-semibold text-slate-600">{g.title}</span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
             )}
             <div className="space-y-0.5">
               {g.items.map(it => {
