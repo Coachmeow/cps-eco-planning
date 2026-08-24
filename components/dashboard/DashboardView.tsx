@@ -80,6 +80,48 @@ export default function DashboardView() {
         <div className="flex h-64 items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+          {/* แผนที่กระจายงานรายจังหวัด — heatmap + รถ + พนักงาน (สะสม/วันนี้/เลือกวันที่) */}
+          <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-slate-700">
+              แผนที่กระจายงานรายจังหวัด <span className="font-normal text-slate-400">· ปริมาณงาน + รถ + พนักงาน</span>
+            </h2>
+            <ProvinceMap year={year} month={month} />
+          </div>
+
+          {/* Cross-team — เหนือกลุ่ม Sankey */}
+          {data.crossContrib.length > 0 && (
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
+              <h3 className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cross-team Contribution</h3>
+              <div className="flex flex-wrap gap-2">
+                {data.crossContrib.map(c => (
+                  <div key={c.employeeId} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
+                    <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[c.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{c.primaryTeam}</span>
+                    <span className="text-slate-600">{c.nickname||c.fullName.split(' ')[1]||c.fullName}</span>
+                    <span className="font-semibold text-sky-600">{c.crossTeamDays}d</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน · ซ้าย = แผงกำลังคน (Capacity rings) */}
+          {(data.sankeyRows?.length ?? 0) > 0 && (
+            <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
+              </h2>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
+                <div className="lg:w-[332px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
+                  <CapacityRings rows={data.teamCapacity} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <ManDaySankey rows={data.sankeyRows!} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* KPI 4 การ์ด (3 Utilization + เครื่องมือพร้อมใช้) — ใต้กลุ่ม Sankey */}
           <div className="col-span-full grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
               { label: 'Util เฉลี่ยเครื่องมือ',  value: `${avgUtil}%`,    icon: Wrench,      color: 'text-rose-500',    tint: 'bg-rose-100'    },
@@ -97,69 +139,50 @@ export default function DashboardView() {
             ))}
           </div>
 
-          {/* แผนที่กระจายงานรายจังหวัด — heatmap + รถ + พนักงาน (สะสม/วันนี้/เลือกวันที่) */}
-          <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold text-slate-700">
-              แผนที่กระจายงานรายจังหวัด <span className="font-normal text-slate-400">· ปริมาณงาน + รถ + พนักงาน</span>
-            </h2>
-            <ProvinceMap year={year} month={month} />
+          {/* แถว 3 กล่องขนาดเท่ากัน: ภาระงานต่อทีม · Capacity คงเหลือ · แนวโน้ม 6 เดือน */}
+          <div className="col-span-full grid grid-cols-1 gap-5 md:grid-cols-3">
+            <Card title="ภาระงานต่อทีม (วัน-คน)">
+              <TeamStackChart rows={data.teamWorkload} />
+            </Card>
+
+            {/* Team capacity remaining — sorted by remaining desc */}
+            <Card title="Capacity คงเหลือต่อทีม (วัน-คน)">
+              {/* งานรอยืนยันนับรวมอยู่ในยอด "ใช้" แล้ว (คิวถูกกันไว้จริง) — แยกโชว์ให้เห็นความเสี่ยง */}
+              {(data.tentativeDays ?? 0) > 0 && (
+                <p className="mb-3 rounded border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
+                  ⏳ ในยอดนี้เป็น<b>งานรอยืนยัน {data.tentativeDays} วัน-คน</b> — ถ้าลูกค้ายกเลิกจะว่างเพิ่มเท่านี้
+                </p>
+              )}
+              {data.teamCapacity.length === 0
+                ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
+                : (
+                <div className="space-y-3">
+                  {data.teamCapacity.map((t: TeamCapacityRow) => {
+                    const usedColor = t.usedPct >= 90 ? 'bg-red-400' : t.usedPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
+                    const remColor  = t.remaining <= 0 ? 'text-red-500' : t.usedPct >= 70 ? 'text-amber-600' : 'text-emerald-600'
+                    return (
+                      <div key={t.teamId} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-medium text-slate-600">{t.teamCode} <span className="text-slate-400">· {t.headcount} คน</span></span>
+                          <span className="text-slate-500">
+                            ใช้ {t.booked} / {t.capacity} · เหลือ <span className={`font-semibold ${remColor}`}>{t.remaining} วัน</span>
+                          </span>
+                        </div>
+                        <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+                          <div className={`h-full ${usedColor}`} style={{ width: `${Math.min(t.usedPct, 100)}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </Card>
+
+            {/* แนวโน้ม 6 เดือน — ย้ายมาต่อขวาของ Capacity */}
+            <Card title="แนวโน้ม 6 เดือน">
+              <TrendComposed trend={data.trend} />
+            </Card>
           </div>
-
-          {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน · ซ้าย = แผงกำลังคน (Capacity rings) */}
-          {(data.sankeyRows?.length ?? 0) > 0 && (
-            <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">
-                Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
-              </h2>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-                <div className="lg:w-[330px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
-                  <CapacityRings rows={data.teamCapacity} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <ManDaySankey rows={data.sankeyRows!} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* แถบเตือน Cal/ซ่อม/ไมล์ ถอดออกจากหน้าแรก — ดูได้ที่หน้า แผน Cal / ซ่อม-Cal โดยตรง */}
-
-          <Card title="ภาระงานต่อทีม (วัน-คน)">
-            <TeamStackChart rows={data.teamWorkload} />
-          </Card>
-
-          {/* Team capacity remaining — sorted by remaining desc */}
-          <Card title="Capacity คงเหลือต่อทีม (วัน-คน)">
-            {/* งานรอยืนยันนับรวมอยู่ในยอด "ใช้" แล้ว (คิวถูกกันไว้จริง) — แยกโชว์ให้เห็นความเสี่ยง */}
-            {(data.tentativeDays ?? 0) > 0 && (
-              <p className="mb-3 rounded border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-                ⏳ ในยอดนี้เป็น<b>งานรอยืนยัน {data.tentativeDays} วัน-คน</b> — ถ้าลูกค้ายกเลิกจะว่างเพิ่มเท่านี้
-              </p>
-            )}
-            {data.teamCapacity.length === 0
-              ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
-              : (
-              <div className="space-y-3">
-                {data.teamCapacity.map((t: TeamCapacityRow) => {
-                  const usedColor = t.usedPct >= 90 ? 'bg-red-400' : t.usedPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
-                  const remColor  = t.remaining <= 0 ? 'text-red-500' : t.usedPct >= 70 ? 'text-amber-600' : 'text-emerald-600'
-                  return (
-                    <div key={t.teamId} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="font-medium text-slate-600">{t.teamCode} <span className="text-slate-400">· {t.headcount} คน</span></span>
-                        <span className="text-slate-500">
-                          ใช้ {t.booked} / {t.capacity} · เหลือ <span className={`font-semibold ${remColor}`}>{t.remaining} วัน</span>
-                        </span>
-                      </div>
-                      <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
-                        <div className={`h-full ${usedColor}`} style={{ width: `${Math.min(t.usedPct, 100)}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
 
           {/* Utilization รายคน — กราฟแท่งแนวตั้งเต็มความกว้าง (รูปพนักงาน + %) */}
           <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -192,11 +215,6 @@ export default function DashboardView() {
               </div>
             </Card>
           )}
-
-          {/* แนวโน้ม 6 เดือน — card ปกติ อยู่กลุ่ม util/man-day */}
-          <Card title="แนวโน้ม 6 เดือน">
-            <TrendComposed trend={data.trend} />
-          </Card>
 
           <Card title="Own vs Rental">
             <div className="max-h-64 overflow-auto">
@@ -243,22 +261,6 @@ export default function DashboardView() {
                 ))}
               </div>
             </Card>
-          )}
-
-          {/* Cross-team compact — ล่างสุด */}
-          {data.crossContrib.length > 0 && (
-            <div className="col-span-full rounded-lg border border-slate-200 bg-white px-5 py-3 shadow-sm">
-              <h3 className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cross-team Contribution</h3>
-              <div className="flex flex-wrap gap-2">
-                {data.crossContrib.map(c => (
-                  <div key={c.employeeId} className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
-                    <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${TEAM_COLOR[c.primaryTeam]??'bg-slate-200 text-slate-600'}`}>{c.primaryTeam}</span>
-                    <span className="text-slate-600">{c.nickname||c.fullName.split(' ')[1]||c.fullName}</span>
-                    <span className="font-semibold text-sky-600">{c.crossTeamDays}d</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           )}
         </div>
       )}

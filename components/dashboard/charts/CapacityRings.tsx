@@ -22,6 +22,7 @@ function darken(hex: string, f: number) {
 }
 
 const S = 116, SW = 20, R = (S - SW) / 2, C = S / 2, CIRC = 2 * Math.PI * R, BR = 13, RT = 30
+const PAD = 6, BOX = S + 2 * PAD // เผื่อขอบให้ badge หัวเส้นไม่โดน SVG ตัด
 const P = (a: number): [number, number] => [C + RT * Math.cos((a * Math.PI) / 180), C + RT * Math.sin((a * Math.PI) / 180)]
 
 function Ring({ t }: { t: TeamCapacityRow }) {
@@ -42,7 +43,7 @@ function Ring({ t }: { t: TeamCapacityRow }) {
   const tid = `at-${t.teamCode}`, bid = `ab-${t.teamCode}`
 
   return (
-    <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} role="img" aria-label={`${name} ใช้ ${pct}% (${Math.round(t.booked)} จาก ${t.capacity})`}>
+    <svg viewBox={`${-PAD} ${-PAD} ${BOX} ${BOX}`} width={BOX} height={BOX} role="img" aria-label={`${name} ใช้ ${pct}% (${Math.round(t.booked)} จาก ${t.capacity})`}>
       <defs>
         <path id={tid} d={`M ${tlx} ${tly} A ${RT} ${RT} 0 0 1 ${trx} ${trY}`} fill="none" />
         <path id={bid} d={`M ${blx} ${bly} A ${RT} ${RT} 0 0 0 ${brx} ${brY}`} fill="none" />
@@ -74,7 +75,7 @@ export default function CapacityRings({ rows }: { rows: TeamCapacityRow[] }) {
 
   // ลูกเต๋าเลข 5: index 0 = กลาง, 1..4 = มุม (TL, TR, BL, BR)
   const SP = 88
-  const CW = 2 * SP + S
+  const CW = 2 * SP + BOX
   const M = CW / 2
   const pts: [number, number][] = [[M, M], [M - SP, M - SP], [M + SP, M - SP], [M - SP, M + SP], [M + SP, M + SP]]
 
@@ -89,7 +90,7 @@ export default function CapacityRings({ rows }: { rows: TeamCapacityRow[] }) {
       </div>
       <div className="relative mx-auto" style={{ width: CW, height: CW }}>
         {rings.map((t, i) => (
-          <div key={t.teamCode} className="absolute" style={{ left: pts[i][0] - S / 2, top: pts[i][1] - S / 2, width: S, height: S }}>
+          <div key={t.teamCode} className="absolute" style={{ left: pts[i][0] - BOX / 2, top: pts[i][1] - BOX / 2, width: BOX, height: BOX }}>
             <Ring t={t} />
           </div>
         ))}
