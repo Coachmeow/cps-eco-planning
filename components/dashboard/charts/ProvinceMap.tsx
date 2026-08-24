@@ -192,8 +192,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : (
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ + legend + คำอธิบาย */}
-          <div className="lg:w-[380px] lg:shrink-0">
-            <div className="relative mx-auto w-full max-w-[380px]" style={{ aspectRatio: '1 / 1' }}>
+          <div className="lg:flex-1">
+            <div className="relative mx-auto w-full max-w-[500px]" style={{ aspectRatio: '1 / 1' }}>
               <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่กระจายงานรายจังหวัด">
                 {PROVINCES.map((geo) => {
                   const p = byName.get(geo.th)
@@ -233,7 +233,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* กลาง: กล่องถาวร — จังหวัดที่ชี้/ปักหมุด หรือ สภาพอากาศเสี่ยง (สูงเท่าแผนที่ · เลื่อนในกล่อง) */}
-          <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[380px]">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[440px] lg:w-[340px] lg:shrink-0">
             {shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
@@ -242,7 +242,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* ขวา: พนักงานอยู่ออฟฟิศ (ไม่มีแผนออกภาคสนามวันนั้น) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[380px] lg:w-[250px] lg:shrink-0">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[440px] lg:w-[240px] lg:shrink-0">
             <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
           </div>
         </div>
