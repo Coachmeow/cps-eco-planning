@@ -245,20 +245,6 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 ))}
               </div>
             )}
-
-            <div className="ml-auto flex items-center gap-2">
-              <label className="text-xs text-slate-400">ปักหมุด</label>
-              <select
-                value={pinnedName ?? ''}
-                onChange={(e) => setPinnedName(e.target.value || null)}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
-              >
-                <option value="">— เลือกจังหวัด —</option>
-                {PROVINCES.map((p) => (
-                  <option key={p.th} value={p.th}>{p.th}</option>
-                ))}
-              </select>
-            </div>
           </>
         )}
 
@@ -284,10 +270,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : (!travelView && resp && resp.error) ? (
         <p className="py-8 text-center text-sm text-slate-300">โหลดข้อมูลไม่สำเร็จ</p>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:max-w-[1180px]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ (heatmap หรือ เส้นทาง) + legend */}
           <div className="lg:flex-1">
-            <div className="relative w-full max-w-[500px]" style={{ aspectRatio: '1 / 1' }}>
+            <div className="relative w-full max-w-[560px]" style={{ aspectRatio: '1 / 1' }}>
               <svg viewBox={travelView ? '-45 -15 583 915' : `0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่">
                 {travelView && (
                   <defs>
@@ -330,7 +316,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                           strokeLinecap="round"
                           strokeDasharray="6 6"
                           markerEnd="url(#arrow)"
-                          className="cursor-pointer transition-[opacity,stroke-width]"
+                          className="route-flow cursor-pointer transition-[opacity,stroke-width]"
                           style={{ opacity: hoverRoute != null && hoverRoute !== r.i ? 0.12 : 0.85 }}
                           onMouseEnter={() => setHoverRoute(r.i)}
                           onMouseLeave={() => setHoverRoute(null)}
@@ -378,7 +364,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[300px] lg:shrink-0">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[320px] lg:shrink-0">
             {travelView ? (
               <TravelPanel routes={routes} day={travelDay} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
@@ -390,10 +376,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
 
           {/* ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ */}
           <div className="flex flex-col gap-4 sm:flex-row lg:shrink-0">
-            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[185px] lg:flex-none">
+            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[200px] lg:flex-none">
               <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
             </div>
-            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[185px] lg:flex-none">
+            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[200px] lg:flex-none">
               <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
             </div>
           </div>
