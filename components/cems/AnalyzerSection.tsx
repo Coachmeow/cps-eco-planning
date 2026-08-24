@@ -119,6 +119,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
           <thead className="bg-slate-50 text-xs text-slate-500"><tr>
             <th className="px-3 py-2 text-left font-medium">Tag / เครื่อง</th>
             <th className="px-3 py-2 text-left font-medium">ยี่ห้อ · รุ่น</th>
+            <th className="px-3 py-2 text-left font-medium">Serial No.</th>
             <th className="px-3 py-2 text-left font-medium">Parameter</th>
             <th className="px-3 py-2 text-left font-medium">แหล่งที่มา</th>
             <th className="px-3 py-2 text-left font-medium">ที่อยู่ปัจจุบัน</th>
@@ -127,7 +128,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
             <th className="px-3 py-2" />
           </tr></thead>
           <tbody>
-            {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-300">ไม่มีเครื่อง</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-xs text-slate-300">ไม่มีเครื่อง</td></tr>}
             {filtered.map(a => (
               <tr key={a.id} className={`border-t border-slate-100 hover:bg-slate-50 ${a.status === 'RETIRED' ? 'opacity-50' : ''}`}>
                 <td className="px-3 py-2">
@@ -136,10 +137,8 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
                     <span className="font-medium text-slate-700">{a.tag}</span>
                   </button>
                 </td>
-                <td className="px-3 py-2 text-slate-500">
-                  <span className="block leading-tight">{[a.brand, a.model].filter(Boolean).join(' · ') || '—'}</span>
-                  {a.serialNo && <span className="block font-mono text-[11px] leading-tight text-slate-400">S/N: {a.serialNo}</span>}
-                </td>
+                <td className="px-3 py-2 text-slate-500">{[a.brand, a.model].filter(Boolean).join(' · ') || '—'}</td>
+                <td className="px-3 py-2 font-mono text-xs text-slate-500">{a.serialNo || '—'}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">{a.parameter ?? '—'}</td>
                 <td className="px-3 py-2">
                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${OWNERSHIP_CHIP[a.ownership]}`}>{OWNERSHIP_LABEL[a.ownership]}</span>
