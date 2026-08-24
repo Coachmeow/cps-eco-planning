@@ -6,6 +6,25 @@
 
 ---
 
+# งานที่ทำ — ปรับ UI Dashboard · Sidebar · CEMS · ฟอนต์ทั้งแอป (รอบล่าสุด)
+
+## สรุปสิ่งที่เปลี่ยน (งาน UI ล้วน ไม่แตะ business logic)
+- **ฟอนต์ทั้งแอป → IBM Plex Sans Thai** (`app/layout.tsx` + `globals.css`): เดิมใช้ Geist ที่โหลด subset `latin` เท่านั้น ตัวไทยจึงตกไปใช้ฟอนต์ระบบ (เพี้ยนต่างเครื่อง) — เปลี่ยนเป็น IBM Plex Sans Thai (subset thai+latin) คุมหน้าตาให้เหมือนกันทุกเครื่อง. หมายเหตุ: ฟอนต์ **PDF** ยังเป็น Sarabun แยกต่างหาก (คนละส่วน)
+- **การ์ด "สัดส่วนกำลังคน (Capacity donut)" ถูกยุบ → วงแหวน utilization 5 ทีม** (`components/dashboard/charts/CapacityRings.tsx` ใหม่ · ลบ `CapacityDonut.tsx`): ฝังในแผงซ้ายของการ์ด Sankey แทนเลข "Man-day รวม" เดิม. แสดง `722 / 1025 (ใช้ไป NN%)` + วงแหวน 5 ทีม (CEMS·Water·Stack·Workplace·Ambient) จัดแบบลูกเต๋าเลข 5 (1 กลาง 4 มุม). แต่ละวง: ชื่อทีมโค้งบน · % กลาง · "ใช้ of capacity" โค้งล่างรูป U · badge หัวเส้น (≤100% = สีทีมเข้ม `-เหลือ` / เกิน 100% = แดง `+เกิน`). ดึงข้อมูลจาก `teamCapacity[]` ที่มีอยู่แล้ว (ไม่แก้ API)
+  > **สำคัญ — ทำไมเลขวงแหวนต่างจาก Sankey:** วงแหวน `booked` = วัน-คนที่คน "สังกัดทีมนั้น" (primaryTeam) ถูกจองไปทำงานทุกประเภท (วัด utilization ของกำลังคน) ส่วน Sankey นับตาม "หมวดงาน" (serviceType) ที่ทำโดยใครก็ได้ — คนละฐาน ต่างกันได้เพราะงานข้ามทีม (ถูกต้องทั้งคู่)
+- **ManDaySankey ปรับใหม่** (`components/dashboard/charts/ManDaySankey.tsx`): รับ prop `title` + `leftPanel` — header row = หัวข้อ+ปุ่มไซต์/breadcrumb/hint/dropdown อยู่แถวเดียวกัน ; ใช้ **ResizeObserver วัดขนาดกล่องจริง** แล้ว d3-sankey layout เต็มพื้นที่ (1:1 ไม่ letterbox) — กลุ่มงานกระจายเต็มแนวตั้ง (ST ชิดบน · LOG ชิดล่างเสมอขอบวงแหวน) · margin คุมด้วยค่าคงที่ ML/MR/MT/MB
+- **จัดเรียงการ์ด Dashboard ใหม่** (`components/dashboard/DashboardView.tsx`): ProvinceMap → Cross-team → Sankey+วง → KPI 4 การ์ด → แถว 3 กล่องเท่ากัน (ภาระงาน·Capacity คงเหลือ·แนวโน้ม 6 เดือน) → Utilization รายคน (ซ้าย เลื่อนแนวข้าง) + Man-days รายไซต์ (ขวา คงกว้าง เลื่อนแนวตั้ง สูงเท่ากันด้วย absolute fill) → Own vs Rental (แทนตำแหน่ง Man-days เดิม) · กล่องออฟฟิศ (สภาพอากาศ/รถพร้อมใช้งาน/ประจำออฟฟิศ) เปลี่ยนชื่อ + มี date picker แยกอิสระต่อกล่อง
+- **ซ่อนแถบ scroll ทั้งแอป โชว์เมื่อชี้เมาส์** (`globals.css` — rule `*`): เหมือนกล่องรถพร้อมใช้งาน
+- **weather API ทนขึ้น** (`app/api/dashboard/weather/route.ts`): เพิ่ม timeout 8s + retry 1 ครั้ง กัน cold start/แฮงค์บน Railway (Open-Meteo)
+- **CEMS Analyzer** (`components/cems/AnalyzerSection.tsx`): เพิ่มคอลัมน์ **Serial No.** (ถัดจากยี่ห้อ·รุ่น) + เรียง default ตาม `statusUpdatedAt` ล่าสุดขึ้นบนสุด
+- **Sidebar** (`components/Sidebar.tsx`): หัวข้อกลุ่ม (ภาพรวม/วางแผน/บริการ/ตั้งค่า) อ่านง่ายขึ้น (13px เข้มขึ้น + เส้นคั่น เลิก uppercase/tracking กว้าง) + ขยายคำว่า "Eco Planning" เป็น text-base
+
+## แนวทางที่ยึด
+- งาน UI ใหญ่ทำ Mockup (เครื่องมือ visualize) ให้ดูก่อนทุกครั้ง แล้วรอผู้ใช้อนุมัติ ("push") ค่อยปล่อย
+- ไอคอนใช้ lucide-react (ห้าม import lucide `Map`) · ตรวจ `npx tsc --noEmit` ผ่านก่อน commit เสมอ
+
+---
+
 # งานที่ทำ — เตือนการจองซ้อนในรายการ "เครื่องมือร่วม" (แผนเครื่องมือ)
 
 ## Context
