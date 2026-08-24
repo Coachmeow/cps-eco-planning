@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Wrench, Ruler, CheckCircle2, Circle, StickyNote } from 'lucide-react'
 import { calcDuration, fmtThaiDate } from '@/lib/employeeProfile'
 
 interface EqEvent {
@@ -60,7 +61,7 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
             <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
               {eq.hasPhoto
                 ? <img src={`/api/equipment/${eq.id}/photo`} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">🔧</span>}
+                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Wrench className="h-7 w-7 text-slate-400" /></span>}
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-base font-bold text-slate-800">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</p>
@@ -103,11 +104,11 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
                   {eq.events.map(ev => (
                     <div key={ev.id} className="rounded-lg border border-slate-100 px-3 py-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${ev.type === 'REPAIR' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
-                          {ev.type === 'REPAIR' ? '🔧 ซ่อม' : '📐 Cal'}
+                        <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${ev.type === 'REPAIR' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
+                          {ev.type === 'REPAIR' ? <><Wrench className="h-3 w-3" /> ซ่อม</> : <><Ruler className="h-3 w-3" /> Cal</>}
                         </span>
-                        <span className={ev.returnedDate ? 'text-emerald-600' : 'text-amber-600'}>
-                          {ev.returnedDate ? '✓ รับกลับแล้ว' : '● ยังไม่กลับ'}
+                        <span className={`inline-flex items-center gap-1 ${ev.returnedDate ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {ev.returnedDate ? <><CheckCircle2 className="h-3 w-3" /> รับกลับแล้ว</> : <><Circle className="h-3 w-3" /> ยังไม่กลับ</>}
                         </span>
                       </div>
                       <div className="mt-1 text-slate-500">
@@ -118,7 +119,7 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
                           {ev.vendor}{ev.vendor && ev.cost != null && ' · '}{ev.cost != null && `${baht(ev.cost)} บาท`}
                         </div>
                       )}
-                      {ev.notes && <div className="text-slate-400">📝 {ev.notes}</div>}
+                      {ev.notes && <div className="text-slate-400"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {ev.notes}</div>}
                     </div>
                   ))}
                 </div>

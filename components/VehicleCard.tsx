@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
+import { Car, Fuel, MapPin, User, AlertTriangle } from 'lucide-react'
 import { fmtThaiDate } from '@/lib/employeeProfile'
 import { PURPOSE_META } from '@/lib/vehiclePurpose'
 
@@ -107,7 +108,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
             <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
               {v.hasPhoto
                 ? <img src={`/api/vehicles/${v.id}/photo`} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">🚗</span>}
+                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Car className="h-7 w-7 text-slate-400" /></span>}
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-base font-bold text-slate-800">{v.licensePlate}</p>
@@ -144,7 +145,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
             {/* แจ้งเตือนไมล์ไม่ตรง */}
             {v.mismatches.length > 0 && (
               <div className="mx-5 mb-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                <p className="mb-1 text-xs font-semibold text-red-600">⚠ พบไมล์ไม่ตรง {v.mismatches.length} ครั้ง</p>
+                <p className="mb-1 flex items-center gap-1 text-xs font-semibold text-red-600"><AlertTriangle className="h-3.5 w-3.5" /> พบไมล์ไม่ตรง {v.mismatches.length} ครั้ง</p>
                 {v.mismatches.slice(0, 3).map(m => (
                   <p key={m.id} className="text-[11px] text-red-500">
                     {fmtThaiDate(m.loggedAt)} · ระบบ {m.expectedMileage?.toLocaleString()} → จริง {m.mileage.toLocaleString()} (ต่าง {(m.mileage - (m.expectedMileage ?? 0)).toLocaleString()} กม.)
@@ -163,7 +164,7 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
                     return (
                       <div key={l.id} className={`flex items-center justify-between rounded-lg border px-3 py-1.5 text-xs ${l.mismatch ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
                         <span className="text-slate-600">
-                          {l.type === 'REFUEL' ? '⛽' : '🚗'} {l.mileage.toLocaleString()} กม.
+                          {l.type === 'REFUEL' ? <Fuel className="inline h-3.5 w-3.5 align-[-2px]" /> : <Car className="inline h-3.5 w-3.5 align-[-2px]" />} {l.mileage.toLocaleString()} กม.
                           {l.type === 'REFUEL' && l.fuelCost != null && <span className="text-slate-400"> · {l.fuelCost.toLocaleString()}฿</span>}
                           {l.site?.code && <span className="text-slate-400"> · {l.site.code}</span>}
                         </span>
@@ -188,8 +189,8 @@ export default function VehicleCard({ vehicleId, onClose }: { vehicleId: number;
                           <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PURPOSE_META[b.purpose].chip}`}>{PURPOSE_META[b.purpose].icon} {PURPOSE_META[b.purpose].label}</span>
                           <span className="text-slate-400">{fmtThaiDate(b.assignedDate)}{b.estimatedDays > 1 && ` · ${b.estimatedDays} วัน`}</span>
                         </div>
-                        {where && <div className="mt-0.5 text-slate-500">📍 {where}</div>}
-                        {driver && <div className="text-slate-400">🧑 {driver}</div>}
+                        {where && <div className="mt-0.5 text-slate-500"><MapPin className="inline h-3 w-3 align-[-1px]" /> {where}</div>}
+                        {driver && <div className="text-slate-400"><User className="inline h-3 w-3 align-[-1px]" /> {driver}</div>}
                       </div>
                     )
                   })}

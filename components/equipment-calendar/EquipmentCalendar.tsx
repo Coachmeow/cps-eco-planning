@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
+import { Wrench, AlertTriangle, Loader2, FileText, MapPin, Umbrella } from 'lucide-react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -212,7 +213,7 @@ export default function EquipmentCalendar() {
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <h1 className="text-lg font-bold text-slate-800">🔧 แผนเครื่องมือ</h1>
+        <h1 className="flex items-center gap-2 text-lg font-bold text-slate-800"><Wrench className="h-5 w-5 text-slate-500" /> แผนเครื่องมือ</h1>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
           <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
           <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
@@ -220,7 +221,7 @@ export default function EquipmentCalendar() {
         </div>
         <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">{workdays} วันทำงาน</span>
         {conflicts.equipmentConflicts.size > 0 && (
-          <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {conflicts.equipmentConflicts.size} conflict</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600"><AlertTriangle className="h-3 w-3" /> {conflicts.equipmentConflicts.size} conflict</span>
         )}
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
@@ -243,14 +244,14 @@ export default function EquipmentCalendar() {
           <ExportButton href={`/api/export/equipment?year=${year}&month=${month}`} label="Export Excel" />
           <button onClick={handleExportPdf} disabled={exporting}
             className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">
-            {exporting ? '⏳ กำลังสร้าง...' : '📄 Export PDF'}
+            {exporting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังสร้าง...</> : <><FileText className="h-3.5 w-3.5" /> Export PDF</>}
           </button>
         </div>
       </div>
 
       {rangeStart && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
-          <span className="font-medium">📍 เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
+          <span className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" /> เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
           <span className="text-sky-500">— คลิกวันสิ้นสุดในแถวเดียวกัน (คลิกช่องเดิม = 1 วัน)</span>
           <button onClick={() => { setRangeStart(null); setRangeHover(null) }} className="ml-auto rounded px-2 py-0.5 text-sky-600 hover:bg-sky-100">ยกเลิก (Esc)</button>
         </div>
@@ -274,7 +275,7 @@ export default function EquipmentCalendar() {
                   return (
                     <th key={key} title={holName ?? undefined} className={`min-w-[56px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${dayCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
-                      <div className="text-[10px] font-normal opacity-70">{holName ? '⛱' : thaiDays[dow]}</div>
+                      <div className="flex justify-center text-[10px] font-normal opacity-70">{holName ? <Umbrella className="h-3 w-3" /> : thaiDays[dow]}</div>
                     </th>
                   )
                 })}

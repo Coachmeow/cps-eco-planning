@@ -4,6 +4,7 @@
 //  hover จังหวัด = พรีวิว · คลิก = ปักหมุดค้าง (เลือก/ก็อปเบอร์ได้) · ไม่ชี้เลย = โชว์สภาพอากาศเสี่ยง 3 วัน
 //  โหมด: สะสม(เดือน) · ปัจจุบัน(วันนี้) · เลือกวันที่ — งานจาก /api/dashboard/province-map · อากาศจาก /api/dashboard/weather
 import { useState, useEffect, useMemo } from 'react'
+import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, AlertTriangle, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
 
@@ -42,7 +43,10 @@ function todayKey(): string {
 
 // สีตามระดับความเสี่ยงอากาศ
 const WX_CLS = ['border-slate-200 bg-slate-50 text-slate-500', 'border-amber-200 bg-amber-50 text-amber-700', 'border-red-200 bg-red-50 text-red-700']
-const wxIcon = (kind: string) => (kind === 'rain' ? '🌧️' : kind === 'heat' ? '🌡️' : '☀️')
+const WxIcon = ({ kind, className }: { kind: string; className?: string }) => {
+  const I: LucideIcon = kind === 'rain' ? CloudRain : kind === 'heat' ? Thermometer : Sun
+  return <I className={className} />
+}
 
 export default function ProvinceMap({ year, month }: { year: number; month: number }) {
   const [mode, setMode] = useState<'month' | 'today' | 'date'>('month')
@@ -222,8 +226,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
             </p>
             {resp.unmatched.sites > 0 && (
-              <p className="mt-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                ⚠️ มี {resp.unmatched.sites} ไซต์ที่ระบุจังหวัดไม่ตรงมาตรฐาน (ไม่ได้แสดงบนแผนที่)
+              <p className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> มี {resp.unmatched.sites} ไซต์ที่ระบุจังหวัดไม่ตรงมาตรฐาน (ไม่ได้แสดงบนแผนที่)
               </p>
             )}
           </div>
@@ -255,8 +259,8 @@ function ProvincePanel({ prov, live, mode, date, isPinned, onUnpin }: {
       <div className="mb-0.5 flex items-center gap-2">
         <h3 className="text-lg font-bold text-slate-800">{prov.name}</h3>
         {isPinned && (
-          <button onClick={onUnpin} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100">
-            📌 ปักหมุด · คลิกเพื่อปลด
+          <button onClick={onUnpin} className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100">
+            <Pin className="h-3 w-3" /> ปักหมุด · คลิกเพื่อปลด
           </button>
         )}
       </div>
@@ -276,7 +280,7 @@ function ProvincePanel({ prov, live, mode, date, isPinned, onUnpin }: {
       </div>
 
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">
-        🚚 รถในพื้นที่ <span className="rounded-full bg-emerald-50 px-1.5 text-emerald-600">{prov.vehicles.length}</span>
+        <Truck className="h-3.5 w-3.5" /> รถในพื้นที่ <span className="rounded-full bg-emerald-50 px-1.5 text-emerald-600">{prov.vehicles.length}</span>
       </div>
       {prov.vehicles.length === 0 ? (
         <p className="py-0.5 text-xs text-slate-300">ไม่มีรถ</p>
@@ -295,7 +299,7 @@ function ProvincePanel({ prov, live, mode, date, isPinned, onUnpin }: {
       )}
 
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">
-        👷 พนักงาน <span className="rounded-full bg-emerald-50 px-1.5 text-emerald-600">{prov.staff.length}</span>
+        <HardHat className="h-3.5 w-3.5" /> พนักงาน <span className="rounded-full bg-emerald-50 px-1.5 text-emerald-600">{prov.staff.length}</span>
       </div>
       <div>
         {prov.staff.map((s) => {
@@ -336,15 +340,15 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
   if (wx.error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">ดึงสภาพอากาศไม่สำเร็จ</div>
   if (wx.provinces.length === 0) return (
     <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-slate-400">
-      <span className="text-2xl">🌤️</span>
+      <CloudSunRain className="h-8 w-8 text-slate-300" />
       <span>ไม่มีงานล่วงหน้า 3 วัน</span>
       <span className="text-xs text-slate-300">ชี้จังหวัดบนแผนที่เพื่อดูรถ + พนักงาน</span>
     </div>
   )
   return (
     <div className="text-sm">
-      <h3 className="text-base font-bold text-slate-800">🌦️ สภาพอากาศเสี่ยง</h3>
-      <p className="mb-3 text-xs text-slate-400">จังหวัดที่มีงานล่วงหน้า 3 วัน · 🌧️ เสี่ยงฝน · 🌡️ ร้อนจัด (ชี้จังหวัดบนแผนที่เพื่อดูรายละเอียดงาน)</p>
+      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><CloudSunRain className="h-4 w-4 text-sky-500" /> สภาพอากาศเสี่ยง</h3>
+      <p className="mb-3 flex flex-wrap items-center gap-x-1 text-xs text-slate-400">จังหวัดที่มีงานล่วงหน้า 3 วัน · <CloudRain className="inline h-3 w-3" /> เสี่ยงฝน · <Thermometer className="inline h-3 w-3" /> ร้อนจัด</p>
       <div className="space-y-2">
         {wx.provinces.map((p) => (
           <div key={p.name} className="rounded-lg border border-slate-200 bg-white p-2.5">
@@ -353,8 +357,8 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
               {p.daily.map((d) => (
                 <div key={d.date} className={`flex-1 rounded-md border px-1.5 py-1 text-center ${WX_CLS[d.level]}`}>
                   <div className="text-[10px] opacity-70">{d.date === tk ? 'วันนี้' : `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}`}</div>
-                  <div className="text-base leading-tight">{wxIcon(d.kind)}</div>
-                  <div className="font-mono text-[10px] tabular-nums">💧{d.rainProb}%</div>
+                  <div className="flex justify-center py-0.5"><WxIcon kind={d.kind} className="h-4 w-4" /></div>
+                  <div className="flex items-center justify-center gap-0.5 font-mono text-[10px] tabular-nums"><Droplet className="h-2.5 w-2.5" />{d.rainProb}%</div>
                   <div className="font-mono text-[10px] tabular-nums">{d.tmax}°</div>
                 </div>
               ))}
@@ -372,7 +376,7 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
   return (
     <div className="text-sm">
       <div className="flex items-center gap-1.5">
-        <h3 className="text-base font-bold text-slate-800">🏢 อยู่ออฟฟิศ</h3>
+        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Building2 className="h-4 w-4" /> อยู่ออฟฟิศ</h3>
         <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{office.office.length}</span>
       </div>
       <p className="mb-3 text-xs text-slate-400">ไม่มีแผนออกภาคสนาม · {dateLabel}{office.onLeave > 0 ? ` · ลา ${office.onLeave} คน` : ''}</p>
@@ -399,7 +403,7 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
                   <span className="ml-1 font-mono text-[11px]" style={{ color: col }}>{s.team}</span>
                   {s.tel && (
                     <a href={`tel:${s.tel.replace(/[^0-9+]/g, '')}`} className="block truncate font-mono text-[11px] text-slate-500 hover:text-emerald-600">
-                      📞 {s.tel}
+                      <Phone className="inline h-3 w-3 align-[-1px]" /> {s.tel}
                     </a>
                   )}
                 </span>

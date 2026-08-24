@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
+import { Users, AlertTriangle, Clock, Loader2, FileText, MapPin, Star, Umbrella } from 'lucide-react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -185,7 +186,7 @@ export default function StaffCalendar() {
   return (
     <div className="flex h-full flex-col bg-slate-50">
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <h1 className="text-lg font-bold text-slate-800">👤 แผนงานพนักงาน</h1>
+        <h1 className="flex items-center gap-2 text-lg font-bold text-slate-800"><Users className="h-5 w-5 text-slate-500" /> แผนงานพนักงาน</h1>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
           <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
           <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>
@@ -197,7 +198,7 @@ export default function StaffCalendar() {
             title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานชนกัน"
             className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
               conflictOnly ? 'bg-red-600 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}>
-            ⚠ {totalConflicts} conflict
+            <AlertTriangle className="inline h-3 w-3 align-[-1px]" /> {totalConflicts} conflict
           </button>
         )}
         {tentativeCount > 0 && (
@@ -205,7 +206,7 @@ export default function StaffCalendar() {
             title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานรอลูกค้ายืนยัน"
             className={`rounded-full border border-dashed px-2.5 py-0.5 text-xs font-semibold transition-colors ${
               tentativeOnly ? 'border-red-600 bg-red-600 text-white' : 'border-red-400 bg-white text-red-600 hover:bg-red-50'}`}>
-            ⏳ รอยืนยัน {tentativeCount}
+            <Clock className="inline h-3 w-3 align-[-1px]" /> รอยืนยัน {tentativeCount}
           </button>
         )}
         <div className="ml-auto flex items-center gap-1.5 flex-wrap">
@@ -221,14 +222,14 @@ export default function StaffCalendar() {
           ))}
           <button onClick={handleExportPdf} disabled={exporting}
             className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50 transition-colors">
-            {exporting ? '⏳ กำลังสร้าง...' : '📄 Export PDF'}
+            {exporting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังสร้าง...</> : <><FileText className="h-3.5 w-3.5" /> Export PDF</>}
           </button>
         </div>
       </div>
 
       {rangeStart && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
-          <span className="font-medium">📍 เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
+          <span className="flex items-center gap-1 font-medium"><MapPin className="h-3.5 w-3.5" /> เลือกวันเริ่ม {new Date(rangeStart.dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} แล้ว</span>
           <span className="text-sky-500">— คลิกวันสิ้นสุดในแถวเดียวกัน (คลิกช่องเดิม = 1 วัน)</span>
           <button onClick={() => { setRangeStart(null); setRangeHover(null) }} className="ml-auto rounded px-2 py-0.5 text-sky-600 hover:bg-sky-100">ยกเลิก (Esc)</button>
         </div>
@@ -239,7 +240,7 @@ export default function StaffCalendar() {
       ) : error ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 max-w-xl w-full">
-            <p className="text-sm font-semibold text-red-700 mb-1">⚠ โหลดข้อมูลไม่สำเร็จ</p>
+            <p className="mb-1 flex items-center gap-1 text-sm font-semibold text-red-700"><AlertTriangle className="h-4 w-4" /> โหลดข้อมูลไม่สำเร็จ</p>
             <p className="text-xs text-red-600 font-mono break-all">{error}</p>
           </div>
           <p className="text-xs text-slate-400">ตรวจสอบ Railway logs หรือรัน seed data แล้วลอง refresh</p>
@@ -261,7 +262,7 @@ export default function StaffCalendar() {
                   return (
                     <th key={key} title={holName ?? undefined} className={`min-w-[52px] border-b border-r border-slate-300 px-1 py-1 text-center font-medium ${dayCls} ${isToday ? '!bg-sky-50 !text-sky-600' : ''}`}>
                       <div>{day.getDate()}</div>
-                      <div className="text-[10px] font-normal opacity-70">{holName ? '⛱' : thaiDays[dow]}</div>
+                      <div className="flex justify-center text-[10px] font-normal opacity-70">{holName ? <Umbrella className="h-3 w-3" /> : thaiDays[dow]}</div>
                     </th>
                   )
                 })}
@@ -280,7 +281,7 @@ export default function StaffCalendar() {
                           <div>
                             <div className="font-medium text-slate-700">
                               {emp.nickname ?? emp.fullName.split(' ')[0]}
-                              {emp.isSubLeader && <span className="ml-1 text-[10px] text-amber-500" title="หัวหน้าทีมย่อย">★</span>}
+                              {emp.isSubLeader && <span className="ml-1 inline-flex align-[-1px]" title="หัวหน้าทีมย่อย"><Star className="h-2.5 w-2.5 fill-amber-400 text-amber-500" /></span>}
                             </div>
                             <div className="text-[10px] text-slate-400 truncate max-w-[88px]">{emp.fullName}</div>
                           </div>
