@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, Fragment } from 'react'
+import { Wrench, AlertTriangle, Bell, ClipboardList } from 'lucide-react'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from './ui'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import PartWithdrawForm, { type WithdrawSchedule, type WithdrawEmployee } from './PartWithdrawForm'
@@ -268,7 +269,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
           {/* ON_CONDITION group */}
           {plan.onCondition.length > 0 && (
             <div className="rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-xs font-semibold text-slate-500">🔧 เปลี่ยนเมื่อชำรุด (ไม่มีรอบ)</p>
+              <p className="mb-2 text-xs font-semibold text-slate-500"><Wrench className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />เปลี่ยนเมื่อชำรุด (ไม่มีรอบ)</p>
               <div className="flex flex-wrap gap-1.5">
                 {plan.onCondition.map(o => (
                   <span key={o.scheduleId} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">{o.partCode} · {o.target}</span>
@@ -280,7 +281,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
           <div className="grid gap-2.5 md:grid-cols-2">
             {/* Shortage forecast */}
             <div className="rounded-lg border border-slate-200 p-2.5">
-              <p className="mb-1.5 text-[11px] font-semibold text-slate-600">⚠️ พอ/ขาดสต็อก (รวมทุกไซต์ทั้งปี)</p>
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-600"><AlertTriangle className="mr-1 inline h-3 w-3 align-[-1px]" />พอ/ขาดสต็อก (รวมทุกไซต์ทั้งปี)</p>
               {plan.shortage.length === 0 ? <p className="text-[11px] text-slate-300">ยังไม่มีแผน</p> : (
                 <div className="space-y-1">
                   {plan.shortage.map(p => {
@@ -303,7 +304,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
 
             {/* Upcoming / overdue */}
             <div className="rounded-lg border border-slate-200 p-2.5">
-              <p className="mb-1.5 text-[11px] font-semibold text-slate-600">🔔 ใกล้/เลยกำหนด (เดือนนี้)</p>
+              <p className="mb-1.5 text-[11px] font-semibold text-slate-600"><Bell className="mr-1 inline h-3 w-3 align-[-1px]" />ใกล้/เลยกำหนด (เดือนนี้)</p>
               {plan.upcoming.length === 0 ? <p className="text-[11px] text-slate-300">ไม่มีรายการ</p> : (
                 <div className="space-y-1">
                   {plan.upcoming.map(u => (
@@ -322,7 +323,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
 
           {/* จัดการแผน */}
           <div className="rounded-lg border border-slate-200 p-2.5">
-            <p className="mb-1.5 text-[11px] font-semibold text-slate-600">📋 แผนรอบเปลี่ยน{allSites ? '' : 'ของไซต์นี้'}</p>
+            <p className="mb-1.5 text-[11px] font-semibold text-slate-600"><ClipboardList className="mr-1 inline h-3 w-3 align-[-1px]" />แผนรอบเปลี่ยน{allSites ? '' : 'ของไซต์นี้'}</p>
             {schedules.length === 0 ? <p className="text-[11px] text-slate-300">ยังไม่มีแผน — กด “+ เพิ่มแผน”</p> : (
               <div className="divide-y divide-slate-100">
                 {schedules.map(s => (

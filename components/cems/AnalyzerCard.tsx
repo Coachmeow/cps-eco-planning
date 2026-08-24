@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
+import { Cpu, StickyNote } from 'lucide-react'
 import { Btn, Input, CustomSelect, OWNERSHIP_LABEL, OWNERSHIP_CHIP, AN_STATUS_LABEL, AN_STATUS_CHIP, EVENT_META, fmtDate, ageText } from '@/components/cems/ui'
 import type { CemsSiteRow } from '@/components/cems/CemsSitesSection'
 
@@ -102,7 +103,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
             <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
               {a.hasPhoto
                 ? <img src={`/api/cems/analyzers/${a.id}/photo`} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">📟</span>}
+                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Cpu className="h-7 w-7 text-slate-400" /></span>}
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-base font-bold text-slate-800">{a.tag}</p>
@@ -133,7 +134,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
                 <p className="text-[10px] text-slate-500">อัพเดทล่าสุด</p>
               </div>
             </div>
-            {a.notes && <p className="px-5 pb-1 text-xs text-amber-600">📝 {a.notes}</p>}
+            {a.notes && <p className="px-5 pb-1 text-xs text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
 
             {/* timeline */}
             <div className="flex-1 overflow-y-auto border-t border-slate-100 px-5 py-3">
@@ -193,7 +194,7 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
                         {ev.action && <p className="mt-0.5 text-slate-600">ทำ: {ev.action}</p>}
                         {(ev.vendor || ev.receiver) && <p className="mt-0.5 text-slate-400">{ev.vendor && `ส่งซ่อม: ${ev.vendor}`}{ev.vendor && ev.receiver && ' · '}{ev.receiver && `ผู้รับ: ${ev.receiver}`}</p>}
                         {ev.reporter && <p className="mt-0.5 text-slate-400">ผู้แจ้ง: {ev.reporter}</p>}
-                        {ev.notes && <p className="mt-0.5 text-amber-600">📝 {ev.notes}</p>}
+                        {ev.notes && <p className="mt-0.5 text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {ev.notes}</p>}
                       </div>
                     )
                   })}

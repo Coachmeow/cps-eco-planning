@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Cpu } from 'lucide-react'
 import { Btn, Input, Modal, CustomSelect, resizeImage, OWNERSHIP_LABEL, OWNERSHIP_CHIP, AN_STATUS_LABEL, AN_STATUS_CHIP, fmtDate } from '@/components/cems/ui'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import AnalyzerCard from '@/components/cems/AnalyzerCard'
@@ -131,7 +132,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
               <tr key={a.id} className={`border-t border-slate-100 hover:bg-slate-50 ${a.status === 'RETIRED' ? 'opacity-50' : ''}`}>
                 <td className="px-3 py-2">
                   <button onClick={() => setViewing(a)} className="flex items-center gap-2 text-left hover:text-emerald-700">
-                    {a.hasPhoto ? <img src={`/api/cems/analyzers/${a.id}/photo`} alt="" className="h-7 w-7 rounded object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-100 text-sm">📟</span>}
+                    {a.hasPhoto ? <img src={`/api/cems/analyzers/${a.id}/photo`} alt="" className="h-7 w-7 rounded object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-100"><Cpu className="h-4 w-4 text-slate-400" /></span>}
                     <span className="font-medium text-slate-700">{a.tag}</span>
                   </button>
                 </td>
@@ -168,7 +169,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
             <div className="flex items-center gap-3">
               {photo ? <img src={photo} alt="" className="h-16 w-16 rounded-lg object-cover" />
                 : (editing?.hasPhoto && !photoTouched) ? <img src={`/api/cems/analyzers/${editing.id}/photo`} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-300">📟</span>}
+                : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100"><Cpu className="h-7 w-7 text-slate-300" /></span>}
               <div className="flex flex-col gap-1">
                 <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">เลือกรูป...
                   <input type="file" accept="image/*" className="hidden" onChange={async ev => { const file = ev.target.files?.[0]; if (file) { setPhoto(await resizeImage(file)); setPhotoTouched(true) } }} />

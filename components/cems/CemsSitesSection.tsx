@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Zap } from 'lucide-react'
 import { Btn, Input } from '@/components/cems/ui'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 
@@ -51,7 +52,7 @@ export default function CemsSitesSection({ canManage = false }: { canManage?: bo
         <p className="text-sm text-slate-400">{sites.length} ไซต์</p>
         <div className="flex gap-2">
           {canManage && <DeletionLogButton group="cems" />}
-          {canManage && sites.length === 0 && <Btn variant="ghost" onClick={seed}>⚡ เพิ่มชุดไซต์เริ่มต้น (15 ไซต์)</Btn>}
+          {canManage && sites.length === 0 && <Btn variant="ghost" onClick={seed}><Zap className="inline h-3.5 w-3.5 align-[-2px]" /> เพิ่มชุดไซต์เริ่มต้น (15 ไซต์)</Btn>}
         </div>
       </div>
 

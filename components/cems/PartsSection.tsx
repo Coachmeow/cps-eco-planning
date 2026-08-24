@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
+import { AlertTriangle, Bell, FileUp, User, StickyNote, Check, X } from 'lucide-react'
 import { Btn, Input, Modal, CustomSelect, fmtDate } from '@/components/cems/ui'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 
@@ -130,17 +131,17 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
           options={[{ value: '', label: 'ทุกยี่ห้อ' }, ...brands.map(b => ({ value: b, label: b }))]} />
         <button onClick={() => setBelowMinOnly(v => !v)}
           className={`rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${belowMinOnly ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-          ⚠ ต่ำกว่า Min
+          <AlertTriangle className="inline h-3 w-3 align-[-1px]" /> ต่ำกว่า Min
         </button>
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
         <div className="ml-auto flex gap-2">
           <button onClick={() => setReqModal(true)}
             className={`rounded px-3 py-2 text-sm font-medium transition-colors ${requests.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'text-slate-500 hover:bg-slate-100'}`}>
-            🔔 คำขอเบิก{requests.length > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{requests.length}</span>}
+            <Bell className="inline h-3.5 w-3.5 align-[-2px]" /> คำขอเบิก{requests.length > 0 && <span className="ml-1 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{requests.length}</span>}
           </button>
           {canManage && <>
             <label className={`cursor-pointer rounded px-4 py-2 text-sm font-medium transition-colors ${importing ? 'bg-slate-100 text-slate-400' : 'text-slate-500 hover:bg-slate-100'}`}>
-              {importing ? 'กำลังนำเข้า...' : '📥 นำเข้า Excel'}
+              {importing ? 'กำลังนำเข้า...' : <><FileUp className="inline h-3.5 w-3.5 align-[-2px]" /> นำเข้า Excel</>}
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" disabled={importing}
                 onChange={e => importFile(e.target.files?.[0])} />
             </label>
@@ -177,7 +178,7 @@ export default function PartsSection({ canManage = false }: { canManage?: boolea
                   <td className="max-w-[260px] truncate px-3 py-2 text-slate-700" title={p.name}>{p.name}</td>
                   <td className="px-3 py-2 text-xs text-slate-500">{p.brand ?? '—'}</td>
                   <td className={`px-3 py-2 text-right font-semibold ${low ? 'text-red-600' : p.stock > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
-                    {p.stock}{low && ' ⚠'}
+                    {p.stock}{low && <AlertTriangle className="ml-0.5 inline h-3 w-3 align-[-1px] text-amber-500" />}
                   </td>
                   <td className="px-3 py-2 text-right text-slate-400">{p.minStock || '—'}</td>
                   <td className="px-3 py-2 text-right text-slate-500">{money(p.refCost)}</td>
@@ -256,18 +257,18 @@ function RequestsModal({ requests, canManage, onClose, onChanged }: { requests: 
                   <p className="font-semibold text-slate-700">{r.part.code} <span className="font-normal text-slate-400">{r.part.name}</span></p>
                   <p className="mt-0.5 text-sm font-bold text-amber-600">− {r.qty} {r.part.unit ?? ''}</p>
                   <p className="mt-0.5 text-slate-500">
-                    👤 {r.requester.nickname ?? r.requester.fullName}
+                    <User className="inline h-3 w-3 align-[-1px]" /> {r.requester.nickname ?? r.requester.fullName}
                     {(r.site?.code || r.manualSite) && <span> · 📍 {r.site?.code ?? r.manualSite}</span>}
                     {r.analyzer && <span> · {r.analyzer.tag}</span>}
                     {r.quoteNo && <span className="ml-1 rounded bg-sky-50 px-1 text-sky-600">QT: {r.quoteNo}</span>}
                   </p>
-                  {r.note && <p className="mt-0.5 text-[11px] text-amber-600">📝 {r.note}</p>}
+                  {r.note && <p className="mt-0.5 text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {r.note}</p>}
                   <p className="mt-0.5 text-[10px] text-slate-400">{fmtDate(r.createdAt)}</p>
                 </div>
                 {canManage
                   ? <div className="flex shrink-0 flex-col gap-1.5">
-                      <Btn small onClick={() => decide(r, 'approve')}>{busy === r.id ? '...' : '✓ อนุมัติ'}</Btn>
-                      <Btn small variant="danger" onClick={() => decide(r, 'reject')}>✕ ปฏิเสธ</Btn>
+                      <Btn small onClick={() => decide(r, 'approve')}>{busy === r.id ? '...' : <><Check className="inline h-3.5 w-3.5 align-[-2px]" /> อนุมัติ</>}</Btn>
+                      <Btn small variant="danger" onClick={() => decide(r, 'reject')}><X className="inline h-3.5 w-3.5 align-[-2px]" /> ปฏิเสธ</Btn>
                     </div>
                   : <span className="shrink-0 self-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">รอ Admin อนุมัติ</span>}
               </div>
@@ -511,7 +512,7 @@ function HistoryModal({ part, canManage, onClose, onChanged }: { part: PartRow; 
       {txns.some(t => t.notes) && (
         <div className="mt-3 space-y-1">
           {txns.filter(t => t.notes).slice(0, 5).map(t => (
-            <p key={t.id} className="text-[11px] text-amber-600">📝 {fmtDate(t.txnDate)}: {t.notes}</p>
+            <p key={t.id} className="text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {fmtDate(t.txnDate)}: {t.notes}</p>
           ))}
         </div>
       )}

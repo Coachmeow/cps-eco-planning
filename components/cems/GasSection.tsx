@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { Target, MapPin, BarChart3, StickyNote, AlertTriangle } from 'lucide-react'
 import { Btn, Input, Modal, CustomSelect, fmtDate, ageText } from '@/components/cems/ui'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 
@@ -153,7 +154,7 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
                       </div>
                       <span className={`text-xs font-semibold ${low ? 'text-red-600' : 'text-slate-600'}`}>{c.pct}%</span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-slate-400">{c.currentPressure} / {c.initialPressure} psi{low && ' ⚠ ใกล้หมด'}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">{c.currentPressure} / {c.initialPressure} psi{low && <span className="text-amber-500"> <AlertTriangle className="inline h-3 w-3 align-[-1px]" /> ใกล้หมด</span>}</p>
                   </td>
                   <td className="px-3 py-2 text-right align-top text-slate-500">{c.kgRemaining != null ? c.kgRemaining : '—'}</td>
                   <td className="px-3 py-2 align-top text-xs">
@@ -172,8 +173,8 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
                   <td className="max-w-[180px] px-3 py-2 align-top text-xs">
                     {c.lastUse && (c.lastUse.purpose || c.lastUse.usageLocation) ? (
                       <>
-                        {c.lastUse.purpose && <p className="text-slate-600">🎯 {c.lastUse.purpose}</p>}
-                        {c.lastUse.usageLocation && <p className="text-slate-500">📍 {c.lastUse.usageLocation}</p>}
+                        {c.lastUse.purpose && <p className="text-slate-600"><Target className="inline h-3 w-3 align-[-1px]" /> {c.lastUse.purpose}</p>}
+                        {c.lastUse.usageLocation && <p className="text-slate-500"><MapPin className="inline h-3 w-3 align-[-1px]" /> {c.lastUse.usageLocation}</p>}
                         <p className="text-[10px] text-slate-300">{fmtDate(c.lastUse.readingDate)}</p>
                       </>
                     ) : <span className="text-slate-300">—</span>}
@@ -183,7 +184,7 @@ export default function GasSection({ canManage = false }: { canManage?: boolean 
                   </td>
                   <td className="px-3 py-2 text-right align-top">
                     <div className="flex items-center justify-end gap-1">
-                      <Btn small onClick={() => setReadingRow(c)}>📊 อัปเดต</Btn>
+                      <Btn small onClick={() => setReadingRow(c)}><BarChart3 className="inline h-3.5 w-3.5 align-[-2px]" /> อัปเดต</Btn>
                       <span className="mx-0.5 h-4 w-px bg-slate-200" />
                       <Btn small variant="ghost" onClick={() => setQrRow(c)}>QR</Btn>
                       <Btn small variant="ghost" onClick={() => setHistoryRow(c)}>ประวัติ</Btn>
@@ -471,12 +472,12 @@ function HistoryModal({ row, onClose }: { row: GasRow; onClose: () => void }) {
                 </div>
                 {(rd.purpose || rd.usageLocation) && (
                   <p className="mt-0.5 text-slate-500">
-                    {rd.purpose && <>🎯 {rd.purpose}</>}
+                    {rd.purpose && <><Target className="inline h-3 w-3 align-[-1px]" /> {rd.purpose}</>}
                     {rd.purpose && rd.usageLocation && ' · '}
-                    {rd.usageLocation && <>📍 {rd.usageLocation}</>}
+                    {rd.usageLocation && <><MapPin className="inline h-3 w-3 align-[-1px]" /> {rd.usageLocation}</>}
                   </p>
                 )}
-                {rd.notes && <p className="mt-0.5 text-slate-400">📝 {rd.notes}</p>}
+                {rd.notes && <p className="mt-0.5 text-slate-400"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {rd.notes}</p>}
               </div>
             )
           })}
