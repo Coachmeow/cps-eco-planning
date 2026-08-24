@@ -94,7 +94,7 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
     if (fOwner && a.ownership !== fOwner) return false
     if (q && !(`${a.tag} ${a.brand ?? ''} ${a.model ?? ''} ${a.serialNo ?? ''} ${a.parameter ?? ''}`.toLowerCase().includes(q))) return false
     return true
-  })
+  }).sort((a, b) => (b.statusUpdatedAt ?? '').localeCompare(a.statusUpdatedAt ?? '')) // อัพเดทล่าสุดขึ้นบนสุด
 
   const siteOpts = [{ value: '', label: 'หน่วยงาน (Pool)' }, ...sites.map(s => ({ value: String(s.id), label: s.code }))]
 
