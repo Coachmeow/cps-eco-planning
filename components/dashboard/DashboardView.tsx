@@ -111,7 +111,7 @@ export default function DashboardView() {
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-                <div className="lg:w-[332px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
+                <div className="lg:w-[400px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
                   <CapacityRings rows={data.teamCapacity} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -184,38 +184,30 @@ export default function DashboardView() {
             </Card>
           </div>
 
-          {/* Utilization รายคน — กราฟแท่งแนวตั้งเต็มความกว้าง (รูปพนักงาน + %) */}
-          <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">Utilization รายคน (%)
-              <span className="font-normal text-slate-400"> · เรียงมาก→น้อย · เส้นประ = 80/100% · สีเขียว&lt;50 เหลือง 50–79 แดง≥80</span>
-            </h2>
-            <PersonUtilBars people={data.personUtil} />
+          {/* Utilization รายคน (ซ้าย · เลื่อนแนวข้าง) + Man-days รายไซต์ (ขวา · คงความกว้าง เลื่อนแนวตั้ง) — สูงเท่ากัน */}
+          <div className="col-span-full flex flex-col gap-5 lg:flex-row lg:items-stretch">
+            <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">Utilization รายคน (%)
+                <span className="font-normal text-slate-400"> · เรียงมาก→น้อย · เส้นประ = 80/100% · สีเขียว&lt;50 เหลือง 50–79 แดง≥80</span>
+              </h2>
+              <PersonUtilBars people={data.personUtil} />
+            </div>
+            <div className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:w-[360px] lg:shrink-0">
+              <h2 className="mb-4 text-sm font-semibold text-slate-700">Man-days รายไซต์ (วัน-คน)</h2>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <HBarList valueFmt={v => `${v} วัน`}
+                  items={(data.siteMandays ?? []).map((s: SiteMandayRow) => ({
+                    label: s.siteCode, title: s.siteName ?? s.siteCode, value: s.manDays, hex: siteHex(s.color),
+                  }))} />
+              </div>
+            </div>
           </div>
 
           <Card title="Equipment Utilization (Demand vs กำลังเครื่องซื้อ)">
             <DemandChart rows={data.equipmentUtil} />
           </Card>
 
-          {/* Man-days per site — scrollable, sorted desc */}
-          <Card title="Man-days รายไซต์ (วัน-คน)">
-            <div className="max-h-64 overflow-y-auto pr-1">
-              <HBarList valueFmt={v => `${v} วัน`}
-                items={(data.siteMandays ?? []).map((s: SiteMandayRow) => ({
-                  label: s.siteCode, title: s.siteName ?? s.siteCode, value: s.manDays, hex: siteHex(s.color),
-                }))} />
-            </div>
-          </Card>
-
-          {/* Utilization รถ */}
-          {data.vehicleUtil && data.vehicleUtil.length > 0 && (
-            <Card title="Utilization รถ (% การจอง)">
-              <div className="max-h-64 overflow-y-auto pr-1">
-                <HBarList unit="%" maxDomain={100}
-                  items={data.vehicleUtil.map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
-              </div>
-            </Card>
-          )}
-
+          {/* Own vs Rental — ย้ายมาแทนตำแหน่งเดิมของ Man-days รายไซต์ */}
           <Card title="Own vs Rental">
             <div className="max-h-64 overflow-auto">
                 <table className="w-full text-xs">
@@ -242,6 +234,16 @@ export default function DashboardView() {
                 </table>
             </div>
           </Card>
+
+          {/* Utilization รถ */}
+          {data.vehicleUtil && data.vehicleUtil.length > 0 && (
+            <Card title="Utilization รถ (% การจอง)">
+              <div className="max-h-64 overflow-y-auto pr-1">
+                <HBarList unit="%" maxDomain={100}
+                  items={data.vehicleUtil.map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
+              </div>
+            </Card>
+          )}
 
           {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
           {(data.tentativeSoon?.length ?? 0) > 0 && (

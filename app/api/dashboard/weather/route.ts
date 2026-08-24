@@ -15,6 +15,29 @@ function heatLevel(tmax: number): number { return tmax >= 40 ? 2 : tmax >= 37 ? 
 interface OMDaily { time: string[]; precipitation_probability_max: (number | null)[]; temperature_2m_max: (number | null)[] }
 interface OMResult { daily: OMDaily }
 
+// เรียก Open-Meteo แบบมี timeout + retry (กัน cold start/เน็ตแฮงค์บน Railway ทำให้การ์ดล่ม)
+async function fetchOpenMeteo(url: string): Promise<OMResult[]> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      try {
+        const res = await fetch(url, { next: { revalidate: 3600 }, signal: ctrl.signal })
+        if (!res.ok) throw new Error(`open-meteo ${res.status}`)
+        const data = await res.json()
+        return Array.isArray(data) ? data : [data] // คืน object เดี่ยวเมื่อมีพิกัดเดียว
+      } finally {
+        clearTimeout(timer)
+      }
+    } catch (e) {
+      lastErr = e
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 500))
+    }
+  }
+  throw lastErr
+}
+
 export async function GET() {
   const start = new Date(); start.setHours(0, 0, 0, 0)
   const end = new Date(start); end.setDate(start.getDate() + 2)
@@ -40,10 +63,7 @@ export async function GET() {
 
   let arr: OMResult[]
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (!res.ok) throw new Error(`open-meteo ${res.status}`)
-    const data = await res.json()
-    arr = Array.isArray(data) ? data : [data] // คืน object เดี่ยวเมื่อมีพิกัดเดียว
+    arr = await fetchOpenMeteo(url)
   } catch {
     return NextResponse.json({ days: [], provinces: [], error: true })
   }

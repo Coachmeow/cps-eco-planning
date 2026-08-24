@@ -32,3 +32,11 @@ body {
 .scroll-soft::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
 .scroll-soft:hover::-webkit-scrollbar-thumb { background: #cbd5e1; }
 .scroll-soft::-webkit-scrollbar-track { background: transparent; }
+
+/* ซ่อนแถบเลื่อนทั้งแอป (ทั้งแนวตั้ง/แนวนอน) — โชว์เฉพาะตอนชี้เมาส์ใกล้ เหมือนกล่องรถพร้อมใช้งาน */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*:hover, *:focus-within { scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+*:hover::-webkit-scrollbar-thumb, *:focus-within::-webkit-scrollbar-thumb { background: #cbd5e1; }

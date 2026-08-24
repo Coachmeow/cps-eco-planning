@@ -21,7 +21,7 @@ function darken(hex: string, f: number) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
 }
 
-const S = 116, SW = 20, R = (S - SW) / 2, C = S / 2, CIRC = 2 * Math.PI * R, BR = 13, RT = 30
+const S = 126, SW = 22, R = (S - SW) / 2, C = S / 2, CIRC = 2 * Math.PI * R, BR = 13, RT = 32
 const PAD = 6, BOX = S + 2 * PAD // เผื่อขอบให้ badge หัวเส้นไม่โดน SVG ตัด
 const P = (a: number): [number, number] => [C + RT * Math.cos((a * Math.PI) / 180), C + RT * Math.sin((a * Math.PI) / 180)]
 
@@ -51,12 +51,12 @@ function Ring({ t }: { t: TeamCapacityRow }) {
       <circle cx={C} cy={C} r={R} fill="none" stroke="#e6ebf1" strokeWidth={SW} />
       <circle cx={C} cy={C} r={R} fill="none" stroke={col} strokeWidth={SW} strokeLinecap="round"
         strokeDasharray={`${dash} ${CIRC - dash}`} transform={`rotate(-90 ${C} ${C})`} />
-      <text fontSize={10.5} fontWeight={500} fill="#64748b" letterSpacing="0.2">
+      <text fontSize={11.5} fontWeight={500} fill="#64748b" letterSpacing="0.2">
         <textPath href={`#${tid}`} startOffset="50%" textAnchor="middle">{name}</textPath>
       </text>
-      <text x={C} y={C - 1} textAnchor="middle" dominantBaseline="central" fontSize={23} fontWeight={700}
+      <text x={C} y={C - 1} textAnchor="middle" dominantBaseline="central" fontSize={25} fontWeight={700}
         fill={isOver ? '#dc2626' : '#1e293b'} fontFamily="var(--font-mono)">{pct}%</text>
-      <text fontSize={9.5} fill="#94a3b8" fontFamily="var(--font-mono)">
+      <text fontSize={10.5} fill="#94a3b8" fontFamily="var(--font-mono)">
         <textPath href={`#${bid}`} startOffset="50%" textAnchor="middle">{Math.round(t.booked)} of {t.capacity}</textPath>
       </text>
       <circle cx={bx} cy={by} r={BR} fill={badgeCol} />
@@ -74,7 +74,7 @@ export default function CapacityRings({ rows }: { rows: TeamCapacityRow[] }) {
   const totPct = totCap > 0 ? Math.round((totBk / totCap) * 100) : 0
 
   // ลูกเต๋าเลข 5: index 0 = กลาง, 1..4 = มุม (TL, TR, BL, BR)
-  const SP = 88
+  const SP = 110
   const CW = 2 * SP + BOX
   const M = CW / 2
   const pts: [number, number][] = [[M, M], [M - SP, M - SP], [M + SP, M - SP], [M - SP, M + SP], [M + SP, M + SP]]
