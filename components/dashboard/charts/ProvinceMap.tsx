@@ -24,8 +24,8 @@ interface OfficeResp { date: string; office: Office[]; onLeave: number; field: n
 
 interface Trip {
   plate: string; vtype: string | null; driver: string; tel: string | null; team: string
-  fromProv: string; fromSite: string | null; fromBase: boolean
-  toProv: string; toSite: string; days: number
+  fromProv: string | null; fromSite: string | null; fromBase: boolean
+  toProv: string | null; toSite: string; days: number; cross: boolean
 }
 interface TravelResp { date: string; trips: Trip[]; error?: boolean }
 interface OfficeVeh { id: number; plate: string; name: string | null; type: string | null }
@@ -188,8 +188,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const legendLabel = live ? 'คนอยู่พื้นที่' : metric === 'sites' ? 'จำนวนไซต์' : 'ปริมาณงาน (คน-วัน)'
 
   const travelView = viewMode === 'travel'
+  // เส้นบนแผนที่ = เฉพาะทริปข้ามจังหวัดที่รู้พิกัดต้นทาง-ปลายทาง (index อิงลำดับใน trips ทั้งหมด)
   const routes = useMemo(() => {
     const list = (travel?.trips ?? []).map((t, i) => {
+      if (!t.cross || !t.fromProv || !t.toProv) return null
       const from = CENT.get(t.fromProv)
       const to = CENT.get(t.toProv)
       if (!from || !to) return null
@@ -197,6 +199,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
     })
     return list.filter((r): r is NonNullable<typeof r> => r !== null)
   }, [travel])
+  const allTrips = travel?.trips ?? []
   const travelLoading = travelView && (!travel || travel.key !== travelDateKey)
 
   function togglePin(name: string) { setPinnedName((cur) => (cur === name ? null : name)) }
@@ -392,7 +395,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </div>
             <p className="mt-2 text-xs text-slate-400">
               {travelView
-                ? 'รถที่ย้ายข้ามจังหวัด ' + travelDayLabel + ' (ต้นทาง = ไซต์เมื่อวาน · ฐาน=สระบุรี) · ชี้เส้น = ไฮไลต์'
+                ? 'รถที่ออกไซต์ใหม่ ' + travelDayLabel + ' · เส้นบนแผนที่ = ย้ายข้ามจังหวัด (ต้นทาง=ไซต์เมื่อวาน/ฐาน=สระบุรี)'
                 : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
@@ -402,7 +405,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
           <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[600px] lg:w-[340px] lg:shrink-0">
             {travelView ? (
-              <TravelPanel routes={routes} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
+              <TravelPanel trips={allTrips} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
@@ -590,43 +593,48 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
   )
 }
 
-function TravelPanel({ routes, dayLabel, loading, error, hoverRoute, setHoverRoute }: {
-  routes: { t: Trip; i: number; from: { x: number; y: number }; to: { x: number; y: number }; path: string; col: string }[]
+function TravelPanel({ trips, dayLabel, loading, error, hoverRoute, setHoverRoute }: {
+  trips: Trip[]
   dayLabel: string; loading: boolean; error: boolean
   hoverRoute: number | null; setHoverRoute: (i: number | null) => void
 }) {
   if (loading) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
   if (error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
-  if (routes.length === 0) return (
+  if (trips.length === 0) return (
     <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-slate-400">
       <Plane className="h-8 w-8 text-slate-300" />
-      <span>ไม่มีการเดินทาง {dayLabel}</span>
+      <span>ไม่มีการออกไซต์ใหม่ {dayLabel}</span>
     </div>
   )
+  const crossN = trips.filter((t) => t.cross).length
   return (
     <div className="text-sm">
-      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Plane className="h-4 w-4 text-emerald-600" /> รถที่กำลังเดินทาง</h3>
-      <p className="mb-3 text-xs text-slate-400">{routes.length} คัน · {dayLabel} — ชี้เพื่อไฮไลต์เส้นทาง</p>
+      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Plane className="h-4 w-4 text-emerald-600" /> รถที่ออกเดินทาง</h3>
+      <p className="mb-3 text-xs text-slate-400">{trips.length} คัน · {dayLabel} · ข้ามจังหวัด {crossN} (มีเส้นบนแผนที่)</p>
       <div className="space-y-2">
-        {routes.map((r) => {
-          const VI = vehIcon(r.t.vtype)
+        {trips.map((t, i) => {
+          const VI = vehIcon(t.vtype)
+          const col = teamHex(t.team)
+          const from = t.fromBase ? 'ฐาน สระบุรี' : t.fromProv ?? t.fromSite ?? '—'
+          const to = t.toProv ?? t.toSite
           return (
             <div
-              key={r.i}
-              onMouseEnter={() => setHoverRoute(r.i)}
+              key={t.plate + i}
+              onMouseEnter={() => setHoverRoute(i)}
               onMouseLeave={() => setHoverRoute(null)}
-              className={`cursor-pointer rounded-lg border p-2.5 transition ${hoverRoute === r.i ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+              className={`rounded-lg border p-2.5 transition ${t.cross ? 'cursor-pointer' : ''} ${hoverRoute === i ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}
             >
               <div className="flex items-center gap-2">
-                <VI className="h-4 w-4 shrink-0" style={{ color: r.col }} />
-                <span className="font-mono text-xs font-semibold text-slate-700">{r.t.plate}</span>
-                <span className="ml-auto font-mono text-[11px] text-slate-400">อยู่ ~{r.t.days} วัน</span>
+                <VI className="h-4 w-4 shrink-0" style={{ color: col }} />
+                <span className="font-mono text-xs font-semibold text-slate-700">{t.plate}</span>
+                {!t.cross && <span className="rounded bg-slate-100 px-1 text-[10px] text-slate-400">{t.toProv ? 'ในจังหวัด' : 'ไม่ระบุจังหวัด'}</span>}
+                <span className="ml-auto font-mono text-[11px] text-slate-400">อยู่ ~{t.days} วัน</span>
               </div>
-              <div className="mt-1 text-[13px]"><span className="text-slate-400">{r.t.fromBase ? 'ฐาน สระบุรี' : r.t.fromProv}</span> → <span className="font-semibold text-slate-700">{r.t.toProv}</span></div>
-              <div className="truncate text-[11px] text-slate-400">{r.t.toSite} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
-              {r.t.tel && (
-                <a href={`tel:${r.t.tel.replace(/[^0-9+]/g, '')}`} className="mt-0.5 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-emerald-600">
-                  <Phone className="h-3 w-3" /> {r.t.tel}
+              <div className="mt-1 text-[13px]"><span className="text-slate-400">{from}</span> → <span className="font-semibold text-slate-700">{to}</span></div>
+              <div className="truncate text-[11px] text-slate-400">{t.toSite} · คนขับ {t.driver} <span className="font-mono" style={{ color: col }}>{t.team}</span></div>
+              {t.tel && (
+                <a href={`tel:${t.tel.replace(/[^0-9+]/g, '')}`} className="mt-0.5 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-emerald-600">
+                  <Phone className="h-3 w-3" /> {t.tel}
                 </a>
               )}
             </div>
