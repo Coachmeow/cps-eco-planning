@@ -4,7 +4,7 @@
 //  hover จังหวัด = พรีวิว · คลิก = ปักหมุดค้าง (เลือก/ก็อปเบอร์ได้) · ไม่ชี้เลย = โชว์สภาพอากาศเสี่ยง 3 วัน
 //  โหมด: สะสม(เดือน) · ปัจจุบัน(วันนี้) · เลือกวันที่ — งานจาก /api/dashboard/province-map · อากาศจาก /api/dashboard/weather
 import { useState, useEffect, useMemo } from 'react'
-import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, AlertTriangle, type LucideIcon } from 'lucide-react'
+import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
 
@@ -190,10 +190,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : resp.error ? (
         <p className="py-8 text-center text-sm text-slate-300">โหลดข้อมูลไม่สำเร็จ</p>
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          {/* ซ้าย: แผนที่ + legend + คำอธิบาย */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:max-w-[1140px]">
+          {/* ซ้าย: แผนที่ + legend + คำอธิบาย (ชิดซ้าย) */}
           <div className="lg:flex-1">
-            <div className="relative mx-auto w-full max-w-[500px]" style={{ aspectRatio: '1 / 1' }}>
+            <div className="relative w-full max-w-[500px]" style={{ aspectRatio: '1 / 1' }}>
               <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่กระจายงานรายจังหวัด">
                 {PROVINCES.map((geo) => {
                   const p = byName.get(geo.th)
@@ -225,15 +225,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
             </p>
-            {resp.unmatched.sites > 0 && (
-              <p className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> มี {resp.unmatched.sites} ไซต์ที่ระบุจังหวัดไม่ตรงมาตรฐาน (ไม่ได้แสดงบนแผนที่)
-              </p>
-            )}
           </div>
 
           {/* กลาง: กล่องถาวร — จังหวัดที่ชี้/ปักหมุด หรือ สภาพอากาศเสี่ยง (สูงเท่าแผนที่ · เลื่อนในกล่อง) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[440px] lg:w-[340px] lg:shrink-0">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[340px] lg:shrink-0">
             {shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
@@ -242,7 +237,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* ขวา: พนักงานอยู่ออฟฟิศ (ไม่มีแผนออกภาคสนามวันนั้น) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[440px] lg:w-[240px] lg:shrink-0">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[240px] lg:shrink-0">
             <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
           </div>
         </div>
