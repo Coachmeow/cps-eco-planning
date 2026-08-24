@@ -1,8 +1,9 @@
 'use client'
 
 // Sankey man-day (d3-sankey) แบบ drill: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน
-// ไม่มี node "รวม" (ยอดรวมไปอยู่หัวชาร์ต) ; "ไซต์อื่นๆ"/"อื่นๆ" อยู่ล่างสุดเสมอ
-import { useMemo, useState } from 'react'
+// วัดขนาดกล่องจริง (ResizeObserver) แล้ว layout เต็มพื้นที่ — ST ชิดบน · LOG ชิดล่าง · ป้ายขวาชิดขอบ
+// header: title (ซ้าย) + ปุ่มไซต์/breadcrumb/hint/dropdown (ขวา) อยู่แถวเดียวกัน ; ซ้ายของ content = leftPanel (Capacity rings)
+import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react'
 import { sankey, sankeyLinkHorizontal, sankeyLeft } from 'd3-sankey'
 import { teamHex, siteHex, INK, MUTED } from '@/lib/chartTheme'
 
@@ -73,12 +74,26 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string): { 
 }
 
 const isOther = (n: { name?: string }) => n.name === 'ไซต์อื่นๆ' || n.name === 'อื่นๆ'
-const VB_W = 960
-const COL0 = 84    // ขอบซ้ายคอลัมน์ไซต์ (เว้นที่ป้ายชื่อไซต์ไว้หน้าแถบ ; ยอดรวมย้ายไปแผงซ้ายแล้ว)
 
-export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
+// margins ในกล่อง (ซ้าย=ป้ายไซต์ · ขวา=ป้ายคน · บน/ล่าง=ป้ายกลุ่มงาน)
+const ML = 110, MR = 88, MT = 14, MB = 8
+
+export default function ManDaySankey({ rows, title, leftPanel }: { rows: SankeyRow[]; title?: ReactNode; leftPanel?: ReactNode }) {
   const [focusSite, setFocusSite] = useState('')
   const [focusTeam, setFocusTeam] = useState('')
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0].contentRect
+      setSize((s) => (Math.abs(s.w - cr.width) > 1 || Math.abs(s.h - cr.height) > 1 ? { w: cr.width, h: cr.height } : s))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const siteOpts = useMemo(() => {
     const m = new Map<string, string>()
@@ -88,17 +103,14 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const siteLabel = focusSite ? (rows.find(r => String(r.siteId) === focusSite)?.siteCode ?? '') : ''
 
   const layout = useMemo(() => {
+    if (size.w < 60 || size.h < 60) return null
     const g = buildGraph(rows, focusSite, focusTeam)
     if (g.links.length === 0) return null
-    const counts = { site: 0, team: 0, person: 0 } as Record<Kind, number>
-    for (const n of g.nodes) counts[n.kind]++
-    const maxCol = Math.max(counts.site, counts.team, counts.person)
-    const H = Math.min(Math.max(maxCol * 20 + 30, 320), 680)
-    const top = 20, bottom = H - 8   // เว้นบนไว้ป้ายกลุ่มงาน (อยู่เหนือแถบ) ไม่ให้ตัด
+    const top = MT, bottom = size.h - MB
     const gen = sankey<GNode, GLink>()
       .nodeWidth(13).nodePadding(7).nodeAlign(sankeyLeft)
       .nodeSort((a, b) => (isOther(a) ? 1 : 0) - (isOther(b) ? 1 : 0) || (b.value ?? 0) - (a.value ?? 0))
-      .extent([[COL0, top], [VB_W - 150, bottom]])
+      .extent([[ML, top], [size.w - MR, bottom]])
     const graph = gen({ nodes: g.nodes.map(d => ({ ...d })), links: g.links.map(d => ({ ...d })) })
 
     type LNode = typeof graph.nodes[number]
@@ -106,19 +118,20 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
       n.y0! += dy; n.y1! += dy
       for (const l of graph.links) { if (l.source === n) l.y0! += dy; if (l.target === n) l.y1! += dy }
     }
-    // group เป็นคอลัมน์
     const cols = new Map<number, LNode[]>()
     for (const n of graph.nodes) { const k = Math.round(n.x0 ?? 0); if (!cols.has(k)) cols.set(k, []); cols.get(k)!.push(n) }
     const avail = bottom - top
     for (const list of cols.values()) {
       if (list[0].kind === 'team') {
-        // กลุ่มงาน: เพิ่มช่องไฟระหว่างแถบ (ไว้วางชื่อเหนือแถบ) แล้วจัดกึ่งกลาง
+        // กลุ่มงาน: กระจายเต็มแนวตั้ง (ST ชิดบน · LOG ชิดล่าง) เว้นช่องไฟไว้วางชื่อเหนือแถบ
         list.sort((a, b) => (a.y0 ?? 0) - (b.y0 ?? 0))
         const sumH = list.reduce((s, n) => s + ((n.y1 ?? 0) - (n.y0 ?? 0)), 0)
-        let gap = 22
-        if (sumH + gap * (list.length - 1) > avail) gap = Math.max(3, (avail - sumH) / (list.length - 1))
-        let y = top + (avail - (sumH + gap * (list.length - 1))) / 2
-        for (const n of list) { const h = (n.y1 ?? 0) - (n.y0 ?? 0); shiftNode(n, y - (n.y0 ?? 0)); y += h + gap }
+        const gap = list.length > 1 ? Math.max(18, (avail - sumH) / (list.length - 1)) : 0
+        let y = top
+        // ถ้าช่องไฟรวมเกิน avail (แถบเยอะ) หดลงแล้วจัดกึ่งกลาง
+        const totalH = sumH + gap * (list.length - 1)
+        if (totalH > avail) { const g2 = Math.max(3, (avail - sumH) / (list.length - 1)); y = top; for (const n of list) { const h = (n.y1 ?? 0) - (n.y0 ?? 0); shiftNode(n, y - (n.y0 ?? 0)); y += h + g2 } }
+        else { for (const n of list) { const h = (n.y1 ?? 0) - (n.y0 ?? 0); shiftNode(n, y - (n.y0 ?? 0)); y += h + gap } }
       } else {
         // ไซต์/คน: เลื่อนทั้งคอลัมน์ให้กึ่งกลาง (คง layout ของ d3)
         const minY = Math.min(...list.map(n => n.y0 ?? 0)), maxY = Math.max(...list.map(n => n.y1 ?? 0))
@@ -126,13 +139,8 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
         if (Math.abs(dy) >= 0.5) for (const n of list) shiftNode(n, dy)
       }
     }
-
-    const sites = graph.nodes.filter(n => n.kind === 'site')
-    const total = sites.reduce((s, n) => s + (n.value ?? 0), 0)
-    const siteMinY = sites.length ? Math.min(...sites.map(n => n.y0 ?? 0)) : top
-    const siteMaxY = sites.length ? Math.max(...sites.map(n => n.y1 ?? 0)) : bottom
-    return { ...graph, H, total, siteMinY, siteMaxY, siteX0: sites[0]?.x0 ?? COL0 }
-  }, [rows, focusSite, focusTeam])
+    return graph
+  }, [rows, focusSite, focusTeam, size])
 
   function onFocus(kind: Kind, key?: string) {
     if (kind === 'site' && key) { setFocusSite(key); setFocusTeam('') }
@@ -142,8 +150,10 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const linkPath = sankeyLinkHorizontal<GNode, GLink>()
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+    <div>
+      {/* header: title + controls อยู่แถวเดียวกัน (ระดับหัวข้อการ์ด) */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+        {title}
         <button onClick={() => { setFocusSite(''); setFocusTeam('') }}
           className={`rounded px-2 py-0.5 ${focusSite || focusTeam ? 'text-emerald-700 hover:bg-emerald-50' : 'bg-slate-100 font-medium text-slate-700'}`}>ทุกไซต์</button>
         {focusSite && <><span className="text-slate-300">›</span>
@@ -160,46 +170,47 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
         </select>
       </div>
 
-      {!layout ? (
-        <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีข้อมูล man-day</p>
-      ) : (
-        <div className="min-h-[300px] flex-1 overflow-x-auto lg:min-h-0">
-          {(() => {
-            return (
-              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style={{ minWidth: 480, maxWidth: 1120, display: 'block', margin: '0 auto' }} role="img" aria-label="Sankey man-day">
-                {layout.links.map((l, i) => (
-                  <path key={i} d={linkPath(l) ?? ''} fill="none"
-                    stroke={(l.target as GNode).color} strokeOpacity={0.32} strokeWidth={Math.max(1, l.width ?? 1)}>
-                    <title>{(l.source as GNode).name} → {(l.target as GNode).name}: {round1(l.value)}</title>
-                  </path>
-                ))}
-                {layout.nodes.map((n, i) => {
-                  const clickable = !!n.key
-                  const w = (n.x1 ?? 0) - (n.x0 ?? 0)
-                  const h = Math.max((n.y1 ?? 0) - (n.y0 ?? 0), 1)
-                  const mid = (n.y0 ?? 0) + h / 2
-                  const val = Math.round(n.value ?? 0)
-                  const arrow = clickable ? ' ›' : ''
-                  // ไซต์ = ป้ายหน้าแถบ (ซ้าย) · หมวดงาน = ป้ายเหนือแถบ · คน = ป้ายหลังแถบ (ขวา)
-                  const label = n.kind === 'site'
-                    ? <text x={(n.x0 ?? 0) - 6} y={mid} textAnchor="end" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
-                    : n.kind === 'team'
-                    ? <text x={(n.x0 ?? 0) + w / 2} y={(n.y0 ?? 0) - 4} textAnchor="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
-                    : <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}</tspan></text>
-                  return (
-                    <g key={i} style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(n.kind, n.key)}>
-                      <rect x={n.x0} y={n.y0} width={w} height={h} rx={2} fill={n.color} fillOpacity={0.92}>
-                        <title>{n.name}: {val}</title>
-                      </rect>
-                      {label}
-                    </g>
-                  )
-                })}
-              </svg>
-            )
-          })()}
+      {/* content: leftPanel (Capacity rings) + Sankey (เต็มพื้นที่กล่อง) */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
+        <div className="lg:w-[400px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">{leftPanel}</div>
+        <div ref={boxRef} className="relative min-h-[380px] min-w-0 flex-1">
+          {!layout ? (
+            <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-300">
+              {rows.length ? 'กำลังจัดวาง…' : 'ยังไม่มีข้อมูล man-day'}
+            </p>
+          ) : (
+            <svg viewBox={`0 0 ${size.w} ${size.h}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }} role="img" aria-label="Sankey man-day">
+              {layout.links.map((l, i) => (
+                <path key={i} d={linkPath(l) ?? ''} fill="none"
+                  stroke={(l.target as GNode).color} strokeOpacity={0.32} strokeWidth={Math.max(1, l.width ?? 1)}>
+                  <title>{(l.source as GNode).name} → {(l.target as GNode).name}: {round1(l.value)}</title>
+                </path>
+              ))}
+              {layout.nodes.map((n, i) => {
+                const clickable = !!n.key
+                const w = (n.x1 ?? 0) - (n.x0 ?? 0)
+                const h = Math.max((n.y1 ?? 0) - (n.y0 ?? 0), 1)
+                const mid = (n.y0 ?? 0) + h / 2
+                const val = Math.round(n.value ?? 0)
+                const arrow = clickable ? ' ›' : ''
+                const label = n.kind === 'site'
+                  ? <text x={(n.x0 ?? 0) - 6} y={mid} textAnchor="end" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                  : n.kind === 'team'
+                  ? <text x={(n.x0 ?? 0) + w / 2} y={(n.y0 ?? 0) - 4} textAnchor="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}{arrow}</tspan></text>
+                  : <text x={(n.x1 ?? 0) + 6} y={mid} textAnchor="start" dominantBaseline="middle" fontSize={10} fill={INK}>{n.name} <tspan fill={MUTED}>{val}</tspan></text>
+                return (
+                  <g key={i} style={{ cursor: clickable ? 'pointer' : 'default' }} onClick={() => clickable && onFocus(n.kind, n.key)}>
+                    <rect x={n.x0} y={n.y0} width={w} height={h} rx={2} fill={n.color} fillOpacity={0.92}>
+                      <title>{n.name}: {val}</title>
+                    </rect>
+                    {label}
+                  </g>
+                )
+              })}
+            </svg>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

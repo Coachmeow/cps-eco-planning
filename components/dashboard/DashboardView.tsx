@@ -107,17 +107,11 @@ export default function DashboardView() {
           {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน · ซ้าย = แผงกำลังคน (Capacity rings) */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
             <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">
-                Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
-              </h2>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-                <div className="lg:w-[400px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
-                  <CapacityRings rows={data.teamCapacity} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <ManDaySankey rows={data.sankeyRows!} />
-                </div>
-              </div>
+              <ManDaySankey
+                rows={data.sankeyRows!}
+                title={<h2 className="text-sm font-semibold text-slate-700">Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span></h2>}
+                leftPanel={<CapacityRings rows={data.teamCapacity} />}
+              />
             </div>
           )}
 
