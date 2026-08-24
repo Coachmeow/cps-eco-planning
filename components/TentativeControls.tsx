@@ -1,5 +1,7 @@
 'use client'
 
+import { Clock, Check } from 'lucide-react'
+
 /**
  * ชิ้นส่วน UI ของ "งานจองรอลูกค้ายืนยัน" — ใช้ร่วมทั้งแผนพนักงาน / เครื่องมือ / รถ
  * เพื่อให้ข้อความและหน้าตาตรงกันทั้ง 3 หน้าจอ แก้ที่เดียวมีผลหมด
@@ -42,13 +44,13 @@ export function TentativeRow({
   return (
     <div className="mt-1 flex items-start justify-between gap-2 rounded border border-dashed border-red-400 bg-red-50/50 px-2 py-1.5">
       <div className="min-w-0 text-[11px]">
-        <p className="font-medium text-red-600">⏳ รอลูกค้ายืนยัน</p>
+        <p className="flex items-center gap-1 font-medium text-red-600"><Clock className="h-3.5 w-3.5" /> รอลูกค้ายืนยัน</p>
         {reason && <p className="mt-0.5 break-words text-slate-600">{reason}</p>}
       </div>
       {canEdit && (
         <button onClick={onConfirm} disabled={busy}
           className="shrink-0 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-          {busy ? '...' : wholeJob ? '✓ ยืนยันทั้งงาน' : '✓ ยืนยันงาน'}
+          {busy ? '...' : <><Check className="inline h-3.5 w-3.5 align-[-2px]" /> {wholeJob ? 'ยืนยันทั้งงาน' : 'ยืนยันงาน'}</>}
         </button>
       )}
     </div>

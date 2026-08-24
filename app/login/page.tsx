@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Clock } from 'lucide-react'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -41,8 +42,8 @@ export default function LoginPage() {
         </div>
 
         {idle && (
-          <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            ⏱ ออกจากระบบอัตโนมัติเนื่องจากไม่ได้ใช้งานเกิน 30 นาที กรุณาเข้าสู่ระบบใหม่
+          <div className="mb-4 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <Clock className="h-3.5 w-3.5 shrink-0" /> ออกจากระบบอัตโนมัติเนื่องจากไม่ได้ใช้งานเกิน 30 นาที กรุณาเข้าสู่ระบบใหม่
           </div>
         )}
 

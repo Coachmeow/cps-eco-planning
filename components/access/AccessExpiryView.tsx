@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import type { Employee } from '@/lib/types'
 
 type Urgency = 'expired' | 'urgent' | 'warning' | 'ok'
@@ -66,7 +67,7 @@ export default function AccessExpiryView() {
     <div className="h-full overflow-auto bg-slate-50 p-6">
       <div className="mb-4 flex items-center gap-4">
         <h1 className="text-base font-semibold text-slate-800">Access Expiry</h1>
-        {alertCount>0&&<span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">⚠ {alertCount} รายการ</span>}
+        {alertCount>0&&<span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600"><AlertTriangle className="h-3 w-3" /> {alertCount} รายการ</span>}
         <div className="ml-auto flex gap-2">
           {(['all','expiring'] as const).map(f=>(
             <button key={f} onClick={()=>setFilter(f)}

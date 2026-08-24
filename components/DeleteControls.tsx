@@ -7,6 +7,7 @@
  * เป็น self-contained (ไม่พึ่ง component ของหน้าไหน) เพื่อให้ import ไปใช้ที่ไหนก็ได้
  */
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 
 export interface DeletionLogRow {
   id: number; entityType: string; entityLabel: string; reason: string | null; deletedByName: string; createdAt: string
@@ -86,7 +87,7 @@ export function DeletionLogButton({ group }: { group?: 'cems' | 'planning' }) {
   }
   return (
     <>
-      <button onClick={openLog} className="rounded px-3.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100">🗑 ประวัติการลบ</button>
+      <button onClick={openLog} className="inline-flex items-center gap-1.5 rounded px-3.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100"><Trash2 className="h-3.5 w-3.5" /> ประวัติการลบ</button>
       {open && (
         <Shell wide title="🗑 ประวัติการลบข้อมูล" onClose={() => setOpen(false)}>
           <div className="overflow-x-auto rounded-lg border border-slate-200">

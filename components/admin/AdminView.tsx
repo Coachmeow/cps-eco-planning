@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
+import { Factory, Users, Wrench, Car, Hammer, Ruler, Umbrella, KeyRound, Settings, User, Bell, Tag, Eye, EyeOff, BarChart3, type LucideIcon } from 'lucide-react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
 import { PROVINCE_NAMES } from '@/lib/thailandGeo'
@@ -431,7 +432,7 @@ function EmployeesSection({ role }: { role?: UserRole }) {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." className="flex-1 rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none" />
         <p className="text-sm text-slate-400">{filtered.length} คน</p>
         {role === 'ADMIN' && <DeletionLogButton group="planning" />}
-        <Btn variant="ghost" onClick={() => { resetSubForm(); setSubModal(true) }}>👥 จัดการทีมย่อย</Btn>
+        <Btn variant="ghost" onClick={() => { resetSubForm(); setSubModal(true) }}><Users className="inline h-3.5 w-3.5 align-[-2px]" /> จัดการทีมย่อย</Btn>
         <Btn onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -481,7 +482,7 @@ function EmployeesSection({ role }: { role?: UserRole }) {
                 ? <img src={photo} alt="preview" className="h-16 w-16 rounded-full object-cover" />
                 : editing
                   ? <Avatar employeeId={editing.id} name={editing.nickname ?? editing.fullName} hasPhoto={editing.hasPhoto} size="lg" className="!h-16 !w-16" />
-                  : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-300">👤</span>}
+                  : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100"><User className="h-7 w-7 text-slate-300" /></span>}
               <div className="flex flex-col gap-1">
                 <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
                   เลือกรูป...
@@ -829,7 +830,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         />
         <button onClick={() => setHideRental(v => !v)}
           className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${hideRental ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-          {hideRental ? '👁 แสดงเครื่องเช่า' : '🙈 ซ่อนเครื่องเช่า'}{rentalCount > 0 && <span className="ml-1 opacity-70">({rentalCount})</span>}
+          {hideRental ? <><Eye className="inline h-3.5 w-3.5 align-[-2px]" /> แสดงเครื่องเช่า</> : <><EyeOff className="inline h-3.5 w-3.5 align-[-2px]" /> ซ่อนเครื่องเช่า</>}{rentalCount > 0 && <span className="ml-1 opacity-70">({rentalCount})</span>}
         </button>
         <p className="text-sm text-slate-400">{filtered.length} รายการ</p>
         {role === 'MAINTENANCE' && (
@@ -838,7 +839,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
         {canManage && (
           <div className="ml-auto flex gap-2">
             {role === 'ADMIN' && <DeletionLogButton group="planning" />}
-            <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}>🏷 จัดการประเภท</Btn>
+            <Btn variant="ghost" onClick={() => { resetTypeForm(); setTypeModal(true) }}><Tag className="inline h-3.5 w-3.5 align-[-2px]" /> จัดการประเภท</Btn>
             <Btn onClick={() => { setEditing(null); setPhoto(null); setPhotoTouched(false); setOwnedForm({ ...initOwned, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-owned') }}>+ เพิ่มเครื่องมือ (ซื้อ)</Btn>
             <Btn onClick={() => { setEditing(null); setRentalForm({ ...initRental, typeId: eqTypes[0] ? String(eqTypes[0].id) : '' }); setModal('add-rental') }}>+ เพิ่มเครื่องมือ (เช่า)</Btn>
           </div>
@@ -921,7 +922,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                 ? <img src={photo} alt="" className="h-16 w-16 rounded-lg object-cover" />
                 : (editing?.hasPhoto && !photoTouched)
                   ? <img src={`/api/equipment/${editing.id}/photo`} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                  : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-300">🔧</span>}
+                  : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100"><Wrench className="h-7 w-7 text-slate-300" /></span>}
               <div className="flex flex-col gap-1">
                 <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
                   เลือกรูป...
@@ -1526,7 +1527,7 @@ function CalPlanSection({ role }: { role?: UserRole }) {
         {dueSoon.length > 0 && (
           <button onClick={() => setDueModal(true)}
             className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">
-            🔔 ใกล้ถึงกำหนด {dueSoon.length}
+            <Bell className="inline h-3.5 w-3.5 align-[-2px]" /> ใกล้ถึงกำหนด {dueSoon.length}
           </button>
         )}
         {canEdit && <div className="ml-auto"><Btn onClick={() => openAdd()}>+ เพิ่มแผนแคล</Btn></div>}
@@ -1758,7 +1759,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
         <p className="text-sm text-slate-400">{vehicles.length} คัน</p>
         <div className="flex gap-2">
           {role === 'ADMIN' && <DeletionLogButton group="planning" />}
-          <Btn variant="ghost" onClick={() => setSummary(true)}>📊 สรุป/Export ไมล์รถ</Btn>
+          <Btn variant="ghost" onClick={() => setSummary(true)}><BarChart3 className="inline h-3.5 w-3.5 align-[-2px]" /> สรุป/Export ไมล์รถ</Btn>
           {canManage && <Btn onClick={openAdd}>+ เพิ่มรถ</Btn>}
         </div>
       </div>
@@ -1776,7 +1777,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
               <tr key={v.id} className={`border-t border-slate-100 hover:bg-slate-50 ${v.status === 'RETIRED' ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-2">
                   <button onClick={() => setViewing(v)} className="flex items-center gap-2 text-left hover:text-emerald-700">
-                    {v.hasPhoto ? <img src={`/api/vehicles/${v.id}/photo`} alt="" className="h-7 w-7 rounded object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-100 text-sm">🚗</span>}
+                    {v.hasPhoto ? <img src={`/api/vehicles/${v.id}/photo`} alt="" className="h-7 w-7 rounded object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-100"><Car className="h-4 w-4 text-slate-400" /></span>}
                     <span className="font-medium text-slate-700">{v.licensePlate}</span>
                   </button>
                 </td>
@@ -1789,7 +1790,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
                           {VEHICLE_STATUS.map(s => <option key={s} value={s}>{VSTATUS_LABEL[s]}</option>)}
                         </select>
                       : <span className="text-xs text-slate-500">{VSTATUS_LABEL[v.status]}</span>}
-                    <button onClick={() => setLogbook(v)} className="whitespace-nowrap rounded border border-slate-200 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">📊 ไมล์รถ</button>
+                    <button onClick={() => setLogbook(v)} className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-slate-200 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50"><BarChart3 className="h-3 w-3" /> ไมล์รถ</button>
                   </div>
                 </td>
                 <td className="px-4 py-2 text-right">
@@ -1807,7 +1808,7 @@ function VehiclesSection({ role }: { role?: UserRole }) {
             <div className="flex items-center gap-3">
               {photo ? <img src={photo} alt="" className="h-16 w-16 rounded-lg object-cover" />
                 : (editing?.hasPhoto && !photoTouched) ? <img src={`/api/vehicles/${editing.id}/photo`} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-300">🚗</span>}
+                : <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100"><Car className="h-7 w-7 text-slate-300" /></span>}
               <div className="flex flex-col gap-1">
                 <label className="cursor-pointer rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">เลือกรูป...
                   <input type="file" accept="image/*" className="hidden" onChange={ev => onPickPhoto(ev.target.files?.[0])} />
@@ -2117,28 +2118,28 @@ export default function AdminView() {
   const { me, role } = useMe()
   const [tab, setTab] = useState<AdminTab>('sites')
 
-  const allTabs: { key: AdminTab; label: string; roles: UserRole[] }[] = [
-    { key: 'sites',     label: '🏭 ไซต์งาน',  roles: ['ADMIN', 'MANAGER'] },
-    { key: 'employees', label: '👤 พนักงาน',   roles: ['ADMIN', 'MANAGER'] },
-    { key: 'equipment',   label: '🔧 เครื่องมือ', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
-    { key: 'vehicles',    label: '🚗 รถ',         roles: ['ADMIN', 'MANAGER'] },
-    { key: 'maintenance', label: '🛠 ซ่อม/Cal',  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
-    { key: 'calplan',     label: '📐 แผน Cal',   roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
-    { key: 'holidays',    label: '⛱ วันหยุด',    roles: ['ADMIN', 'MANAGER'] },
-    { key: 'users',     label: '🔑 ผู้ใช้งาน',  roles: ['ADMIN'] },
+  const allTabs: { key: AdminTab; label: string; icon: LucideIcon; roles: UserRole[] }[] = [
+    { key: 'sites',     label: 'ไซต์งาน',  icon: Factory, roles: ['ADMIN', 'MANAGER'] },
+    { key: 'employees', label: 'พนักงาน',   icon: Users,  roles: ['ADMIN', 'MANAGER'] },
+    { key: 'equipment',   label: 'เครื่องมือ', icon: Wrench, roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'vehicles',    label: 'รถ',         icon: Car,    roles: ['ADMIN', 'MANAGER'] },
+    { key: 'maintenance', label: 'ซ่อม/Cal',  icon: Hammer, roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'calplan',     label: 'แผน Cal',   icon: Ruler,  roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+    { key: 'holidays',    label: 'วันหยุด',    icon: Umbrella, roles: ['ADMIN', 'MANAGER'] },
+    { key: 'users',     label: 'ผู้ใช้งาน',  icon: KeyRound, roles: ['ADMIN'] },
   ]
   const tabs   = allTabs.filter(t => !role || t.roles.includes(role))
   const active = tabs.find(t => t.key === tab)?.key ?? tabs[0]?.key
 
   return (
     <div className="h-full overflow-auto bg-slate-50 p-6">
-      <h1 className="mb-5 text-xl font-bold text-slate-800">⚙️ จัดการข้อมูล</h1>
+      <h1 className="mb-5 flex items-center gap-2 text-xl font-bold text-slate-800"><Settings className="h-5 w-5 text-slate-500" /> จัดการข้อมูล</h1>
 
       <div className="mb-5 flex gap-1 rounded-xl bg-slate-200 p-1 w-fit">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`rounded-lg px-5 py-2 text-sm font-medium transition-colors ${active === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            {t.label}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-medium transition-colors ${active === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <t.icon className="h-4 w-4" /> {t.label}
           </button>
         ))}
       </div>

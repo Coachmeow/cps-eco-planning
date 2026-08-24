@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { CheckCircle2, Car, CircleParking, Check, AlertTriangle } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { PURPOSE_META, PURPOSE_ORDER } from '@/lib/vehiclePurpose'
 import type { VehiclePurpose } from '@/lib/types'
@@ -133,7 +134,7 @@ export default function MileagePage() {
   if (done) return (
     <Center>
       <div className="text-center">
-        <div className="mb-3 text-5xl">✅</div>
+        <div className="mb-3 flex justify-center"><CheckCircle2 className="h-14 w-14 text-emerald-500" /></div>
         <p className="text-lg font-bold text-slate-800">
           {done.kind === 'start' ? 'เริ่มทริปแล้ว — ขับรถปลอดภัย' : done.kind === 'close' ? 'ปิดทริปแล้ว' : 'บันทึกเติมน้ำมันแล้ว'}
         </p>
@@ -156,7 +157,7 @@ export default function MileagePage() {
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
           <p className="text-xs font-bold tracking-widest text-emerald-600">Eco Planning System · LOGBOOK</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">🚗 {data.vehicle.licensePlate}</p>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-xl font-bold text-slate-800"><Car className="h-5 w-5 text-slate-500" /> {data.vehicle.licensePlate}</p>
           <p className="text-sm text-slate-400">{[data.vehicle.name, data.vehicle.vehicleType, data.vehicle.brand, data.vehicle.model].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
             ไมล์ล่าสุดในระบบ: <span className="font-bold text-slate-700">{data.lastMileage != null ? data.lastMileage.toLocaleString() : 'ยังไม่มี'}</span>
@@ -173,7 +174,7 @@ export default function MileagePage() {
         {/* แจ้งสถานะทริปเปิดอยู่ */}
         {mode === 'USE' && open && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm">
-            <p className="font-bold text-amber-700">🅿️ กำลังปิดทริป</p>
+            <p className="flex items-center gap-1.5 font-bold text-amber-700"><CircleParking className="h-4 w-4" /> กำลังปิดทริป</p>
             <p className="mt-1 text-amber-800">
               ออกจาก <b>{open.origin || '—'}</b> · ไมล์ออก <b>{open.mileageOut.toLocaleString()}</b>
               {open.driver && <> · โดย {open.driver}</>}
@@ -191,7 +192,7 @@ export default function MileagePage() {
             <input type="number" inputMode="numeric" value={mileage} onChange={e => setMileage(e.target.value)} className={inp} />
             {mode === 'USE' && !open && (
               <button onClick={() => setMismatch(m => !m)} className={`mt-1.5 text-xs ${mismatch ? 'text-red-500 font-medium' : 'text-amber-600'}`}>
-                {mismatch ? '✓ กำลังแจ้งไมล์ไม่ตรง' : '⚠ ไมล์ในระบบไม่ตรงกับบนรถ?'}
+                {mismatch ? <><Check className="inline h-3.5 w-3.5 align-[-2px]" /> กำลังแจ้งไมล์ไม่ตรง</> : <><AlertTriangle className="inline h-3.5 w-3.5 align-[-2px]" /> ไมล์ในระบบไม่ตรงกับบนรถ?</>}
               </button>
             )}
             {mismatch && missing != null && (
@@ -265,7 +266,7 @@ export default function MileagePage() {
 
           {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
           <button onClick={submit} disabled={submitting} className="w-full rounded-xl bg-emerald-600 py-3 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-            {submitting ? 'กำลังบันทึก...' : mode === 'REFUEL' ? 'บันทึกเติมน้ำมัน' : open ? '🅿️ ปิดทริป (จอดรถ)' : '🚗 เริ่มทริป (ออกรถ)'}
+            {submitting ? 'กำลังบันทึก...' : mode === 'REFUEL' ? 'บันทึกเติมน้ำมัน' : open ? <><CircleParking className="inline h-4 w-4 align-[-3px]" /> ปิดทริป (จอดรถ)</> : <><Car className="inline h-4 w-4 align-[-3px]" /> เริ่มทริป (ออกรถ)</>}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Lock, CheckCircle2, FlaskConical, Fuel, StickyNote } from 'lucide-react'
 import { useParams } from 'next/navigation'
 
 interface Comp { id: number; gas: string; concentration: number; unit: string }
@@ -92,7 +93,7 @@ export default function CemsGasPublicPage() {
   if (needPin && !data) return (
     <Center>
       <div className="w-full max-w-xs text-center">
-        <div className="mb-3 text-5xl">🔒</div>
+        <div className="mb-3 flex justify-center"><Lock className="h-12 w-12 text-slate-300" /></div>
         <p className="text-lg font-bold text-slate-800">ใส่รหัสเข้าใช้งาน</p>
         <p className="mt-1 mb-4 text-sm text-slate-400">หน้าอัปเดตถังแก๊ส CEMS · เฉพาะเจ้าหน้าที่</p>
         <input type="password" inputMode="numeric" autoComplete="off" value={pinInput} autoFocus maxLength={PIN_LEN}
@@ -113,7 +114,7 @@ export default function CemsGasPublicPage() {
   if (done) return (
     <Center>
       <div className="text-center">
-        <div className="mb-3 text-5xl">✅</div>
+        <div className="mb-3 flex justify-center"><CheckCircle2 className="h-12 w-12 text-emerald-500" /></div>
         <p className="text-lg font-bold text-slate-800">บันทึกแล้ว</p>
         <p className="mt-1 text-sm text-slate-500">{data.cylinderNo}</p>
         <button onClick={() => { setDone(false); setPressure(''); setMarkEmpty(false); setMarkReturned(false); setReturnedBy(''); setPurpose(''); setUsageLocation(''); setNotes(''); load(pin || undefined) }}
@@ -133,7 +134,7 @@ export default function CemsGasPublicPage() {
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
           <p className="text-xs font-bold tracking-widest text-indigo-600">Eco Planning System · CEMS แก๊สมาตรฐาน</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">🧪 {data.cylinderNo}</p>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-xl font-bold text-slate-800"><FlaskConical className="h-5 w-5 text-slate-500" /> {data.cylinderNo}</p>
           <p className="text-sm text-slate-400">{[data.brand, data.size].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 flex flex-wrap gap-1">
             {data.components.map(c => <span key={c.id} className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">{compText(c)}</span>)}
@@ -175,7 +176,7 @@ export default function CemsGasPublicPage() {
           <div className="border-t border-slate-100 pt-3">
             <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
               <input type="checkbox" checked={markEmpty} onChange={e => setMarkEmpty(e.target.checked)} className="h-4 w-4" />
-              ⛽ แจ้งแก๊สหมดท่อ (มาร์คเป็น “หมด”)
+              <Fuel className="inline h-4 w-4 align-[-3px]" /> แจ้งแก๊สหมดท่อ (มาร์คเป็น “หมด”)
             </label>
             <div className={`mt-2 rounded-lg px-3 py-2.5 ${markReturned ? 'bg-sky-50' : 'bg-slate-50'}`}>
               <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -212,7 +213,7 @@ export default function CemsGasPublicPage() {
                   {(rd.purpose || rd.usageLocation) && (
                     <p className="mt-0.5 text-slate-500">{rd.purpose && <>🎯 {rd.purpose}</>}{rd.purpose && rd.usageLocation && ' · '}{rd.usageLocation && <>📍 {rd.usageLocation}</>}</p>
                   )}
-                  {rd.notes && <p className="mt-0.5 text-slate-400">📝 {rd.notes}</p>}
+                  {rd.notes && <p className="mt-0.5 text-slate-400"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {rd.notes}</p>}
                 </div>
               ))}
             </div>

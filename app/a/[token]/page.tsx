@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Truck, Wrench, CheckCircle2, AlertTriangle, Hammer, Lock, Cpu, type LucideIcon } from 'lucide-react'
 import { useParams } from 'next/navigation'
 
 interface EventRow {
@@ -17,12 +18,12 @@ interface PageData {
 }
 
 type Mode = 'ISSUE' | 'MOVE' | 'REPAIR' | 'RETURN' | 'PM'
-const ACTIONS: { key: Mode; icon: string; label: string }[] = [
-  { key: 'MOVE',   icon: '🚚', label: 'ย้ายที่อยู่' },
-  { key: 'REPAIR', icon: '🔧', label: 'ส่งซ่อม' },
-  { key: 'RETURN', icon: '✅', label: 'รับคืนจากซ่อม' },
-  { key: 'ISSUE',  icon: '⚠️', label: 'แจ้งอาการ' },
-  { key: 'PM',     icon: '🛠', label: 'บันทึก PM' },
+const ACTIONS: { key: Mode; icon: LucideIcon; label: string }[] = [
+  { key: 'MOVE',   icon: Truck,        label: 'ย้ายที่อยู่' },
+  { key: 'REPAIR', icon: Wrench,       label: 'ส่งซ่อม' },
+  { key: 'RETURN', icon: CheckCircle2, label: 'รับคืนจากซ่อม' },
+  { key: 'ISSUE',  icon: AlertTriangle,label: 'แจ้งอาการ' },
+  { key: 'PM',     icon: Hammer,       label: 'บันทึก PM' },
 ]
 const ACTION_TH: Record<Mode, string> = { ISSUE: 'แจ้งอาการแล้ว', MOVE: 'ย้ายที่อยู่แล้ว', REPAIR: 'บันทึกส่งซ่อมแล้ว', RETURN: 'รับคืนแล้ว', PM: 'บันทึก PM แล้ว' }
 const STATUS_TH: Record<string, string> = { READY: 'พร้อมใช้', IN_USE: 'ใช้งานอยู่', REPAIR: 'ส่งซ่อม', RETIRED: 'ปลดระวาง' }
@@ -119,7 +120,7 @@ export default function CemsAnalyzerPublicPage() {
   if (needPin && !data) return (
     <Center>
       <div className="w-full max-w-xs text-center">
-        <div className="mb-3 text-5xl">🔒</div>
+        <div className="mb-3 flex justify-center"><Lock className="h-12 w-12 text-slate-300" /></div>
         <p className="text-lg font-bold text-slate-800">ใส่รหัสเข้าใช้งาน</p>
         <p className="mt-1 mb-4 text-sm text-slate-400">หน้าอัปเดตเครื่อง CEMS · เฉพาะเจ้าหน้าที่</p>
         <input type="password" inputMode="numeric" autoComplete="off" value={pinInput} autoFocus
@@ -141,7 +142,7 @@ export default function CemsAnalyzerPublicPage() {
   if (done) return (
     <Center>
       <div className="text-center">
-        <div className="mb-3 text-5xl">✅</div>
+        <div className="mb-3 flex justify-center"><CheckCircle2 className="h-12 w-12 text-emerald-500" /></div>
         <p className="text-lg font-bold text-slate-800">{ACTION_TH[done]}</p>
         <p className="mt-1 text-sm text-slate-500">{data.tag}</p>
         <button onClick={() => { setDone(null); resetForm(); load(pin || undefined) }}
@@ -158,7 +159,7 @@ export default function CemsAnalyzerPublicPage() {
         {/* header */}
         <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
           <p className="text-xs font-bold tracking-widest text-sky-600">Eco Planning System · CEMS SERVICE</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">📟 {data.tag}</p>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-xl font-bold text-slate-800"><Cpu className="h-5 w-5 text-slate-500" /> {data.tag}</p>
           <p className="text-sm text-slate-400">{[data.brand, data.model, data.serialNo].filter(Boolean).join(' · ')}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
             {data.parameter && <span className="rounded-lg bg-slate-50 px-2 py-1">วัด <b>{data.parameter}</b></span>}
@@ -172,7 +173,7 @@ export default function CemsAnalyzerPublicPage() {
           {ACTIONS.map(a => (
             <button key={a.key} onClick={() => { setMode(m => m === a.key ? null : a.key); resetForm() }}
               className={`flex flex-col items-center gap-1 rounded-xl py-3 text-xs font-semibold ${mode === a.key ? 'bg-sky-600 text-white' : 'bg-white text-slate-600'}`}>
-              <span className="text-lg">{a.icon}</span>{a.label}
+              <a.icon className="h-5 w-5" />{a.label}
             </button>
           ))}
         </div>
