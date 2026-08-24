@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# คู่มือกู้คืน (ส่วนตัว — มีข้อมูล account/บริบท ไม่ต้องขึ้น GitHub)
+RECOVERY.md
+RECOVERY-*.txt
