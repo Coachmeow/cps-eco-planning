@@ -300,8 +300,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : (
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ (heatmap หรือ เส้นทาง) + legend */}
-          <div className="lg:w-[380px] lg:shrink-0">
-            <div className="relative mx-auto w-full max-w-[380px] aspect-[493/880] lg:mx-0 lg:aspect-auto lg:h-[600px]">
+          <div className="lg:flex-[2] lg:min-w-0">
+            <div className="relative mx-auto aspect-[493/880] w-full max-w-[360px] lg:h-[600px] lg:w-auto lg:max-w-none">
               <svg viewBox={travelView ? '-45 -15 583 915' : `0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่">
                 {travelView && (
                   <defs>
@@ -403,7 +403,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
-          <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[600px] lg:w-[340px] lg:shrink-0">
+          <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[600px] lg:flex-1 lg:min-w-0">
             {travelView ? (
               <TravelPanel trips={allTrips} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
@@ -413,8 +413,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             )}
           </div>
 
-          {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (แต่ละกล่องครึ่งความสูงแผนที่) */}
-          <div className="flex flex-col gap-5 lg:ml-auto lg:h-[600px] lg:w-[240px] lg:shrink-0">
+          {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (กว้างเท่ากล่องกลาง · แต่ละกล่องครึ่งความสูง) */}
+          <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
             <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
               <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
             </div>
