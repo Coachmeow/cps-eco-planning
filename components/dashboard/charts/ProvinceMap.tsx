@@ -3,7 +3,7 @@
 // แผนที่ Dashboard — แผนที่ไทยอันเดียว สลับ 2 มุมมองด้วย toggle:
 //  1) กระจายงาน (heatmap คน-วัน/ไซต์/หัวคน) + hover/ปักหมุดจังหวัด + สภาพอากาศเสี่ยง (idle)
 //  2) เส้นทางเดินทาง (arcs ฐานสระบุรี→ไซต์ วันนี้/พรุ่งนี้) + รายการรถที่กำลังเดินทาง
-// ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ (พร้อมใช้งาน)
+// ขวา: พนักงานประจำออฟฟิศ + รถพร้อมใช้งาน (เลือกวันที่แยกอิสระต่อกล่อง)
 // API: province-map · weather · office-staff · office-vehicles · travel
 import { useState, useEffect, useMemo } from 'react'
 import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, Car, Bus, type LucideIcon } from 'lucide-react'
@@ -97,8 +97,9 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [officeVeh, setOfficeVeh] = useState<OfficeVehResp | null>(null)
   const [hoverRoute, setHoverRoute] = useState<number | null>(null)
 
-  // วันที่สำหรับ "อยู่ออฟฟิศ" = วันที่เลือก (โหมด date) มิฉะนั้นวันนี้
-  const officeDate = mode === 'date' ? pickDate : todayKey()
+  // วันที่ของแต่ละกล่องออฟฟิศ (เลือกอิสระ · เริ่มที่วันนี้)
+  const [staffDate, setStaffDate] = useState(todayKey())
+  const [vehDate, setVehDate] = useState(todayKey())
   const travelDateKey = travelDay === 'today' ? todayKey() : travelDay === 'tomorrow' ? offsetDayKey(1) : travelPickDate
   const travelDayLabel = travelDay === 'today' ? 'วันนี้' : travelDay === 'tomorrow' ? 'พรุ่งนี้' : travelPickDate
 
@@ -138,25 +139,25 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
     return () => { cancelled = true }
   }, [])
 
-  // พนักงานอยู่ออฟฟิศ — ตามวันที่ officeDate
+  // พนักงานประจำออฟฟิศ — ตามวันที่ staffDate
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/dashboard/office-staff?date=${officeDate}`)
+    fetch(`/api/dashboard/office-staff?date=${staffDate}`)
       .then((r) => r.json())
       .then((d: OfficeResp) => { if (!cancelled) setOffice(d) })
-      .catch(() => { if (!cancelled) setOffice({ date: officeDate, office: [], onLeave: 0, field: 0, error: true }) })
+      .catch(() => { if (!cancelled) setOffice({ date: staffDate, office: [], onLeave: 0, field: 0, error: true }) })
     return () => { cancelled = true }
-  }, [officeDate])
+  }, [staffDate])
 
-  // รถอยู่ออฟฟิศ (พร้อมใช้งาน) — ตามวันที่ officeDate
+  // รถพร้อมใช้งาน — ตามวันที่ vehDate
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/dashboard/office-vehicles?date=${officeDate}`)
+    fetch(`/api/dashboard/office-vehicles?date=${vehDate}`)
       .then((r) => r.json())
       .then((d: OfficeVehResp) => { if (!cancelled) setOfficeVeh(d) })
-      .catch(() => { if (!cancelled) setOfficeVeh({ date: officeDate, vehicles: [], booked: 0, total: 0, error: true }) })
+      .catch(() => { if (!cancelled) setOfficeVeh({ date: vehDate, vehicles: [], booked: 0, total: 0, error: true }) })
     return () => { cancelled = true }
-  }, [officeDate])
+  }, [vehDate])
 
   // เส้นทางเดินทาง — ดึงเมื่ออยู่โหมดเส้นทาง
   useEffect(() => {
@@ -417,10 +418,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (กว้างเท่ากล่องกลาง · แต่ละกล่องครึ่งความสูง) */}
           <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
             <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+              <OfficePanel office={office} loading={!office || office.date !== staffDate} date={staffDate} onDate={setStaffDate} />
             </div>
             <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== vehDate} date={vehDate} onDate={setVehDate} />
             </div>
           </div>
         </div>
@@ -525,7 +526,7 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
   )
   return (
     <div className="text-sm">
-      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><CloudSunRain className="h-4 w-4 text-sky-500" /> สภาพอากาศเสี่ยง</h3>
+      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><CloudSunRain className="h-4 w-4 text-sky-500" /> สภาพอากาศ</h3>
       <p className="mb-3 flex flex-wrap items-center gap-x-1 text-xs text-slate-400">จังหวัดที่มีงานล่วงหน้า 3 วัน · <CloudRain className="inline h-3 w-3" /> เสี่ยงฝน · <Thermometer className="inline h-3 w-3" /> ร้อนจัด</p>
       <div className="space-y-2">
         {wx.provinces.map((p) => (
@@ -548,16 +549,33 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
   )
 }
 
-function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null; loading: boolean; dateLabel: string }) {
-  if (loading || !office) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
-  if (office.error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
+function PanelDate({ date, onDate }: { date: string; onDate: (d: string) => void }) {
+  return (
+    <input
+      type="date"
+      value={date}
+      onChange={(e) => onDate(e.target.value || todayKey())}
+      className="ml-auto shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-600 outline-none focus:border-emerald-400"
+      title="เลือกวันที่"
+    />
+  )
+}
+
+function OfficePanel({ office, loading, date, onDate }: { office: OfficeResp | null; loading: boolean; date: string; onDate: (d: string) => void }) {
   return (
     <div className="text-sm">
       <div className="flex items-center gap-1.5">
-        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Building2 className="h-4 w-4" /> อยู่ออฟฟิศ</h3>
-        <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{office.office.length}</span>
+        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Building2 className="h-4 w-4" /> ประจำออฟฟิศ</h3>
+        {office && !office.error && <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{office.office.length}</span>}
+        <PanelDate date={date} onDate={onDate} />
       </div>
-      <p className="mb-3 text-xs text-slate-400">ไม่มีแผนออกภาคสนาม · {dateLabel}{office.onLeave > 0 ? ` · ลา ${office.onLeave} คน` : ''}</p>
+      {loading || !office ? (
+        <p className="py-6 text-center text-sm text-slate-400">กำลังโหลด...</p>
+      ) : office.error ? (
+        <p className="py-6 text-center text-sm text-slate-400">โหลดไม่สำเร็จ</p>
+      ) : (
+        <>
+      <p className="mb-3 text-xs text-slate-400">ไม่มีแผนออกภาคสนาม{office.onLeave > 0 ? ` · ลา ${office.onLeave} คน` : ''}</p>
       {office.office.length === 0 ? (
         <p className="text-xs text-slate-300">ทุกคนออกภาคสนาม/ลา</p>
       ) : (
@@ -589,6 +607,8 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
             )
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   )
@@ -646,16 +666,21 @@ function TravelPanel({ trips, dayLabel, loading, error, hoverRoute, setHoverRout
   )
 }
 
-function OfficeVehPanel({ data, loading, dateLabel }: { data: OfficeVehResp | null; loading: boolean; dateLabel: string }) {
-  if (loading || !data) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
-  if (data.error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
+function OfficeVehPanel({ data, loading, date, onDate }: { data: OfficeVehResp | null; loading: boolean; date: string; onDate: (d: string) => void }) {
   return (
     <div className="text-sm">
       <div className="flex items-center gap-1.5">
-        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Truck className="h-4 w-4" /> รถอยู่ออฟฟิศ</h3>
-        <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{data.vehicles.length}</span>
+        <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Truck className="h-4 w-4" /> รถพร้อมใช้งาน</h3>
+        {data && !data.error && <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{data.vehicles.length}</span>}
+        <PanelDate date={date} onDate={onDate} />
       </div>
-      <p className="mb-3 text-xs text-slate-400">พร้อมใช้งาน · {dateLabel}</p>
+      {loading || !data ? (
+        <p className="py-6 text-center text-sm text-slate-400">กำลังโหลด...</p>
+      ) : data.error ? (
+        <p className="py-6 text-center text-sm text-slate-400">โหลดไม่สำเร็จ</p>
+      ) : (
+        <>
+      <p className="mb-3 text-xs text-slate-400">ไม่ติดงานภาคสนาม · พร้อมใช้งาน</p>
       {data.vehicles.length === 0 ? (
         <p className="text-xs text-slate-300">รถถูกจองครบทุกคัน</p>
       ) : (
@@ -673,6 +698,8 @@ function OfficeVehPanel({ data, loading, dateLabel }: { data: OfficeVehResp | nu
             )
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   )
