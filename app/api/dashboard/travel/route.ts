@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
   const sel = {
     estimatedDays: true,
     vehicleId: true,
-    vehicle: { select: { licensePlate: true, name: true } },
-    driver: { select: { nickname: true, fullName: true, primaryTeam: { select: { code: true } } } },
+    vehicle: { select: { licensePlate: true, name: true, vehicleType: true } },
+    driver: { select: { nickname: true, fullName: true, phone: true, primaryTeam: { select: { code: true } } } },
     driverName: true,
     site: { select: { province: true, code: true, name: true } },
   }
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   for (const b of onDay) if (!dayByVeh.has(b.vehicleId)) dayByVeh.set(b.vehicleId, b)
 
   interface Trip {
-    plate: string; driver: string; team: string
+    plate: string; vtype: string | null; driver: string; tel: string | null; team: string
     fromProv: string; fromSite: string | null; fromBase: boolean
     toProv: string; toSite: string; days: number
   }
@@ -53,7 +53,9 @@ export async function GET(req: NextRequest) {
     if (fromProv === toProv) continue // อยู่จังหวัดเดิม → ไม่ใช่การเดินทางข้ามจังหวัด
     trips.push({
       plate: b.vehicle.licensePlate,
+      vtype: b.vehicle.vehicleType ?? null,
       driver: b.driver?.nickname || b.driver?.fullName || b.driverName || '—',
+      tel: b.driver?.phone ?? null,
       team: b.driver?.primaryTeam.code || 'LOG',
       fromProv,
       fromSite: prev ? prev.code : null,

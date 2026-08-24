@@ -6,7 +6,7 @@
 // ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ (พร้อมใช้งาน)
 // API: province-map · weather · office-staff · office-vehicles · travel
 import { useState, useEffect, useMemo } from 'react'
-import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, type LucideIcon } from 'lucide-react'
+import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, Car, Bus, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
 
@@ -23,7 +23,7 @@ interface Office { id: number; nick: string; team: string; tel: string | null }
 interface OfficeResp { date: string; office: Office[]; onLeave: number; field: number; error?: boolean }
 
 interface Trip {
-  plate: string; driver: string; team: string
+  plate: string; vtype: string | null; driver: string; tel: string | null; team: string
   fromProv: string; fromSite: string | null; fromBase: boolean
   toProv: string; toSite: string; days: number
 }
@@ -43,6 +43,14 @@ function arcPath(o: { x: number; y: number }, d: { x: number; y: number }): stri
 function offsetDayKey(n: number): string {
   const d = new Date(); d.setDate(d.getDate() + n)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ไอคอนตามชนิดรถ (จาก Vehicle.vehicleType)
+function vehIcon(type: string | null | undefined): LucideIcon {
+  const t = type || ''
+  if (t.includes('เก๋ง')) return Car
+  if (t.includes('ตู้')) return Bus
+  return Truck // กระบะ / บรรทุก / ปูน / อื่นๆ
 }
 
 const ZERO = '#f1f5f9'
@@ -83,14 +91,16 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [wx, setWx] = useState<Wx | null>(null)
   const [office, setOffice] = useState<OfficeResp | null>(null)
   const [viewMode, setViewMode] = useState<'heat' | 'travel'>('heat')
-  const [travelDay, setTravelDay] = useState<'today' | 'tomorrow'>('today')
+  const [travelDay, setTravelDay] = useState<'today' | 'tomorrow' | 'date'>('today')
+  const [travelPickDate, setTravelPickDate] = useState(todayKey())
   const [travel, setTravel] = useState<(TravelResp & { key: string }) | null>(null)
   const [officeVeh, setOfficeVeh] = useState<OfficeVehResp | null>(null)
   const [hoverRoute, setHoverRoute] = useState<number | null>(null)
 
   // วันที่สำหรับ "อยู่ออฟฟิศ" = วันที่เลือก (โหมด date) มิฉะนั้นวันนี้
   const officeDate = mode === 'date' ? pickDate : todayKey()
-  const travelDateKey = travelDay === 'today' ? todayKey() : offsetDayKey(1)
+  const travelDateKey = travelDay === 'today' ? todayKey() : travelDay === 'tomorrow' ? offsetDayKey(1) : travelPickDate
+  const travelDayLabel = travelDay === 'today' ? 'วันนี้' : travelDay === 'tomorrow' ? 'พรุ่งนี้' : travelPickDate
 
   const reqKey =
     mode === 'month' ? `m:${year}-${month}`
@@ -254,19 +264,29 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
         )}
 
         {travelView && (
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-            {([['today', 'วันนี้'], ['tomorrow', 'พรุ่งนี้']] as const).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setTravelDay(k)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  travelDay === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+              {([['today', 'วันนี้'], ['tomorrow', 'พรุ่งนี้'], ['date', 'เลือกวันที่']] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setTravelDay(k)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    travelDay === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {travelDay === 'date' && (
+              <input
+                type="date"
+                value={travelPickDate}
+                onChange={(e) => setTravelPickDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm"
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -277,7 +297,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : (
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ (heatmap หรือ เส้นทาง) + legend */}
-          <div className="lg:flex-1">
+          <div className="lg:flex-[1.5] lg:min-w-0">
             <div className="relative w-full max-w-[560px]" style={{ aspectRatio: '1 / 1' }}>
               <svg viewBox={travelView ? '-45 -15 583 915' : `0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่">
                 {travelView && (
@@ -372,7 +392,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </div>
             <p className="mt-2 text-xs text-slate-400">
               {travelView
-                ? 'รถที่ย้ายข้ามจังหวัด ' + (travelDay === 'today' ? 'วันนี้' : 'พรุ่งนี้') + ' (ต้นทาง = ไซต์เมื่อวาน · ฐาน=สระบุรี) · ชี้เส้น = ไฮไลต์'
+                ? 'รถที่ย้ายข้ามจังหวัด ' + travelDayLabel + ' (ต้นทาง = ไซต์เมื่อวาน · ฐาน=สระบุรี) · ชี้เส้น = ไฮไลต์'
                 : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
@@ -380,9 +400,9 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:w-[320px] lg:shrink-0">
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
             {travelView ? (
-              <TravelPanel routes={routes} day={travelDay} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
+              <TravelPanel routes={routes} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
@@ -390,14 +410,14 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             )}
           </div>
 
-          {/* ขวา: พนักงานอยู่ออฟฟิศ + รถอยู่ออฟฟิศ */}
-          <div className="flex flex-col gap-4 sm:flex-row lg:shrink-0">
-            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[200px] lg:flex-none">
-              <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
-            </div>
-            <div className="w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 sm:flex-1 lg:h-[500px] lg:w-[200px] lg:flex-none">
-              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
-            </div>
+          {/* ขวา: พนักงานอยู่ออฟฟิศ (กว้างเท่ากล่องกลาง) */}
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
+            <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+          </div>
+
+          {/* ขวาสุด: รถอยู่ออฟฟิศ (กว้างเท่ากล่องกลาง) */}
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
+            <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
           </div>
         </div>
       )}
@@ -570,9 +590,9 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
   )
 }
 
-function TravelPanel({ routes, day, loading, error, hoverRoute, setHoverRoute }: {
+function TravelPanel({ routes, dayLabel, loading, error, hoverRoute, setHoverRoute }: {
   routes: { t: Trip; i: number; from: { x: number; y: number }; to: { x: number; y: number }; path: string; col: string }[]
-  day: 'today' | 'tomorrow'; loading: boolean; error: boolean
+  dayLabel: string; loading: boolean; error: boolean
   hoverRoute: number | null; setHoverRoute: (i: number | null) => void
 }) {
   if (loading) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
@@ -580,30 +600,38 @@ function TravelPanel({ routes, day, loading, error, hoverRoute, setHoverRoute }:
   if (routes.length === 0) return (
     <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-slate-400">
       <Plane className="h-8 w-8 text-slate-300" />
-      <span>ไม่มีการเดินทาง{day === 'today' ? 'วันนี้' : 'พรุ่งนี้'}</span>
+      <span>ไม่มีการเดินทาง {dayLabel}</span>
     </div>
   )
   return (
     <div className="text-sm">
       <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><Plane className="h-4 w-4 text-emerald-600" /> รถที่กำลังเดินทาง</h3>
-      <p className="mb-3 text-xs text-slate-400">{routes.length} คัน · {day === 'today' ? 'วันนี้' : 'พรุ่งนี้'} — ชี้เพื่อไฮไลต์เส้นทาง</p>
+      <p className="mb-3 text-xs text-slate-400">{routes.length} คัน · {dayLabel} — ชี้เพื่อไฮไลต์เส้นทาง</p>
       <div className="space-y-2">
-        {routes.map((r) => (
-          <div
-            key={r.i}
-            onMouseEnter={() => setHoverRoute(r.i)}
-            onMouseLeave={() => setHoverRoute(null)}
-            className={`cursor-pointer rounded-lg border p-2.5 transition ${hoverRoute === r.i ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.col }} />
-              <span className="font-mono text-xs font-semibold text-slate-700">{r.t.plate}</span>
-              <span className="ml-auto font-mono text-[11px] text-slate-400">อยู่ ~{r.t.days} วัน</span>
+        {routes.map((r) => {
+          const VI = vehIcon(r.t.vtype)
+          return (
+            <div
+              key={r.i}
+              onMouseEnter={() => setHoverRoute(r.i)}
+              onMouseLeave={() => setHoverRoute(null)}
+              className={`cursor-pointer rounded-lg border p-2.5 transition ${hoverRoute === r.i ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+            >
+              <div className="flex items-center gap-2">
+                <VI className="h-4 w-4 shrink-0" style={{ color: r.col }} />
+                <span className="font-mono text-xs font-semibold text-slate-700">{r.t.plate}</span>
+                <span className="ml-auto font-mono text-[11px] text-slate-400">อยู่ ~{r.t.days} วัน</span>
+              </div>
+              <div className="mt-1 text-[13px]"><span className="text-slate-400">{r.t.fromBase ? 'ฐาน สระบุรี' : r.t.fromProv}</span> → <span className="font-semibold text-slate-700">{r.t.toProv}</span></div>
+              <div className="truncate text-[11px] text-slate-400">{r.t.toSite} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
+              {r.t.tel && (
+                <a href={`tel:${r.t.tel.replace(/[^0-9+]/g, '')}`} className="mt-0.5 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-emerald-600">
+                  <Phone className="h-3 w-3" /> {r.t.tel}
+                </a>
+              )}
             </div>
-            <div className="mt-1 text-[13px]"><span className="text-slate-400">{r.t.fromBase ? 'ฐาน สระบุรี' : r.t.fromProv}</span> → <span className="font-semibold text-slate-700">{r.t.toProv}</span></div>
-            <div className="truncate text-[11px] text-slate-400">{r.t.toSite} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -623,15 +651,18 @@ function OfficeVehPanel({ data, loading, dateLabel }: { data: OfficeVehResp | nu
         <p className="text-xs text-slate-300">รถถูกจองครบทุกคัน</p>
       ) : (
         <div>
-          {data.vehicles.map((v) => (
-            <div key={v.id} className="flex items-center gap-2.5 border-t border-slate-100 py-1.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400"><Truck className="h-4 w-4" /></span>
-              <span className="min-w-0 flex-1 leading-tight">
-                <b className="font-mono text-[11.5px] text-slate-700">{v.plate}</b>
-                <span className="block truncate text-[11px] text-slate-400">{[v.name, v.type].filter(Boolean).join(' · ') || '—'}</span>
-              </span>
-            </div>
-          ))}
+          {data.vehicles.map((v) => {
+            const VI = vehIcon(v.type)
+            return (
+              <div key={v.id} className="flex items-center gap-2.5 border-t border-slate-100 py-1.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500"><VI className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1 leading-tight">
+                  <b className="font-mono text-[11.5px] text-slate-700">{v.plate}</b>
+                  <span className="block truncate text-[11px] text-slate-400">{[v.name, v.type].filter(Boolean).join(' · ') || '—'}</span>
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
