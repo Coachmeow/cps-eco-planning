@@ -136,7 +136,10 @@ export default function AnalyzerSection({ canManage = false }: { canManage?: boo
                     <span className="font-medium text-slate-700">{a.tag}</span>
                   </button>
                 </td>
-                <td className="px-3 py-2 text-slate-500">{[a.brand, a.model].filter(Boolean).join(' · ') || '—'}</td>
+                <td className="px-3 py-2 text-slate-500">
+                  <span className="block leading-tight">{[a.brand, a.model].filter(Boolean).join(' · ') || '—'}</span>
+                  {a.serialNo && <span className="block font-mono text-[11px] leading-tight text-slate-400">S/N: {a.serialNo}</span>}
+                </td>
                 <td className="px-3 py-2 text-xs text-slate-500">{a.parameter ?? '—'}</td>
                 <td className="px-3 py-2">
                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${OWNERSHIP_CHIP[a.ownership]}`}>{OWNERSHIP_LABEL[a.ownership]}</span>
