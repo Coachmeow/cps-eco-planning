@@ -1,0 +1,407 @@
+{
+  "at": "2026-08-14T09:04:05.891Z",
+  "deletedEvents": [
+    {
+      "id": 117,
+      "equipmentId": 103,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 118,
+      "equipmentId": 104,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 119,
+      "equipmentId": 105,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 120,
+      "equipmentId": 106,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 121,
+      "equipmentId": 107,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 107,
+      "equipmentId": 195,
+      "type": "CALIBRATION",
+      "sentDate": "2026-09-01T00:00:00.000Z",
+      "expectedDate": "2026-09-14T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 108,
+      "equipmentId": 198,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-02T00:00:00.000Z",
+      "expectedDate": "2026-11-16T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 109,
+      "equipmentId": 199,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-16T00:00:00.000Z",
+      "expectedDate": "2026-11-27T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 31,
+      "equipmentId": 208,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-31T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 114,
+      "equipmentId": 221,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 115,
+      "equipmentId": 227,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 21,
+      "equipmentId": 232,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-31T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 22,
+      "equipmentId": 233,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-31T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 116,
+      "equipmentId": 234,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 23,
+      "equipmentId": 238,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-31T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "สิทธิพร",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 110,
+      "equipmentId": 240,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-02T00:00:00.000Z",
+      "expectedDate": "2026-11-16T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "CLC",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 104,
+      "equipmentId": 242,
+      "type": "CALIBRATION",
+      "sentDate": "2026-09-01T00:00:00.000Z",
+      "expectedDate": "2026-09-14T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "CLC",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 130,
+      "equipmentId": 243,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-31T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "I-Test",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 126,
+      "equipmentId": 246,
+      "type": "CALIBRATION",
+      "sentDate": "2026-08-19T00:00:00.000Z",
+      "expectedDate": "2026-08-24T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "I-Tech",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 105,
+      "equipmentId": 247,
+      "type": "CALIBRATION",
+      "sentDate": "2026-09-14T00:00:00.000Z",
+      "expectedDate": "2026-09-28T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "CLC",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 111,
+      "equipmentId": 252,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-02T00:00:00.000Z",
+      "expectedDate": "2026-11-16T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 106,
+      "equipmentId": 254,
+      "type": "CALIBRATION",
+      "sentDate": "2026-09-01T00:00:00.000Z",
+      "expectedDate": "2026-09-14T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 112,
+      "equipmentId": 256,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-16T00:00:00.000Z",
+      "expectedDate": "2026-11-27T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 113,
+      "equipmentId": 257,
+      "type": "CALIBRATION",
+      "sentDate": "2026-11-16T00:00:00.000Z",
+      "expectedDate": "2026-11-27T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "Innovative",
+      "cost": null,
+      "notes": null
+    },
+    {
+      "id": 122,
+      "equipmentId": 263,
+      "type": "CALIBRATION",
+      "sentDate": "2026-12-01T00:00:00.000Z",
+      "expectedDate": "2026-12-15T00:00:00.000Z",
+      "nextDueDate": null,
+      "vendor": "กรมอุตุนิยมวิทยา",
+      "cost": null,
+      "notes": null
+    }
+  ],
+  "equipmentBefore": [
+    {
+      "id": 103,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 104,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 105,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 106,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 107,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 195,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 198,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 199,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 208,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 221,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 227,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 232,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 233,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 234,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 238,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 240,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 242,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 243,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 246,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 247,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 252,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 254,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 256,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 257,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    },
+    {
+      "id": 263,
+      "status": "CALIBRATING",
+      "calDueDate": null
+    }
+  ]
+}
