@@ -28,8 +28,6 @@ function heat(t: number): string {
   return `rgb(${c[0]},${c[1]},${c[2]})`
 }
 
-const CENT = new Map(PROVINCES.map((p) => [p.th, { cx: p.cx, cy: p.cy }]))
-
 function todayKey(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -197,19 +195,6 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                   )
                 })}
               </g>
-              <g style={{ pointerEvents: 'none' }}>
-                {resp.provinces.filter((p) => p.vehicles.length > 0).map((p) => {
-                  const c = CENT.get(p.name)
-                  if (!c) return null
-                  const r = 6 + p.vehicles.length * 3
-                  return (
-                    <g key={p.name}>
-                      <circle cx={c.cx} cy={c.cy} r={r} fill="#f59e0b" opacity={0.92} stroke="#fff" strokeWidth={1.5} />
-                      <text x={c.cx} y={c.cy + 3.5} textAnchor="middle" fontSize={11} fontWeight={600} fill="#7c4a03">{p.vehicles.length}</text>
-                    </g>
-                  )
-                })}
-              </g>
             </svg>
 
             {/* legend */}
@@ -217,10 +202,6 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
               <div className="mb-1 font-semibold uppercase tracking-wide text-slate-400">{legendLabel}</div>
               <div className="h-2 w-32 rounded" style={{ background: `linear-gradient(90deg, ${SEQ_GREEN[0]}, ${SEQ_GREEN[2]}, ${SEQ_GREEN[5]})` }} />
               <div className="mt-0.5 flex justify-between text-slate-400"><span>น้อย</span><span>สูงสุด {maxVal}</span></div>
-              <div className="mt-1.5 flex items-center gap-1.5 text-slate-400">
-                <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-amber-900">2</span>
-                วงส้ม = รถ{live ? 'ที่ออกงาน' : ''}
-              </div>
             </div>
           </div>
 
@@ -228,8 +209,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           <div className="flex-1 space-y-3 text-sm">
             <p className="text-slate-500">
               {live
-                ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · วงส้ม = รถที่ออกงาน'
-                : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'ปริมาณงานสะสมทั้งเดือน (คน-วัน)') + ' · วงส้ม = จำนวนรถ'}
+                ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก')
+                : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'ปริมาณงานสะสมทั้งเดือน (คน-วัน)')}
             </p>
             <p className="text-xs text-slate-400">ชี้เมาส์ที่จังหวัดเพื่อดูรถ + พนักงาน (รูป · เบอร์โทร)</p>
             {resp.unmatched.sites > 0 && (
