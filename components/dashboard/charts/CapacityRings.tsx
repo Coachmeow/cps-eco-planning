@@ -2,7 +2,8 @@
 
 // แผงกำลังคน (แทนเลข "Man-day รวม" เดิมข้างชาร์ต Sankey)
 //  บน: Man-day ใช้ / กำลังคน (booked / capacity)
-//  ล่าง: วงแหวน utilization ต่อทีม 5 หมวดงาน — ชื่อโค้งบน · % กลาง · "ใช้ of capacity" โค้งล่าง
+//  ล่าง: วงแหวน utilization ต่อทีม 5 หมวดงาน — จัดแบบลูกเต๋าเลข 5 (1 กลาง + 4 มุม)
+//        ชื่อโค้งบน · % กลาง · "ใช้ of capacity" โค้งล่างรูป U
 //        badge หัวเส้น: ≤100% = สีทีมเข้มขึ้น "-เหลือ" · เกิน 100% = แดง "+เกิน"
 import type { TeamCapacityRow } from '@/lib/types'
 import { teamHex } from '@/lib/chartTheme'
@@ -20,7 +21,7 @@ function darken(hex: string, f: number) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
 }
 
-const S = 164, SW = 28, R = (S - SW) / 2, C = S / 2, CIRC = 2 * Math.PI * R, BR = 15, RT = 40
+const S = 116, SW = 20, R = (S - SW) / 2, C = S / 2, CIRC = 2 * Math.PI * R, BR = 13, RT = 30
 const P = (a: number): [number, number] => [C + RT * Math.cos((a * Math.PI) / 180), C + RT * Math.sin((a * Math.PI) / 180)]
 
 function Ring({ t }: { t: TeamCapacityRow }) {
@@ -49,16 +50,16 @@ function Ring({ t }: { t: TeamCapacityRow }) {
       <circle cx={C} cy={C} r={R} fill="none" stroke="#e6ebf1" strokeWidth={SW} />
       <circle cx={C} cy={C} r={R} fill="none" stroke={col} strokeWidth={SW} strokeLinecap="round"
         strokeDasharray={`${dash} ${CIRC - dash}`} transform={`rotate(-90 ${C} ${C})`} />
-      <text fontSize={13} fontWeight={500} fill="#64748b" letterSpacing="0.3">
+      <text fontSize={10.5} fontWeight={500} fill="#64748b" letterSpacing="0.2">
         <textPath href={`#${tid}`} startOffset="50%" textAnchor="middle">{name}</textPath>
       </text>
-      <text x={C} y={C - 1} textAnchor="middle" dominantBaseline="central" fontSize={31} fontWeight={700}
+      <text x={C} y={C - 1} textAnchor="middle" dominantBaseline="central" fontSize={23} fontWeight={700}
         fill={isOver ? '#dc2626' : '#1e293b'} fontFamily="var(--font-mono)">{pct}%</text>
-      <text fontSize={11.5} fill="#94a3b8" fontFamily="var(--font-mono)">
+      <text fontSize={9.5} fill="#94a3b8" fontFamily="var(--font-mono)">
         <textPath href={`#${bid}`} startOffset="50%" textAnchor="middle">{Math.round(t.booked)} of {t.capacity}</textPath>
       </text>
       <circle cx={bx} cy={by} r={BR} fill={badgeCol} />
-      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" fontSize={11.5} fontWeight={700}
+      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700}
         fill="#fff" fontFamily="var(--font-mono)">{badgeTxt}</text>
     </svg>
   )
@@ -66,26 +67,32 @@ function Ring({ t }: { t: TeamCapacityRow }) {
 
 export default function CapacityRings({ rows }: { rows: TeamCapacityRow[] }) {
   const byCode = new Map(rows.map((r) => [r.teamCode, r]))
-  const rings = ORDER.map((c) => byCode.get(c)).filter((r): r is TeamCapacityRow => !!r && r.capacity > 0)
+  const rings = ORDER.map((c) => byCode.get(c)).filter((r): r is TeamCapacityRow => !!r && r.capacity > 0).slice(0, 5)
   const totCap = rings.reduce((s, t) => s + t.capacity, 0)
   const totBk = rings.reduce((s, t) => s + t.booked, 0)
   const totPct = totCap > 0 ? Math.round((totBk / totCap) * 100) : 0
-  const top = rings.slice(0, 2), bot = rings.slice(2)
+
+  // ลูกเต๋าเลข 5: index 0 = กลาง, 1..4 = มุม (TL, TR, BL, BR)
+  const SP = 88
+  const CW = 2 * SP + S
+  const M = CW / 2
+  const pts: [number, number][] = [[M, M], [M - SP, M - SP], [M + SP, M - SP], [M - SP, M + SP], [M + SP, M + SP]]
 
   return (
     <div>
       <div className="text-xs text-slate-400">Man-day ใช้ / กำลังคน (วัน-คน)</div>
       <div className="mb-5 mt-0.5 flex items-baseline gap-2">
-        <span className="font-mono text-[44px] font-bold leading-none text-slate-800">{Math.round(totBk)}</span>
-        <span className="font-mono text-3xl font-normal leading-none text-slate-300">/</span>
-        <span className="font-mono text-3xl font-medium leading-none text-slate-500">{totCap}</span>
-        <span className="ml-auto text-[13px] text-slate-500">{totPct}% ใช้ไป</span>
+        <span className="font-mono text-3xl font-bold leading-none text-slate-800">{Math.round(totBk)}</span>
+        <span className="font-mono text-3xl font-bold leading-none text-slate-300">/</span>
+        <span className="font-mono text-3xl font-bold leading-none text-slate-500">{totCap}</span>
+        <span className="self-end text-[13px] text-slate-500">(ใช้ไป {totPct}%)</span>
       </div>
-      <div className="mb-4 flex flex-wrap justify-center gap-6">
-        {top.map((t) => <Ring key={t.teamCode} t={t} />)}
-      </div>
-      <div className="flex flex-wrap justify-center gap-4">
-        {bot.map((t) => <Ring key={t.teamCode} t={t} />)}
+      <div className="relative mx-auto" style={{ width: CW, height: CW }}>
+        {rings.map((t, i) => (
+          <div key={t.teamCode} className="absolute" style={{ left: pts[i][0] - S / 2, top: pts[i][1] - S / 2, width: S, height: S }}>
+            <Ring t={t} />
+          </div>
+        ))}
       </div>
     </div>
   )

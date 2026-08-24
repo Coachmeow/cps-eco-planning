@@ -142,7 +142,7 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const linkPath = sankeyLinkHorizontal<GNode, GLink>()
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <button onClick={() => { setFocusSite(''); setFocusTeam('') }}
           className={`rounded px-2 py-0.5 ${focusSite || focusTeam ? 'text-emerald-700 hover:bg-emerald-50' : 'bg-slate-100 font-medium text-slate-700'}`}>ทุกไซต์</button>
@@ -163,10 +163,10 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
       {!layout ? (
         <p className="py-10 text-center text-sm text-slate-300">ยังไม่มีข้อมูล man-day</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="min-h-[300px] flex-1 overflow-x-auto lg:min-h-0">
           {(() => {
             return (
-              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 480, maxWidth: 1120, display: 'block', margin: '0 auto' }} role="img" aria-label="Sankey man-day">
+              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style={{ minWidth: 480, maxWidth: 1120, display: 'block', margin: '0 auto' }} role="img" aria-label="Sankey man-day">
                 {layout.links.map((l, i) => (
                   <path key={i} d={linkPath(l) ?? ''} fill="none"
                     stroke={(l.target as GNode).color} strokeOpacity={0.32} strokeWidth={Math.max(1, l.width ?? 1)}>

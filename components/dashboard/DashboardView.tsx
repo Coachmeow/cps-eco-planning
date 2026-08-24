@@ -111,8 +111,8 @@ export default function DashboardView() {
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
-              <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
-                <div className="lg:w-[380px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
+                <div className="lg:w-[330px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
                   <CapacityRings rows={data.teamCapacity} />
                 </div>
                 <div className="min-w-0 flex-1">
