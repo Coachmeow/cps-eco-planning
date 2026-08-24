@@ -297,8 +297,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : (
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ (heatmap หรือ เส้นทาง) + legend */}
-          <div className="lg:flex-[1.5] lg:min-w-0">
-            <div className="relative w-full max-w-[560px]" style={{ aspectRatio: '1 / 1' }}>
+          <div className="lg:w-[380px] lg:shrink-0">
+            <div className="relative mx-auto w-full max-w-[380px] aspect-[493/880] lg:mx-0 lg:aspect-auto lg:h-[600px]">
               <svg viewBox={travelView ? '-45 -15 583 915' : `0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่">
                 {travelView && (
                   <defs>
@@ -361,7 +361,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                       {routes.map((r) => (
                         <g key={r.i} className="cursor-pointer" onMouseEnter={() => setHoverRoute(r.i)} onMouseLeave={() => setHoverRoute(null)}>
                           <circle cx={r.to.x} cy={r.to.y} r={4.5} fill={r.col} stroke="#ffffff" strokeWidth={1.5} />
-                          <text x={r.to.x} y={r.to.y - 7} textAnchor="middle" fontSize={9} fontWeight={600} fill="#334155">{r.t.toSite}</text>
+                          <text x={r.to.x} y={r.to.y + (r.i % 2 === 0 ? -8 : 14)} textAnchor="middle" fontSize={9} fontWeight={600} fill="#334155" stroke="#ffffff" strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{r.t.toSite}</text>
                         </g>
                       ))}
                     </g>
@@ -369,7 +369,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                     {routes.some((r) => r.t.fromBase) && (
                       <g>
                         <circle cx={HUB.x} cy={HUB.y} r={6} fill="#059669" stroke="#ffffff" strokeWidth={2} />
-                        <text x={HUB.x} y={HUB.y - 11} textAnchor="middle" fontFamily="IBM Plex Sans Thai, sans-serif" fontSize={12} fontWeight={700} fill="#059669">ฐาน สระบุรี</text>
+                        <text x={HUB.x + 10} y={HUB.y - 10} textAnchor="start" fontFamily="IBM Plex Sans Thai, sans-serif" fontSize={12} fontWeight={700} fill="#059669" stroke="#ffffff" strokeWidth={3.5} strokeLinejoin="round" paintOrder="stroke">ฐาน สระบุรี</text>
                       </g>
                     )}
                   </>
@@ -399,8 +399,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </p>
           </div>
 
-          {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
+          {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
+          <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[600px] lg:w-[340px] lg:shrink-0">
             {travelView ? (
               <TravelPanel routes={routes} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
@@ -410,14 +410,14 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             )}
           </div>
 
-          {/* ขวา: พนักงานอยู่ออฟฟิศ (กว้างเท่ากล่องกลาง) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
-            <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
-          </div>
-
-          {/* ขวาสุด: รถอยู่ออฟฟิศ (กว้างเท่ากล่องกลาง) */}
-          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[500px] lg:flex-1 lg:min-w-0">
-            <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+          {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (แต่ละกล่องครึ่งความสูงแผนที่) */}
+          <div className="flex flex-col gap-5 lg:ml-auto lg:h-[600px] lg:w-[240px] lg:shrink-0">
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+            </div>
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
+            </div>
           </div>
         </div>
       )}
