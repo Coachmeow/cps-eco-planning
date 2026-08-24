@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
+import { PROVINCE_NAMES } from '@/lib/thailandGeo'
+import { REGIONS, REGION_OF } from '@/lib/provinceRegion'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import { useMe } from '@/hooks/useMe'
 import { ROLE_LABEL, ROLE_ORDER, type UserRole } from '@/lib/roles'
@@ -179,6 +181,11 @@ function SitesSection({ role }: { role?: UserRole }) {
 
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
 
+  // ตัวเลือกจังหวัด — ถ้าค่าเดิมไม่ตรงมาตรฐาน (ข้อมูลเก่า) แสดงไว้บนสุดพร้อมธงเตือน ให้แก้ได้
+  const provinceOptions = form.province && !PROVINCE_NAMES.includes(form.province)
+    ? [{ value: form.province, label: `⚠️ ${form.province} (ไม่ตรงมาตรฐาน)` }, ...PROVINCE_NAMES.map(p => ({ value: p, label: p }))]
+    : PROVINCE_NAMES.map(p => ({ value: p, label: p }))
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -237,8 +244,25 @@ function SitesSection({ role }: { role?: UserRole }) {
             <Input label="ชื่อไซต์" value={form.name} onChange={f('name')} placeholder="ชื่อโรงงาน / พื้นที่" required />
             <Input label="บริษัท (จดทะเบียน)" value={form.clientName} onChange={f('clientName')} placeholder="ชื่อบริษัทตามกฎหมาย" />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="จังหวัด" value={form.province} onChange={f('province')} placeholder="เช่น ขอนแก่น" />
-              <Input label="ภูมิภาค" value={form.region} onChange={f('region')} placeholder="เช่น ภาคกลาง" />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600">จังหวัด</label>
+                <SearchableSelect
+                  value={form.province}
+                  onChange={(v) => setForm(p => ({ ...p, province: v, region: REGION_OF[v] ?? p.region }))}
+                  options={provinceOptions}
+                  placeholder="เลือกจังหวัด..."
+                  invalid={!!form.province && !PROVINCE_NAMES.includes(form.province)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600">ภูมิภาค <span className="font-normal text-slate-400">(เติมอัตโนมัติ)</span></label>
+                <SearchableSelect
+                  value={form.region}
+                  onChange={f('region')}
+                  options={REGIONS.map(r => ({ value: r, label: r }))}
+                  placeholder="เลือกภูมิภาค..."
+                />
+              </div>
             </div>
             <Input label="Access ที่ต้องการ (คั่นด้วย , )" value={form.requiresAccess} onChange={f('requiresAccess')} placeholder="เช่น NS-SUS, SCGP" />
             {/* Color picker */}
