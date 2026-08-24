@@ -16,6 +16,9 @@ interface WxDay { date: string; rainProb: number; tmax: number; level: number; k
 interface WxProv { name: string; daily: WxDay[]; worst: number }
 interface Wx { days: string[]; provinces: WxProv[]; error?: boolean }
 
+interface Office { id: number; nick: string; team: string; tel: string | null }
+interface OfficeResp { date: string; office: Office[]; onLeave: number; field: number; error?: boolean }
+
 const ZERO = '#f1f5f9'
 function hexToRgb(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16)
@@ -49,6 +52,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [hover, setHover] = useState<string | null>(null)
   const [pinnedName, setPinnedName] = useState<string | null>(null)
   const [wx, setWx] = useState<Wx | null>(null)
+  const [office, setOffice] = useState<OfficeResp | null>(null)
+
+  // วันที่สำหรับ "อยู่ออฟฟิศ" = วันที่เลือก (โหมด date) มิฉะนั้นวันนี้
+  const officeDate = mode === 'date' ? pickDate : todayKey()
 
   const reqKey =
     mode === 'month' ? `m:${year}-${month}`
@@ -85,6 +92,16 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       .catch(() => { if (!cancelled) setWx({ days: [], provinces: [], error: true }) })
     return () => { cancelled = true }
   }, [])
+
+  // พนักงานอยู่ออฟฟิศ — ตามวันที่ officeDate
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/dashboard/office-staff?date=${officeDate}`)
+      .then((r) => r.json())
+      .then((d: OfficeResp) => { if (!cancelled) setOffice(d) })
+      .catch(() => { if (!cancelled) setOffice({ date: officeDate, office: [], onLeave: 0, field: 0, error: true }) })
+    return () => { cancelled = true }
+  }, [officeDate])
 
   const loading = !resp || resp.key !== reqKey
   const live = mode !== 'month'
@@ -169,10 +186,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       ) : resp.error ? (
         <p className="py-8 text-center text-sm text-slate-300">โหลดข้อมูลไม่สำเร็จ</p>
       ) : (
-        <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           {/* ซ้าย: แผนที่ + legend + คำอธิบาย */}
-          <div className="md:w-[440px] md:shrink-0">
-            <div className="relative mx-auto w-full max-w-[440px]" style={{ aspectRatio: '1 / 1' }}>
+          <div className="lg:w-[380px] lg:shrink-0">
+            <div className="relative mx-auto w-full max-w-[380px]" style={{ aspectRatio: '1 / 1' }}>
               <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="h-full w-full" role="img" aria-label="แผนที่กระจายงานรายจังหวัด">
                 {PROVINCES.map((geo) => {
                   const p = byName.get(geo.th)
@@ -211,13 +228,18 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             )}
           </div>
 
-          {/* ขวา: กล่องถาวร — จังหวัดที่ชี้/ปักหมุด หรือ สภาพอากาศเสี่ยง */}
-          <div className="min-h-[420px] flex-1 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+          {/* กลาง: กล่องถาวร — จังหวัดที่ชี้/ปักหมุด หรือ สภาพอากาศเสี่ยง (สูงเท่าแผนที่ · เลื่อนในกล่อง) */}
+          <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[380px]">
             {shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
               <WeatherPanel wx={wx} />
             )}
+          </div>
+
+          {/* ขวา: พนักงานอยู่ออฟฟิศ (ไม่มีแผนออกภาคสนามวันนั้น) */}
+          <div className="overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[380px] lg:w-[250px] lg:shrink-0">
+            <OfficePanel office={office} loading={!office || office.date !== officeDate} dateLabel={mode === 'date' ? officeDate : 'วันนี้'} />
           </div>
         </div>
       )}
@@ -275,7 +297,7 @@ function ProvincePanel({ prov, live, mode, date, isPinned, onUnpin }: {
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">
         👷 พนักงาน <span className="rounded-full bg-emerald-50 px-1.5 text-emerald-600">{prov.staff.length}</span>
       </div>
-      <div className="max-h-72 overflow-y-auto pr-1">
+      <div>
         {prov.staff.map((s) => {
           const col = teamHex(s.team)
           return (
@@ -323,7 +345,7 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
     <div className="text-sm">
       <h3 className="text-base font-bold text-slate-800">🌦️ สภาพอากาศเสี่ยง</h3>
       <p className="mb-3 text-xs text-slate-400">จังหวัดที่มีงานล่วงหน้า 3 วัน · 🌧️ เสี่ยงฝน · 🌡️ ร้อนจัด (ชี้จังหวัดบนแผนที่เพื่อดูรายละเอียดงาน)</p>
-      <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+      <div className="space-y-2">
         {wx.provinces.map((p) => (
           <div key={p.name} className="rounded-lg border border-slate-200 bg-white p-2.5">
             <div className="mb-1.5 text-sm font-semibold text-slate-700">{p.name}</div>
@@ -340,6 +362,52 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null; loading: boolean; dateLabel: string }) {
+  if (loading || !office) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
+  if (office.error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดไม่สำเร็จ</div>
+  return (
+    <div className="text-sm">
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-base font-bold text-slate-800">🏢 อยู่ออฟฟิศ</h3>
+        <span className="rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-600">{office.office.length}</span>
+      </div>
+      <p className="mb-3 text-xs text-slate-400">ไม่มีแผนออกภาคสนาม · {dateLabel}{office.onLeave > 0 ? ` · ลา ${office.onLeave} คน` : ''}</p>
+      {office.office.length === 0 ? (
+        <p className="text-xs text-slate-300">ทุกคนออกภาคสนาม/ลา</p>
+      ) : (
+        <div>
+          {office.office.map((s) => {
+            const col = teamHex(s.team)
+            return (
+              <div key={s.id} className="flex items-center gap-2.5 border-t border-slate-100 py-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/employees/${s.id}/photo`}
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  style={{ background: col + '22' }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+                />
+                <span className="min-w-0 flex-1 leading-tight">
+                  <b className="text-xs text-slate-700">{s.nick}</b>
+                  <span className="ml-1 font-mono text-[11px]" style={{ color: col }}>{s.team}</span>
+                  {s.tel && (
+                    <a href={`tel:${s.tel.replace(/[^0-9+]/g, '')}`} className="block truncate font-mono text-[11px] text-slate-500 hover:text-emerald-600">
+                      📞 {s.tel}
+                    </a>
+                  )}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
