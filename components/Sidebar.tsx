@@ -3,39 +3,40 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { LayoutDashboard, Users, Wrench, Car, Gauge, Settings, Leaf, LogOut, PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, type UserRole } from '@/lib/roles'
 
 interface Me { uid: number; role: UserRole; username: string; name: string; cemsAccess?: boolean }
 
-interface NavItem { href: string; label: string; icon: string; roles: UserRole[] }
+interface NavItem { href: string; label: string; icon: LucideIcon; roles: UserRole[] }
 interface NavGroup { title: string; items: NavItem[] }
 
 const NAV: NavGroup[] = [
   {
     title: 'ภาพรวม',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: '📊', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
     ],
   },
   {
     title: 'วางแผน',
     items: [
-      { href: '/staff',     label: 'แผนพนักงาน', icon: '👤', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
-      { href: '/equipment', label: 'แผนเครื่องมือ', icon: '🔧', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
-      { href: '/vehicles',  label: 'แผนใช้รถ',    icon: '🚗', roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+      { href: '/staff',     label: 'แผนพนักงาน', icon: Users, roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+      { href: '/equipment', label: 'แผนเครื่องมือ', icon: Wrench, roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
+      { href: '/vehicles',  label: 'แผนใช้รถ',    icon: Car, roles: ['ADMIN', 'MANAGER', 'GENERAL'] },
     ],
   },
   {
     title: 'บริการ',
     items: [
       // เมนู CEMS กรองด้วย cemsAccess เพิ่มเติมใน component (ไม่ใช่แค่ role)
-      { href: '/cems', label: 'CEMS Service', icon: '🖥', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE', 'GENERAL'] },
+      { href: '/cems', label: 'CEMS Service', icon: Gauge, roles: ['ADMIN', 'MANAGER', 'MAINTENANCE', 'GENERAL'] },
     ],
   },
   {
     title: 'ตั้งค่า',
     items: [
-      { href: '/admin', label: 'จัดการข้อมูล', icon: '⚙️', roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
+      { href: '/admin', label: 'จัดการข้อมูล', icon: Settings, roles: ['ADMIN', 'MANAGER', 'MAINTENANCE'] },
     ],
   },
 ]
@@ -117,7 +118,7 @@ export default function Sidebar() {
     <aside className={`flex h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-all duration-200 ${collapsed ? 'w-[68px]' : 'w-[232px]'}`}>
       {/* Logo */}
       <div className={`flex h-[60px] items-center gap-2 border-b border-slate-100 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-lg">🌿</span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100"><Leaf className="h-[18px] w-[18px] text-emerald-600" /></span>
         {!collapsed && (
           <div className="leading-tight">
             <p className="text-sm font-bold tracking-wide text-slate-700">Eco Planning</p>
@@ -152,7 +153,7 @@ export default function Sidebar() {
                         : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                     }`}
                   >
-                    <span className="text-base leading-none">{it.icon}</span>
+                    <it.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
                     {!collapsed && <span className="truncate">{it.label}</span>}
                     {active && !collapsed && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500" />}
                   </Link>
@@ -180,16 +181,16 @@ export default function Sidebar() {
           <button
             onClick={logout}
             title="ออกจากระบบ"
-            className={`flex items-center justify-center rounded-lg border border-slate-200 py-1.5 text-xs text-slate-500 hover:bg-slate-100 transition-colors ${collapsed ? 'w-full' : 'flex-1'}`}
+            className={`flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-500 hover:bg-slate-100 transition-colors ${collapsed ? 'w-full' : 'flex-1'}`}
           >
-            {collapsed ? '⎋' : 'ออกจากระบบ'}
+            {collapsed ? <LogOut className="h-4 w-4" /> : <><LogOut className="h-3.5 w-3.5" /> ออกจากระบบ</>}
           </button>
           <button
             onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'ขยาย' : 'ย่อ'}
             className={`flex items-center justify-center rounded-lg border border-slate-200 py-1.5 text-xs text-slate-400 hover:bg-slate-100 transition-colors ${collapsed ? 'w-full' : 'px-2'}`}
           >
-            {collapsed ? '»' : '«'}
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
       </div>

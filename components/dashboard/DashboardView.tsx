@@ -11,6 +11,7 @@ import HBarList from '@/components/dashboard/charts/HBarList'
 import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
 import PersonUtilBars from '@/components/dashboard/charts/PersonUtilBars'
 import ProvinceMap from '@/components/dashboard/charts/ProvinceMap'
+import { Wrench, Users, Car, CircleCheck } from 'lucide-react'
 import { utilHex, siteHex } from '@/lib/chartTheme'
 
 const TEAM_COLOR: Record<string, string> = {
@@ -81,13 +82,13 @@ export default function DashboardView() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
           <div className="col-span-full grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
-              { label: 'Util เฉลี่ยเครื่องมือ',  value: `${avgUtil}%`,    icon: '🔧', tint: 'bg-rose-100'    },
-              { label: 'Util พนักงานเฉลี่ย',     value: `${staffUtil}%`,  icon: '👥', tint: 'bg-emerald-100' },
-              { label: 'Util รถยนต์เฉลี่ย',       value: `${vehUtil}%`,    icon: '🚗', tint: 'bg-sky-100'     },
-              { label: 'เครื่องมือพร้อมใช้',      value: `${equipAvail}%`, icon: '✅', tint: 'bg-amber-100'   },
+              { label: 'Util เฉลี่ยเครื่องมือ',  value: `${avgUtil}%`,    icon: Wrench,      color: 'text-rose-500',    tint: 'bg-rose-100'    },
+              { label: 'Util พนักงานเฉลี่ย',     value: `${staffUtil}%`,  icon: Users,       color: 'text-emerald-600', tint: 'bg-emerald-100' },
+              { label: 'Util รถยนต์เฉลี่ย',       value: `${vehUtil}%`,    icon: Car,         color: 'text-sky-500',     tint: 'bg-sky-100'     },
+              { label: 'เครื่องมือพร้อมใช้',      value: `${equipAvail}%`, icon: CircleCheck, color: 'text-amber-500',   tint: 'bg-amber-100'   },
             ].map((k) => (
               <div key={k.label} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${k.tint} text-xl`}>{k.icon}</span>
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${k.tint}`}><k.icon className={`h-6 w-6 ${k.color}`} strokeWidth={2} /></span>
                 <div className="min-w-0">
                   <p className="text-2xl font-bold leading-tight text-slate-800">{k.value}</p>
                   <p className="truncate text-xs text-slate-500">{k.label}</p>
