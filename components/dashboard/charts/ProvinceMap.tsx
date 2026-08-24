@@ -22,7 +22,11 @@ interface Wx { days: string[]; provinces: WxProv[]; error?: boolean }
 interface Office { id: number; nick: string; team: string; tel: string | null }
 interface OfficeResp { date: string; office: Office[]; onLeave: number; field: number; error?: boolean }
 
-interface Trip { plate: string; driver: string; team: string; site: string; prov: string; days: number }
+interface Trip {
+  plate: string; driver: string; team: string
+  fromProv: string; fromSite: string | null; fromBase: boolean
+  toProv: string; toSite: string; days: number
+}
 interface TravelResp { date: string; trips: Trip[]; error?: boolean }
 interface OfficeVeh { id: number; plate: string; name: string | null; type: string | null }
 interface OfficeVehResp { date: string; vehicles: OfficeVeh[]; booked: number; total: number; error?: boolean }
@@ -176,9 +180,10 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const travelView = viewMode === 'travel'
   const routes = useMemo(() => {
     const list = (travel?.trips ?? []).map((t, i) => {
-      const d = CENT.get(t.prov)
-      if (!d) return null
-      return { t, i, d, path: arcPath(HUB, d), col: teamHex(t.team) }
+      const from = CENT.get(t.fromProv)
+      const to = CENT.get(t.toProv)
+      if (!from || !to) return null
+      return { t, i, from, to, path: arcPath(from, to), col: teamHex(t.team) }
     })
     return list.filter((r): r is NonNullable<typeof r> => r !== null)
   }, [travel])
@@ -321,22 +326,32 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                           onMouseEnter={() => setHoverRoute(r.i)}
                           onMouseLeave={() => setHoverRoute(null)}
                         >
-                          <title>{r.t.plate} · สระบุรี → {r.t.prov} · {r.t.site}</title>
+                          <title>{r.t.plate} · {r.t.fromBase ? 'ฐาน' : r.t.fromProv} → {r.t.toProv} · {r.t.toSite}</title>
                         </path>
                       ))}
                     </g>
+                    {/* จุดต้นทาง (ไม่ใช่ฐาน) */}
+                    <g>
+                      {routes.filter((r) => !r.t.fromBase).map((r) => (
+                        <circle key={r.i} cx={r.from.x} cy={r.from.y} r={3.5} fill="#94a3b8" stroke="#ffffff" strokeWidth={1.2} />
+                      ))}
+                    </g>
+                    {/* จุดปลายทาง */}
                     <g>
                       {routes.map((r) => (
                         <g key={r.i} className="cursor-pointer" onMouseEnter={() => setHoverRoute(r.i)} onMouseLeave={() => setHoverRoute(null)}>
-                          <circle cx={r.d.x} cy={r.d.y} r={4.5} fill={r.col} stroke="#ffffff" strokeWidth={1.5} />
-                          <text x={r.d.x} y={r.d.y - 7} textAnchor="middle" fontSize={9} fontWeight={600} fill="#334155">{r.t.site}</text>
+                          <circle cx={r.to.x} cy={r.to.y} r={4.5} fill={r.col} stroke="#ffffff" strokeWidth={1.5} />
+                          <text x={r.to.x} y={r.to.y - 7} textAnchor="middle" fontSize={9} fontWeight={600} fill="#334155">{r.t.toSite}</text>
                         </g>
                       ))}
                     </g>
-                    <g>
-                      <circle cx={HUB.x} cy={HUB.y} r={6} fill="#059669" stroke="#ffffff" strokeWidth={2} />
-                      <text x={HUB.x} y={HUB.y - 11} textAnchor="middle" fontFamily="IBM Plex Sans Thai, sans-serif" fontSize={12} fontWeight={700} fill="#059669">ฐาน สระบุรี</text>
-                    </g>
+                    {/* ฐานสระบุรี — โชว์เมื่อมีเส้นทางที่ออกจากฐาน */}
+                    {routes.some((r) => r.t.fromBase) && (
+                      <g>
+                        <circle cx={HUB.x} cy={HUB.y} r={6} fill="#059669" stroke="#ffffff" strokeWidth={2} />
+                        <text x={HUB.x} y={HUB.y - 11} textAnchor="middle" fontFamily="IBM Plex Sans Thai, sans-serif" fontSize={12} fontWeight={700} fill="#059669">ฐาน สระบุรี</text>
+                      </g>
+                    )}
                   </>
                 )}
               </svg>
@@ -344,7 +359,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
               {travelView ? (
                 <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
                   <div className="mb-1 flex items-center gap-1.5 text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" /> ฐาน (สระบุรี)</div>
-                  <div className="flex items-center gap-1.5 text-slate-500"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางรถ (สีตามทีม)</div>
+                  <div className="mb-1 flex items-center gap-1.5 text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> ต้นทาง (ไซต์เมื่อวาน)</div>
+                  <div className="flex items-center gap-1.5 text-slate-500"><span className="inline-block w-4 border-t-2 border-dashed border-slate-400" /> เส้นทางย้ายข้ามจังหวัด</div>
                 </div>
               ) : (
                 <div className="absolute bottom-2 left-2 rounded-lg border border-slate-200 bg-white/90 p-2.5 text-[11px] shadow-sm backdrop-blur">
@@ -356,7 +372,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </div>
             <p className="mt-2 text-xs text-slate-400">
               {travelView
-                ? 'เส้นทางรถ ฐานสระบุรี → ไซต์งาน ' + (travelDay === 'today' ? 'วันนี้' : 'พรุ่งนี้') + ' · ชี้เส้น/หมุด = ไฮไลต์'
+                ? 'รถที่ย้ายข้ามจังหวัด ' + (travelDay === 'today' ? 'วันนี้' : 'พรุ่งนี้') + ' (ต้นทาง = ไซต์เมื่อวาน · ฐาน=สระบุรี) · ชี้เส้น = ไฮไลต์'
                 : live
                 ? 'ความเข้มสี = จำนวนคนที่อยู่พื้นที่' + (mode === 'today' ? 'วันนี้' : 'วันที่เลือก') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'
                 : 'ความเข้มสี = ' + (metric === 'sites' ? 'จำนวนไซต์' : 'คน-วันสะสมทั้งเดือน') + ' · ชี้จังหวัด=ดู · คลิก=ปักหมุด'}
@@ -555,7 +571,7 @@ function OfficePanel({ office, loading, dateLabel }: { office: OfficeResp | null
 }
 
 function TravelPanel({ routes, day, loading, error, hoverRoute, setHoverRoute }: {
-  routes: { t: Trip; i: number; d: { x: number; y: number }; path: string; col: string }[]
+  routes: { t: Trip; i: number; from: { x: number; y: number }; to: { x: number; y: number }; path: string; col: string }[]
   day: 'today' | 'tomorrow'; loading: boolean; error: boolean
   hoverRoute: number | null; setHoverRoute: (i: number | null) => void
 }) {
@@ -582,10 +598,10 @@ function TravelPanel({ routes, day, loading, error, hoverRoute, setHoverRoute }:
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.col }} />
               <span className="font-mono text-xs font-semibold text-slate-700">{r.t.plate}</span>
-              <span className="ml-auto font-mono text-[11px] text-slate-400">~{r.t.days} วัน</span>
+              <span className="ml-auto font-mono text-[11px] text-slate-400">อยู่ ~{r.t.days} วัน</span>
             </div>
-            <div className="mt-1 text-[13px]"><span className="text-slate-400">สระบุรี</span> → <span className="font-semibold text-slate-700">{r.t.prov}</span></div>
-            <div className="truncate text-[11px] text-slate-400">{r.t.site} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
+            <div className="mt-1 text-[13px]"><span className="text-slate-400">{r.t.fromBase ? 'ฐาน สระบุรี' : r.t.fromProv}</span> → <span className="font-semibold text-slate-700">{r.t.toProv}</span></div>
+            <div className="truncate text-[11px] text-slate-400">{r.t.toSite} · คนขับ {r.t.driver} <span className="font-mono" style={{ color: r.col }}>{r.t.team}</span></div>
           </div>
         ))}
       </div>
