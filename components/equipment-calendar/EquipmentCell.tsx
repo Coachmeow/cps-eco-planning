@@ -1,5 +1,6 @@
 'use client'
 
+import { Clock, Lock, StickyNote } from 'lucide-react'
 import type { EquipmentAssignment } from '@/lib/types'
 import { teamCellClass } from '@/lib/teamColors'
 
@@ -80,11 +81,11 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
           {isTentative && (
             <>
               <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-red-500" />
-              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+              <Clock className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-red-500" />
             </>
           )}
-          {assignments.some(a => a.isLocked) && <span className={`absolute top-0.5 text-[9px] text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`}>🔒</span>}
-          {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
+          {assignments.some(a => a.isLocked) && <Lock className={`absolute top-0.5 h-2.5 w-2.5 text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`} />}
+          {noteText && <StickyNote className="absolute bottom-0 right-0.5 h-2.5 w-2.5 text-slate-400" />}
         </div>
       ) : maint ? (
         <span className="truncate text-[10px] font-medium leading-tight">{MAINT_META[maint].label}</span>

@@ -1,5 +1,6 @@
 'use client'
 
+import { User, Clock, StickyNote } from 'lucide-react'
 import type { VehicleBooking } from '@/lib/types'
 import { PURPOSE_META } from '@/lib/vehiclePurpose'
 import { teamCellClass } from '@/lib/teamColors'
@@ -72,16 +73,16 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
             )}
           </span>
           {first.driver?.nickname || first.driverName ? (
-            <span className="text-[9px] text-slate-500">🧑 {first.driver?.nickname ?? first.driverName}</span>
+            <span className="flex items-center gap-0.5 text-[9px] text-slate-500"><User className="h-2.5 w-2.5" /> {first.driver?.nickname ?? first.driverName}</span>
           ) : null}
           {isConflict && <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
           {isTentative && (
             <>
               <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-red-500" />
-              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+              <Clock className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-red-500" />
             </>
           )}
-          {noteText && <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>}
+          {noteText && <StickyNote className="absolute bottom-0 right-0.5 h-2.5 w-2.5 text-slate-400" />}
         </div>
       )}
     </td>

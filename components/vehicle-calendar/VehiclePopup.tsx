@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { User, StickyNote } from 'lucide-react'
 import type { Vehicle, VehicleBooking, Site, Employee, VehiclePurpose } from '@/lib/types'
 import { PURPOSE_META, PURPOSE_ORDER } from '@/lib/vehiclePurpose'
 import SearchableSelect from '@/components/SearchableSelect'
@@ -135,9 +136,9 @@ export default function VehiclePopup({
                         {canEdit ? <button onClick={() => onDelete(b.id)} className="text-red-400 hover:text-red-600">ลบ</button> : null}
                       </div>
                     </div>
-                    {driver && <p className="text-[11px] text-slate-400">🧑 {driver}</p>}
+                    {driver && <p className="text-[11px] text-slate-400"><User className="inline h-3 w-3 align-[-1px]" /> {driver}</p>}
                     {b.isTentative && <TentativeRow reason={b.tentativeReason} canEdit={canEdit} busy={confirming === b.id} onConfirm={() => doConfirm(b.id)} />}
-                    {b.notes && <p className="text-[11px] text-amber-600">📝 {b.notes}</p>}
+                    {b.notes && <p className="text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {b.notes}</p>}
                     {moveFor === b.id && movePanel}
                   </div>
                 )
@@ -149,7 +150,7 @@ export default function VehiclePopup({
                     {canEdit && onMove &&
                       <button onClick={() => openMove(b.id, b.assignedDate)} className="text-[11px] text-sky-500 hover:text-sky-700">เลื่อนทั้งงาน</button>}
                   </div>
-                  {driver && <p className="mb-1 text-[11px] text-slate-400">🧑 {driver}</p>}
+                  {driver && <p className="mb-1 text-[11px] text-slate-400"><User className="inline h-3 w-3 align-[-1px]" /> {driver}</p>}
                   {b.isTentative && <TentativeRow reason={b.tentativeReason} canEdit={canEdit} busy={confirming === b.id} wholeJob onConfirm={() => doConfirm(b.id)} />}
                   {moveFor === b.id && movePanel}
                   <div className="space-y-0.5">

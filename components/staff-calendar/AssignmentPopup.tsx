@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Wrench, Car, Users, Lock, StickyNote, Clock } from 'lucide-react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
@@ -304,10 +305,10 @@ export default function AssignmentPopup({
         {hasLinked && (
           <div className="flex flex-wrap gap-1">
             {a.equipment.map(e => (
-              <span key={`e${e.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🔧 {e.label}</span>
+              <span key={`e${e.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600"><Wrench className="inline h-3 w-3 align-[-1px]" /> {e.label}</span>
             ))}
             {a.vehicles.map(v => (
-              <span key={`v${v.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">🚗 {v.plate}</span>
+              <span key={`v${v.id}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600"><Car className="inline h-3 w-3 align-[-1px]" /> {v.plate}</span>
             ))}
           </div>
         )}
@@ -315,10 +316,10 @@ export default function AssignmentPopup({
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-[9px] font-medium text-amber-600">⚟ จองแยกที่ไซต์:</span>
             {a.siteEquipment.map(e => (
-              <span key={`se${e.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">🔧 {e.label}</span>
+              <span key={`se${e.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700"><Wrench className="inline h-3 w-3 align-[-1px]" /> {e.label}</span>
             ))}
             {a.siteVehicles.map(v => (
-              <span key={`sv${v.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">🚗 {v.plate}</span>
+              <span key={`sv${v.id}`} className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700"><Car className="inline h-3 w-3 align-[-1px]" /> {v.plate}</span>
             ))}
           </div>
         )}
@@ -366,10 +367,10 @@ export default function AssignmentPopup({
                             )}
                             <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
                           </span>
-                        : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                        : a.isLocked ? <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-300"><Lock className="h-2.5 w-2.5" /> ล็อก</span> : null}
                     </div>
                     {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} onConfirm={() => doConfirm(a.id)} />}
-                    {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    {a.notes && <p className="mt-0.5 text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
                     {renderAttach(a.parentId ?? a.id)}
                   </div>
                 )
@@ -389,7 +390,7 @@ export default function AssignmentPopup({
                     )}
                   </div>
                   {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} wholeJob onConfirm={() => doConfirm(a.id)} />}
-                  {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                  {a.notes && <p className="mb-1 text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
                   <div className="space-y-0.5">
                     {group.map((g) => {
                       const isParent = g.parentId == null
@@ -401,7 +402,7 @@ export default function AssignmentPopup({
                                 className={isParent ? 'font-medium text-red-500 hover:text-red-700' : 'text-red-400 hover:text-red-600'}>
                                 {isParent ? 'ลบทั้งงาน' : 'ลบวันนี้'}
                               </button>
-                            : g.isLocked ? <span className="text-slate-300 text-[10px]">🔒</span> : null}
+                            : g.isLocked ? <Lock className="inline h-2.5 w-2.5 text-slate-300" /> : null}
                         </div>
                       )
                     })}
@@ -496,7 +497,7 @@ export default function AssignmentPopup({
               <div>
                 <button type="button" disabled={!siteId} onClick={() => setPickerOpen(true)}
                   className="flex w-full items-center justify-between rounded border border-slate-200 px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                  <span>🔧 เครื่องมือที่เอาไปด้วย {equipIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{equipIds.length}</span>}</span>
+                  <span><Wrench className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />เครื่องมือที่เอาไปด้วย {equipIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{equipIds.length}</span>}</span>
                   <span className="text-xs text-slate-400">{siteId ? 'เลือก ›' : 'เลือกไซต์ก่อน'}</span>
                 </button>
                 {equipIds.length > 0 && (
@@ -518,7 +519,7 @@ export default function AssignmentPopup({
               <div>
                 <button type="button" disabled={!siteId} onClick={() => setVehPickerOpen(true)}
                   className="flex w-full items-center justify-between rounded border border-slate-200 px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                  <span>🚗 รถที่ใช้ {vehicleIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{vehicleIds.length}</span>}</span>
+                  <span><Car className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />รถที่ใช้ {vehicleIds.length > 0 && <span className="ml-1 rounded-full bg-slate-700 px-1.5 text-[10px] font-semibold text-white">{vehicleIds.length}</span>}</span>
                   <span className="text-xs text-slate-400">{siteId ? 'เลือก ›' : 'เลือกไซต์ก่อน'}</span>
                 </button>
                 {vehicleIds.length > 0 && (
@@ -527,7 +528,7 @@ export default function AssignmentPopup({
                       const v = vehList.find(x => x.id === id)
                       return (
                         <span key={id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                          🚗 {v ? v.licensePlate : `#${id}`}
+                          <Car className="inline h-3 w-3 align-[-1px]" /> {v ? v.licensePlate : `#${id}`}
                           <button type="button" onClick={() => setVehicleIds(prev => prev.filter(i => i !== id))} className="text-slate-400 hover:text-red-500">×</button>
                         </span>
                       )
@@ -557,7 +558,7 @@ export default function AssignmentPopup({
         {canEdit && showAdd && displayed.length > 0 && (
           <div className="border-t border-slate-100 px-4 pb-3 pt-2">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium text-slate-500">👥 คนร่วมงาน</p>
+              <p className="text-xs font-medium text-slate-500"><Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />คนร่วมงาน</p>
               <div className="flex items-center gap-2">
                 {companions.length > 0 && (
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
@@ -658,7 +659,7 @@ export default function AssignmentPopup({
           <div className="h-full w-[380px] max-w-[90vw] overflow-y-auto bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
             <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-slate-800">🔧 เลือกเครื่องมือ</p>
+                <p className="text-sm font-semibold text-slate-800"><Wrench className="mr-1 inline h-4 w-4 align-[-3px]" />เลือกเครื่องมือ</p>
                 <p className="text-xs text-slate-400">ไป {sites.find(s => String(s.id) === siteId)?.code ?? ''} · {estimatedDays} วัน</p>
               </div>
               <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{equipIds.length}</span>
@@ -666,7 +667,7 @@ export default function AssignmentPopup({
             <div className="p-4">
               <input value={equipSearch} onChange={e => setEquipSearch(e.target.value)} placeholder="🔍 ค้นหาเครื่องมือ / หมวด..."
                 className="mb-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:bg-white focus:outline-none" />
-              <p className="mb-2 text-[11px] text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-amber-400 align-middle" /> ถูกจองแล้ว · <span className="text-slate-300 line-through">🔒 ส่งซ่อม/Cal</span> · <span className="text-orange-600">⏳ คาดรับกลับ (เผื่อเลื่อน)</span> — ชี้เมาส์ดูรายละเอียด</p>
+              <p className="mb-2 text-[11px] text-slate-400"><span className="inline-block h-2 w-2 rounded-full bg-amber-400 align-middle" /> ถูกจองแล้ว · <span className="text-slate-300 line-through"><Lock className="inline h-2.5 w-2.5 align-[-1px]" /> ส่งซ่อม/Cal</span> · <span className="text-orange-600"><Clock className="inline h-2.5 w-2.5 align-[-1px]" /> คาดรับกลับ (เผื่อเลื่อน)</span> — ชี้เมาส์ดูรายละเอียด</p>
               <div className="space-y-2">
                 {(() => {
                   const q = equipSearch.trim().toLowerCase()
@@ -718,8 +719,8 @@ export default function AssignmentPopup({
                                       : tentative ? 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100'
                                       : busy ? 'border-amber-300 bg-amber-50 text-slate-600 hover:bg-amber-100'
                                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
-                                    {blocked && <span className="text-[10px]">🔒</span>}
-                                    {tentative && !sel && <span className="text-[10px]">⏳</span>}
+                                    {blocked && <Lock className="h-2.5 w-2.5" />}
+                                    {tentative && !sel && <Clock className="h-2.5 w-2.5" />}
                                     {sel && <span className="text-[10px]">✓</span>}
                                     {busy && !sel && !blocked && !tentative && <span className={`h-2 w-2 shrink-0 rounded-full ${siteDotClass(busy[0].siteColor)}`} />}
                                     <span className="truncate">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
@@ -749,7 +750,7 @@ export default function AssignmentPopup({
           <div className="h-full w-[340px] max-w-[90vw] overflow-y-auto bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
             <div className="sticky top-0 border-b border-slate-100 bg-white px-4 py-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-800">🚗 เลือกรถ</p>
+                <p className="text-sm font-semibold text-slate-800"><Car className="mr-1 inline h-4 w-4 align-[-3px]" />เลือกรถ</p>
                 <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{vehicleIds.length}</span>
               </div>
               {vehList.length > 0 && (() => {
@@ -776,7 +777,7 @@ export default function AssignmentPopup({
                           : busy ? 'border-amber-200 bg-amber-50 text-slate-500 hover:border-amber-300'
                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}>
                     {sel && <span className="text-[10px]">✓</span>}
-                    <span className="font-medium">🚗 {v.licensePlate}</span>
+                    <span className="font-medium"><Car className="inline h-3 w-3 align-[-1px]" /> {v.licensePlate}</span>
                     <span className={`truncate text-xs ${sel ? 'text-white/70' : 'text-slate-400'}`}>{[v.name, v.vehicleType].filter(Boolean).join(' · ')}</span>
                     {busy && (
                       <span className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${sel ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-800'}`}>
@@ -828,7 +829,7 @@ export default function AssignmentPopup({
                 <div className="border-t border-slate-50 pt-2">
                   <p className="mb-1 text-xs text-slate-400">รถ ({vehicleIds.length}) · คนขับ {employee.nickname ?? employee.fullName}</p>
                   <div className="flex flex-wrap gap-1">
-                    {vehicleIds.map(id => { const v = vehList.find(x => x.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">🚗 {v ? v.licensePlate : `#${id}`}</span> })}
+                    {vehicleIds.map(id => { const v = vehList.find(x => x.id === id); return <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"><Car className="inline h-3 w-3 align-[-1px]" /> {v ? v.licensePlate : `#${id}`}</span> })}
                   </div>
                 </div>
               )}

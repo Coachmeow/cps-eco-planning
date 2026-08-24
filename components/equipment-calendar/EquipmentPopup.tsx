@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Wrench, Lock, StickyNote } from 'lucide-react'
 import type { Equipment, EquipmentType, Site, EquipmentAssignment } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
@@ -252,11 +253,11 @@ export default function EquipmentPopup({
                             <button onClick={() => openMove(a.id, a.assignedDate)} className="text-sky-500 hover:text-sky-700">เลื่อน</button>}
                           {canEdit && !a.isLocked
                             ? <button onClick={() => onDelete(a.id)} className="text-red-400 hover:text-red-600">ลบ</button>
-                            : a.isLocked ? <span className="text-slate-300 text-[10px]">🔒 ล็อก</span> : null}
+                            : a.isLocked ? <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-300"><Lock className="h-2.5 w-2.5" /> ล็อก</span> : null}
                         </div>
                       </div>
                       {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} onConfirm={() => doConfirm(a.id)} />}
-                      {a.notes && <p className="mt-0.5 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                      {a.notes && <p className="mt-0.5 text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
                       {moveFor === a.id && movePanel}
                     </div>
                   )
@@ -273,7 +274,7 @@ export default function EquipmentPopup({
                         <button onClick={() => openMove(a.id, a.assignedDate)} className="text-[11px] text-sky-500 hover:text-sky-700">เลื่อนทั้งงาน</button>}
                     </div>
                     {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} wholeJob onConfirm={() => doConfirm(a.id)} />}
-                    {a.notes && <p className="mb-1 text-[11px] text-amber-600">📝 {a.notes}</p>}
+                    {a.notes && <p className="mb-1 text-[11px] text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
                     {moveFor === a.id && movePanel}
                     <div className="space-y-0.5">
                       {group.map((g) => {
@@ -286,7 +287,7 @@ export default function EquipmentPopup({
                                   className={isParent ? 'font-medium text-red-500 hover:text-red-700' : 'text-red-400 hover:text-red-600'}>
                                   {isParent ? 'ลบทั้งงาน' : 'ลบวันนี้'}
                                 </button>
-                              : g.isLocked ? <span className="text-slate-300 text-[10px]">🔒</span> : null}
+                              : g.isLocked ? <Lock className="inline h-2.5 w-2.5 text-slate-300" /> : null}
                           </div>
                         )
                       })}
@@ -386,7 +387,7 @@ export default function EquipmentPopup({
           <div className="px-4 py-3">
             {/* Section header */}
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium text-slate-600">🔧 เครื่องมือร่วม</p>
+              <p className="text-xs font-medium text-slate-600"><Wrench className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />เครื่องมือร่วม</p>
               <div className="flex items-center gap-2">
                 {companions.length > 0 && (
                   <>

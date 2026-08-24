@@ -1,5 +1,6 @@
 'use client'
 
+import { Clock, Lock, StickyNote } from 'lucide-react'
 import type { StaffAssignment, Employee } from '@/lib/types'
 import { teamCellClass } from '@/lib/teamColors'
 import { LEAVE_ABBR, LEAVE_LABEL } from '@/lib/leaveTypes'
@@ -138,17 +139,17 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
           {isTentative && (
             <>
               <span className="pointer-events-none absolute inset-[2px] rounded-sm border-2 border-dashed border-red-500" />
-              <span className="absolute top-0.5 right-0.5 text-[9px] leading-none">⏳</span>
+              <Clock className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-red-500" />
             </>
           )}
           {assignments.some(a => a.isLocked) && (
-            <span className={`absolute top-0.5 text-[9px] text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`}>🔒</span>
+            <Lock className={`absolute top-0.5 h-2.5 w-2.5 text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`} />
           )}
           {isConflict && (
             <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />
           )}
           {noteText && (
-            <span className="absolute bottom-0 right-0.5 text-[8px] leading-none">📝</span>
+            <StickyNote className="absolute bottom-0 right-0.5 h-2.5 w-2.5 text-slate-400" />
           )}
         </div>
       )}
