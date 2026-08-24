@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import ExportButton from '@/components/ExportButton'
 import type { DashboardData, SiteMandayRow, TeamCapacityRow } from '@/lib/types'
-import CapacityDonut from '@/components/dashboard/charts/CapacityDonut'
+import CapacityRings from '@/components/dashboard/charts/CapacityRings'
 import TrendComposed from '@/components/dashboard/charts/TrendComposed'
 import DemandChart from '@/components/dashboard/charts/DemandChart'
 import TeamStackChart from '@/components/dashboard/charts/TeamStackChart'
@@ -105,13 +105,20 @@ export default function DashboardView() {
             <ProvinceMap year={year} month={month} />
           </div>
 
-          {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน */}
+          {/* Sankey man-day: ไซต์ → (คลิก) กลุ่มงาน → (คลิก) คน · ซ้าย = แผงกำลังคน (Capacity rings) */}
           {(data.sankeyRows?.length ?? 0) > 0 && (
             <div className="col-span-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-700">
                 Man-day <span className="font-normal text-slate-400">· ไซต์ → กลุ่มงาน → คน</span>
               </h2>
-              <ManDaySankey rows={data.sankeyRows!} />
+              <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+                <div className="lg:w-[380px] lg:shrink-0 lg:border-r lg:border-slate-100 lg:pr-6">
+                  <CapacityRings rows={data.teamCapacity} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <ManDaySankey rows={data.sankeyRows!} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -152,10 +159,6 @@ export default function DashboardView() {
                 })}
               </div>
             )}
-          </Card>
-
-          <Card title="สัดส่วนกำลังคนต่อทีม (Capacity)">
-            <CapacityDonut rows={data.teamCapacity} />
           </Card>
 
           {/* Utilization รายคน — กราฟแท่งแนวตั้งเต็มความกว้าง (รูปพนักงาน + %) */}

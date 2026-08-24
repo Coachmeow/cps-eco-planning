@@ -74,7 +74,7 @@ function buildGraph(rows: SankeyRow[], focusSite: string, focusTeam: string): { 
 
 const isOther = (n: { name?: string }) => n.name === 'ไซต์อื่นๆ' || n.name === 'อื่นๆ'
 const VB_W = 960
-const COL0 = 215   // ขอบซ้ายคอลัมน์ไซต์ (เว้นที่ตัวเลขรวม + ป้ายชื่อไซต์ไว้หน้าแถบ)
+const COL0 = 84    // ขอบซ้ายคอลัมน์ไซต์ (เว้นที่ป้ายชื่อไซต์ไว้หน้าแถบ ; ยอดรวมย้ายไปแผงซ้ายแล้ว)
 
 export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
   const [focusSite, setFocusSite] = useState('')
@@ -165,15 +165,8 @@ export default function ManDaySankey({ rows }: { rows: SankeyRow[] }) {
       ) : (
         <div className="overflow-x-auto">
           {(() => {
-            const cy = layout.H / 2
-            const cx = 44   // กึ่งกลางช่องว่างซ้าย (ระหว่างขอบ svg กับป้ายชื่อไซต์)
             return (
-              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 560, maxWidth: 1120, display: 'block', margin: '0 auto' }} role="img" aria-label="Sankey man-day">
-                {/* Man-day รวม — ตัวเลขใหญ่ฝั่งซ้าย (ช่องไฟบน/ล่างเท่ากัน) */}
-                <text x={cx} y={cy - 32} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={MUTED}>Man-day รวม</text>
-                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={38} fontWeight={700} fill={INK}>{Math.round(layout.total)}</text>
-                <text x={cx} y={cy + 32} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={MUTED}>วัน-คน</text>
-
+              <svg viewBox={`0 0 ${VB_W} ${layout.H}`} width="100%" style={{ minWidth: 480, maxWidth: 1120, display: 'block', margin: '0 auto' }} role="img" aria-label="Sankey man-day">
                 {layout.links.map((l, i) => (
                   <path key={i} d={linkPath(l) ?? ''} fill="none"
                     stroke={(l.target as GNode).color} strokeOpacity={0.32} strokeWidth={Math.max(1, l.width ?? 1)}>
