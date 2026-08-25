@@ -6,7 +6,7 @@
 // ขวา: พนักงานประจำออฟฟิศ + รถพร้อมใช้งาน (เลือกวันที่แยกอิสระต่อกล่อง)
 // API: province-map · weather · office-staff · office-vehicles · travel
 import { useState, useEffect, useMemo } from 'react'
-import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, Car, Bus, type LucideIcon } from 'lucide-react'
+import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, Car, Bus, MapPin, Play, Pause, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
 
@@ -90,6 +90,11 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [pinnedName, setPinnedName] = useState<string | null>(null)
   const [wx, setWx] = useState<Wx | null>(null)
   const [office, setOffice] = useState<OfficeResp | null>(null)
+  // กล่อง idle (ตรงกลาง) — สลับ 2 มุมมอง: สภาพอากาศ ↔ พนักงานประจำ Location วันนี้
+  const [idleView, setIdleView] = useState<'wx' | 'loc'>('wx')
+  const [idleAuto, setIdleAuto] = useState(true)   // หมุนอัตโนมัติทุก 3 วิ
+  const [idlePaused, setIdlePaused] = useState(false) // หยุดชั่วคราวเมื่อชี้เมาส์
+  const [locData, setLocData] = useState<(Resp & { error?: boolean }) | null>(null) // สแนปช็อตพนักงานวันนี้ (คงที่)
   const [viewMode, setViewMode] = useState<'heat' | 'travel'>('heat')
   const [travelDay, setTravelDay] = useState<'today' | 'tomorrow' | 'date'>('today')
   const [travelPickDate, setTravelPickDate] = useState(todayKey())
@@ -136,6 +141,16 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
       .then((r) => r.json())
       .then((d: Wx) => { if (!cancelled) setWx(d) })
       .catch(() => { if (!cancelled) setWx({ days: [], provinces: [], error: true }) })
+    return () => { cancelled = true }
+  }, [])
+
+  // พนักงานประจำ Location วันนี้ — ดึงครั้งเดียวตอน mount (แยกจากโหมดแผนที่ ให้เป็น "วันนี้" เสมอ)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/dashboard/province-map?scope=date&date=${todayKey()}`)
+      .then((r) => r.json())
+      .then((d: Resp) => { if (!cancelled) setLocData(d) })
+      .catch(() => { if (!cancelled) setLocData({ scope: '', provinces: [], unmatched: { sites: 0, days: 0 }, error: true }) })
     return () => { cancelled = true }
   }, [])
 
@@ -202,6 +217,35 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   }, [travel])
   const allTrips = travel?.trips ?? []
   const travelLoading = travelView && (!travel || travel.key !== travelDateKey)
+
+  // อันดับความเสี่ยงอากาศต่อจังหวัด (ไว้เรียงหน้า Location + ป้ายชิปบนหัวจังหวัด)
+  const wxRank = useMemo(() => {
+    const m = new Map<string, { rank: number; level: number; kind: string }>()
+    wx?.provinces.forEach((p, i) => {
+      const wd = p.daily.reduce((a, b) => (b.level > a.level ? b : a), p.daily[0])
+      m.set(p.name, { rank: i, level: p.worst, kind: wd?.kind ?? 'sun' })
+    })
+    return m
+  }, [wx])
+
+  // จังหวัดที่มีพนักงานประจำไซต์วันนี้ เรียงตามความเสี่ยงอากาศ (จังหวัดที่ไม่มีข้อมูลอากาศต่อท้าย)
+  const locProvinces = useMemo(() => {
+    const list = (locData?.provinces ?? []).filter((p) => p.staff.length > 0)
+    return list.slice().sort((a, b) => {
+      const ra = wxRank.get(a.name)?.rank ?? 999
+      const rb = wxRank.get(b.name)?.rank ?? 999
+      if (ra !== rb) return ra - rb
+      return b.head - a.head
+    })
+  }, [locData, wxRank])
+
+  // หมุนสลับ สภาพอากาศ ↔ Location ทุก 3 วิ — หยุดเมื่อชี้เมาส์ / ปิดสวิตช์ / ไม่ได้อยู่โหมด idle
+  const idleShown = !travelView && !shown
+  useEffect(() => {
+    if (!idleAuto || idlePaused || !idleShown) return
+    const t = setInterval(() => setIdleView((v) => (v === 'wx' ? 'loc' : 'wx')), 3000)
+    return () => clearInterval(t)
+  }, [idleAuto, idlePaused, idleShown])
 
   function togglePin(name: string) { setPinnedName((cur) => (cur === name ? null : name)) }
 
@@ -411,7 +455,46 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             ) : shown ? (
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
-              <WeatherPanel wx={wx} />
+              <div onMouseEnter={() => setIdlePaused(true)} onMouseLeave={() => setIdlePaused(false)}>
+                {/* toggle สลับ สภาพอากาศ ↔ ประจำ Location — ติดหัวกล่องขณะเลื่อน */}
+                <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-1 bg-slate-50 px-4 pt-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+                      {([['wx', 'สภาพอากาศ', CloudSunRain], ['loc', 'ประจำ Location', MapPin]] as const).map(([k, label, Icon]) => (
+                        <button
+                          key={k}
+                          onClick={() => setIdleView(k)}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                            idleView === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" /> {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setIdleAuto((a) => !a)}
+                      title={idleAuto ? 'หยุดการสลับอัตโนมัติ' : 'สลับอัตโนมัติทุก 3 วิ'}
+                      className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:bg-white hover:text-slate-600"
+                    >
+                      {idleAuto ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      {idleAuto ? 'อัตโนมัติ' : 'หยุด'}
+                    </button>
+                  </div>
+                  <div className="mt-2 h-0.5 overflow-hidden rounded bg-slate-200">
+                    {idleAuto && (
+                      <div
+                        key={idleView}
+                        className="idle-fill h-full rounded bg-emerald-400"
+                        style={{ animationPlayState: idlePaused ? 'paused' : 'running' }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {idleView === 'wx'
+                  ? <WeatherPanel wx={wx} />
+                  : <LocationPanel provinces={locProvinces} wxRank={wxRank} loading={!locData} error={!!locData?.error} />}
+              </div>
             )}
           </div>
 
@@ -541,6 +624,81 @@ function WeatherPanel({ wx }: { wx: Wx | null }) {
                   <div className="font-mono text-[10px] tabular-nums">{d.tmax}°</div>
                 </div>
               ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ป้ายชิปความเสี่ยงอากาศบนหัวจังหวัด (อธิบายว่าเรียงตามอะไร)
+function WxChip({ wr }: { wr?: { level: number; kind: string } }) {
+  if (!wr) return null
+  const [cls, label] =
+    wr.level === 2 ? ['border-red-200 bg-red-50 text-red-700', 'เสี่ยง']
+    : wr.level === 1 ? ['border-amber-200 bg-amber-50 text-amber-700', 'เฝ้าระวัง']
+    : ['border-slate-200 bg-slate-50 text-slate-500', 'ปกติ']
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>
+      <WxIcon kind={wr.kind} className="h-2.5 w-2.5" /> {label}
+    </span>
+  )
+}
+
+function LocationPanel({ provinces, wxRank, loading, error }: {
+  provinces: Prov[]
+  wxRank: Map<string, { rank: number; level: number; kind: string }>
+  loading: boolean; error: boolean
+}) {
+  if (loading) return <div className="flex h-full items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>
+  if (error) return <div className="flex h-full items-center justify-center text-sm text-slate-400">โหลดข้อมูลไม่สำเร็จ</div>
+  if (provinces.length === 0) return (
+    <div className="flex h-full flex-col items-center justify-center gap-1 text-center text-sm text-slate-400">
+      <MapPin className="h-8 w-8 text-slate-300" />
+      <span>ไม่มีพนักงานประจำไซต์วันนี้</span>
+      <span className="text-xs text-slate-300">ชี้จังหวัดบนแผนที่เพื่อดูรายละเอียด</span>
+    </div>
+  )
+  return (
+    <div className="text-sm">
+      <h3 className="flex items-center gap-1.5 text-base font-bold text-slate-800"><MapPin className="h-4 w-4 text-emerald-600" /> ประจำ Location</h3>
+      <p className="mb-3 text-xs text-slate-400">พนักงานที่อยู่ไซต์งานรายจังหวัด · วันนี้ · เรียงตามความเสี่ยงอากาศ</p>
+      <div className="space-y-2">
+        {provinces.map((p) => (
+          <div key={p.name} className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-700">{p.name}</span>
+              <WxChip wr={wxRank.get(p.name)} />
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 text-[11px] font-medium text-slate-500">
+                <HardHat className="h-3 w-3" />{p.staff.length}
+              </span>
+            </div>
+            <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
+              {p.staff.map((s) => {
+                const col = teamHex(s.team)
+                return (
+                  <div key={s.id} className="w-[84px] shrink-0 rounded-md border border-slate-100 bg-slate-50 p-1.5 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/employees/${s.id}/photo`}
+                      alt=""
+                      width={30}
+                      height={30}
+                      className="mx-auto mb-1 h-[30px] w-[30px] rounded-full object-cover"
+                      style={{ background: col + '22' }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+                    />
+                    <div className="truncate text-[11px] font-semibold text-slate-700">{s.nick}</div>
+                    <div className="truncate font-mono text-[9.5px] font-medium" style={{ color: col }}>{s.team}</div>
+                    {s.tel && (
+                      <a href={`tel:${s.tel.replace(/[^0-9+]/g, '')}`} className="block truncate font-mono text-[9px] text-slate-500 hover:text-emerald-600">
+                        {s.tel}
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         ))}
