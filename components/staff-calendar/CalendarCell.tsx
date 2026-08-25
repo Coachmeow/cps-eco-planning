@@ -110,7 +110,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       {/* ธงมุมบนซ้าย = การ์ดแม่ (ถืออุปกรณ์ของกลุ่ม) */}
       {isGroupMain && (
         <svg className="pointer-events-none absolute left-0 top-0" width="15" height="15" viewBox="0 0 15 15" aria-hidden="true">
-          <path d="M0 0 H15 L0 15 Z" fill="#0f766e" />
+          <path d="M0 0 H15 L0 15 Z" fill="#64748b" />
           <path d="M2.4 5 L4 6.6 L7 3.2" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
