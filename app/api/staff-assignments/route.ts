@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
       employee:    { include: { primaryTeam: true }, omit: { photoUrl: true } },
       site:        true,
       serviceType: true,
+      // นับเครื่องมือ/รถที่ผูกกับงานนี้ → รู้ว่าการ์ดนี้เป็น "การ์ดแม่" (ถืออุปกรณ์ของกลุ่ม)
+      _count:      { select: { equipmentAssignments: true, vehicleBookings: true } },
     },
     orderBy: [{ employeeId: 'asc' }, { assignedDate: 'asc' }],
   })

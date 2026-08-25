@@ -53,13 +53,14 @@ interface Props {
   isHoliday?:  boolean
   employee:    Employee
   colSpan?:    number   // >1 = งานหลายวัน merge เป็นช่องเดียว
+  isGroupMain?: boolean  // การ์ดแม่ของกลุ่ม (ถืออุปกรณ์) → ธงมุมบนซ้าย
   isRangeStart?: boolean  // ช่องที่เลือกเป็นวันเริ่มของช่วง (click แรก)
   inRange?:      boolean  // ช่องที่อยู่ในช่วงที่กำลังเลือก (preview ก่อน click ที่สอง)
   onClick:      () => void
   onMouseEnter?: () => void
 }
 
-export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, employee, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
+export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, employee, isGroupMain, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
   const base  = cellStyle(assignments, isConflict, employee)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0
@@ -88,8 +89,9 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       .filter(a => a.notes)
       .map(a => `${a.status !== 'FIELD' ? statusAbbr(a) : (a.site?.code ?? '')}: ${a.notes}`),
   ].join('\n')
-  // tooltip = เหตุผลรอยืนยัน + หมายเหตุ ; ส่วนไอคอน 📝 ยังผูกกับ noteText อย่างเดียวเหมือนเดิม
-  const tipText = [...tentativeText, noteText].filter(Boolean).join('\n')
+  // tooltip = การ์ดแม่ + เหตุผลรอยืนยัน + หมายเหตุ ; ส่วนไอคอน 📝 ยังผูกกับ noteText อย่างเดียวเหมือนเดิม
+  const ownerText = isGroupMain ? 'การ์ดแม่ — ถือเครื่องมือ/รถของงานนี้' : ''
+  const tipText = [ownerText, ...tentativeText, noteText].filter(Boolean).join('\n')
 
   // ไฮไลต์ตอนเลือกช่วงวัน: วันเริ่ม = วงแหวนเข้ม ; ในช่วง preview = วงแหวนอ่อน+ฟ้าจาง
   const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
@@ -105,6 +107,13 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
         px-1 py-0.5 text-center text-xs align-middle
         transition-colors ${base} ${extra} ${rangeCls}`}
     >
+      {/* ธงมุมบนซ้าย = การ์ดแม่ (ถืออุปกรณ์ของกลุ่ม) */}
+      {isGroupMain && (
+        <svg className="pointer-events-none absolute left-0 top-0" width="15" height="15" viewBox="0 0 15 15" aria-hidden="true">
+          <path d="M0 0 H15 L0 15 Z" fill="#0f766e" />
+          <path d="M2.4 5 L4 6.6 L7 3.2" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
       {assignments.length > 0 && (
         <div className="flex flex-col items-center gap-px leading-tight">
 
@@ -146,7 +155,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
             <Lock className={`absolute top-0.5 h-2.5 w-2.5 text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`} />
           )}
           {isConflict && (
-            <span className="absolute top-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+            <span className={`absolute top-0.5 h-1.5 w-1.5 rounded-full bg-red-500 ${isGroupMain ? 'left-3.5' : 'left-0.5'}`} />
           )}
           {noteText && (
             <StickyNote className="absolute bottom-0 right-0.5 h-2.5 w-2.5 text-slate-400" />

@@ -68,6 +68,8 @@ export interface StaffAssignment {
   isTentative: boolean
   tentativeReason: string | null
   parentId: number | null
+  // จำนวนเครื่องมือ/รถที่ผูกกับงานนี้ (จาก API) → ใช้บอก "การ์ดแม่" (ถืออุปกรณ์)
+  _count?: { equipmentAssignments: number; vehicleBookings: number }
 }
 
 export type CalendarData = Map<number, Map<string, StaffAssignment[]>>

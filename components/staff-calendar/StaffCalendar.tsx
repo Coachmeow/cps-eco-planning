@@ -137,6 +137,28 @@ export default function StaffCalendar() {
   }, [])
   useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month, teamFilter])
 
+  // หา "การ์ดแม่ของกลุ่ม" = งาน FIELD ที่ถืออุปกรณ์ (เครื่องมือ/รถ) และมีคนร่วมงาน (กลุ่ม ≥2 คน)
+  // จับกลุ่มจากลักษณะงานที่ตรงกัน (ไซต์+วัน+จำนวนวัน+ประเภทงาน) เหมือน heuristic ของ move
+  const groupMainIds = useMemo(() => {
+    const all: StaffAssignment[] = []
+    calendarData.forEach(dm => dm.forEach(list => list.forEach(a => all.push(a))))
+    const groups = new Map<string, StaffAssignment[]>()
+    for (const a of all) {
+      if (a.parentId != null || a.status !== 'FIELD') continue
+      const key = `${toDateKey(a.assignedDate)}|${a.siteId}|${Number(a.estimatedDays)}|${a.serviceTypeId}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(a)
+    }
+    const ids = new Set<number>()
+    for (const list of groups.values()) {
+      if (new Set(list.map(a => a.employeeId)).size < 2) continue   // คนเดียว = ไม่ใช่กลุ่ม
+      for (const a of list) {
+        if (((a._count?.equipmentAssignments ?? 0) + (a._count?.vehicleBookings ?? 0)) > 0) ids.add(a.id)
+      }
+    }
+    return ids
+  }, [calendarData])
+
   // สร้างช่องของแต่ละแถว — งานหลายวัน (ตัวแม่ FIELD, estimatedDays>=2) merge เป็นช่องเดียวด้วย colSpan
   function renderRowCells(emp: Employee): ReactNode[] {
     const dayMap = calendarData.get(emp.id)
@@ -173,6 +195,7 @@ export default function StaffCalendar() {
         <CalendarCell
           key={dateKey} assignments={dayAssign} isConflict={isConflict}
           dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={span} employee={emp}
+          isGroupMain={dayAssign.some(a => groupMainIds.has(a.id))}
           isRangeStart={isStart} inRange={inRange && !isStart}
           onMouseEnter={rowActive ? () => setRangeHover(idx) : undefined}
           onClick={() => handleCellClick(emp, idx, dateKey, dayAssign.length > 0)}
