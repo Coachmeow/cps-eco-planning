@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
-import { Users, AlertTriangle, Clock, Loader2, FileText, MapPin, Star, Umbrella } from 'lucide-react'
+import { Users, AlertTriangle, Clock, Loader2, FileText, MapPin, Star, Umbrella, ArrowRight, X } from 'lucide-react'
 import { useStaffCalendar } from '@/hooks/useStaffCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -44,6 +44,9 @@ function rowSummary(employeeId: number, calendarData: ReturnType<typeof useStaff
 
 const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const thaiDays   = ['อา','จ','อ','พ','พฤ','ศ','ส']
+function fmtThaiDay(dateKey: string): string {
+  return new Date(dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+}
 
 export default function StaffCalendar() {
   const today = new Date()
@@ -92,6 +95,29 @@ export default function StaffCalendar() {
     }
     return s
   }, [conflicts])
+
+  // รายละเอียด conflict ต่อคน — วันไหนถูกลงงานสนามซ้อนกัน (คนละไซต์) ; ใช้ข้อมูลที่มีอยู่แล้ว
+  const conflictGroups = useMemo(() => {
+    const empById = new Map(employees.map(e => [e.id, e]))
+    const byEmp = new Map<number, string[]>()
+    for (const key of conflicts.staffConflicts) {
+      const dash = key.indexOf('-')
+      const empId = Number(key.slice(0, dash))
+      const dateKey = key.slice(dash + 1)
+      if (!byEmp.has(empId)) byEmp.set(empId, [])
+      byEmp.get(empId)!.push(dateKey)
+    }
+    return Array.from(byEmp.entries())
+      .map(([empId, dateKeys]) => ({
+        empId,
+        emp: empById.get(empId),
+        days: dateKeys.sort().map(dateKey => ({
+          dateKey,
+          jobs: (calendarData.get(empId)?.get(dateKey) ?? []).filter(a => a.status === 'FIELD' && a.siteId != null),
+        })),
+      }))
+      .sort((a, b) => (a.emp ? 0 : 1) - (b.emp ? 0 : 1))
+  }, [conflicts, employees, calendarData])
 
   const filteredEmployees = (teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter))
     .filter(e => !tentativeOnly || tentativeEmpIds.has(e.id))
@@ -218,10 +244,11 @@ export default function StaffCalendar() {
         {/* ชิปกรอง — กดค้างไว้เพื่อดูเฉพาะกลุ่มนั้น ; เลือกได้ทีละอย่างกันตารางว่างเปล่า */}
         {totalConflicts > 0 && (
           <button onClick={() => { setConflictOnly(v => !v); setTentativeOnly(false) }}
-            title="กดเพื่อกรองเหลือเฉพาะคนที่มีงานชนกัน"
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+            title={conflictOnly ? 'กลับไปแสดงทุกคน' : 'กดเพื่อกรองเหลือเฉพาะคนที่มีงานชนกัน + ดูรายละเอียด'}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
               conflictOnly ? 'bg-red-600 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}>
-            <AlertTriangle className="inline h-3 w-3 align-[-1px]" /> {totalConflicts} conflict
+            <AlertTriangle className="h-3 w-3" /> {conflictOnly ? 'กรอง conflict' : `${totalConflicts} conflict`}
+            {conflictOnly && <X className="ml-0.5 h-3 w-3" />}
           </button>
         )}
         {tentativeCount > 0 && (
@@ -249,6 +276,53 @@ export default function StaffCalendar() {
           </button>
         </div>
       </div>
+
+      {conflictOnly && totalConflicts > 0 && (
+        <div className="border-b-2 border-red-400 bg-white">
+          <div className="px-6 py-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                พบงานชนกัน {totalConflicts} วัน · {conflictEmpIds.size} คน
+              </span>
+              <span className="ml-auto text-[11px] text-slate-400">คนเดียวกันถูกลงงานสนามคนละไซต์ในวันเดียว</span>
+            </div>
+            <div className="flex max-h-72 flex-col gap-1.5 overflow-auto">
+              {conflictGroups.map(g => (
+                <div key={g.empId} className="rounded-lg border border-red-100 bg-red-50/40 px-3 py-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-800">{g.emp ? (g.emp.nickname ?? g.emp.fullName) : `#${g.empId}`}</span>
+                    {g.emp && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{g.emp.primaryTeam.code}</span>}
+                    <span className="ml-auto text-[11px] font-semibold text-red-600">{g.days.length} วันชน</span>
+                  </div>
+                  {g.days.map(d => (
+                    <div key={d.dateKey} className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-red-100 py-1 first:border-t-0">
+                      <span className="min-w-[64px] rounded bg-red-100 px-2 py-0.5 text-center text-[11px] font-semibold text-red-700">{fmtThaiDay(d.dateKey)}</span>
+                      {d.jobs.map((a, i) => (
+                        <span key={a.id} className="flex items-center gap-1.5">
+                          {i > 0 && <span className="text-[11px] font-bold text-slate-300">✕</span>}
+                          <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] ${a.isTentative ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-red-300 bg-white text-slate-700'}`}>
+                            <span className="font-semibold">{a.site?.code ?? '—'}</span>
+                            {a.site?.name && <span className="opacity-70">{a.site.name}</span>}
+                            {a.serviceType && <span className="opacity-60">· {a.serviceType.code}</span>}
+                            {a.isTentative && <span className="opacity-70">· รอยืนยัน</span>}
+                          </span>
+                        </span>
+                      ))}
+                      {g.emp && (
+                        <button onClick={() => setPopup({ employee: g.emp!, dateKey: d.dateKey })}
+                          className="ml-auto inline-flex items-center gap-0.5 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-600 hover:bg-sky-100">
+                          ไปที่ช่อง <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {rangeStart && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
