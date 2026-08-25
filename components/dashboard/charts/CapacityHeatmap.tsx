@@ -44,7 +44,7 @@ export default function CapacityHeatmap({ heat: data }: Props) {
 
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="mx-auto grid w-[85%] grid-cols-7 gap-1.5">
         {thDW.map((d, i) => (
           <div key={d} className={`text-center text-[10px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
         ))}
