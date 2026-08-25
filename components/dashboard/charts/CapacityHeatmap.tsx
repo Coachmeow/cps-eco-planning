@@ -12,9 +12,8 @@ interface Props {
 const thDW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 const thM  = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-// เฉดสีเดียวกับ heatmap แผนที่: อ่อน→เข้ม (SEQ_GREEN) + ZERO สำหรับวันว่าง ; วันหยุด = เทา solid
+// เฉดสีเดียวกับ heatmap แผนที่: อ่อน→เข้ม (SEQ_GREEN) + ZERO สำหรับวันว่าง ; วันหยุดลงสีตามงานจริง (เลขวันเป็นสีแดง)
 const ZERO = '#f1f5f9'
-const OFF  = '#e2e8f0'
 function hexToRgb(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
@@ -39,33 +38,36 @@ export default function CapacityHeatmap({ heat: data }: Props) {
   const { headcountTotal, teams, days } = data
   const todayKey = new Date().toLocaleDateString('en-CA')   // YYYY-MM-DD ตาม local
   const firstDow = new Date(days[0].date + 'T00:00:00').getDay()
-  // ปรับเฉดตามค่าสูงสุดของเดือน (relative) เหมือน heatmap แผนที่ → ใช้ช่วงสีเต็ม
-  const maxBooked = Math.max(1, ...days.filter(d => !d.isOff).map(d => d.bookedIds.length))
+  // ปรับเฉดตามค่าสูงสุดของเดือน (relative) เหมือน heatmap แผนที่ → ใช้ช่วงสีเต็ม (รวมวันหยุดที่มีงานด้วย)
+  const maxBooked = Math.max(1, ...days.map(d => d.bookedIds.length))
 
   return (
     <div>
-      <div className="mx-auto grid w-[70%] grid-cols-7 gap-1.5">
+      <div className="mx-auto grid w-[77%] grid-cols-7 gap-1.5">
         {thDW.map((d, i) => (
           <div key={d} className={`text-center text-[10px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
         ))}
-        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="aspect-square" />)}
+        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="aspect-[7/6]" />)}
         {days.map(day => {
           const booked = day.bookedIds.length
-          const t = day.isOff ? 0 : booked / maxBooked
+          const t = booked / maxBooked   // วันหยุดก็ลงสีตามงานจริง (แค่เลขวันเป็นสีแดง)
           const dnum = Number(day.date.slice(8, 10))
           const isToday = day.date === todayKey
           const ring = isToday ? 'ring-2 ring-inset ring-sky-500' : ''
-          const dark = !day.isOff && t >= 0.5
+          const dark = t >= 0.5
+          const numCls = day.isOff
+            ? (dark ? 'text-red-200' : 'text-red-500')   // วันหยุด = เลขแดง
+            : (dark ? 'text-white/90' : 'text-slate-500/70')
           return (
             <div
               key={day.date}
               onMouseEnter={e => setTip({ x: e.clientX, y: e.clientY, day })}
               onMouseMove={e => setTip(cur => (cur ? { ...cur, x: e.clientX, y: e.clientY } : cur))}
               onMouseLeave={() => setTip(null)}
-              className={`relative flex aspect-square cursor-pointer items-start justify-end rounded-md p-1 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
-              style={{ background: day.isOff ? OFF : heat(t) }}
+              className={`relative flex aspect-[7/6] cursor-pointer items-start justify-end rounded-md p-1 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
+              style={{ background: heat(t) }}
             >
-              <span className={`text-[10px] font-semibold leading-none ${dark ? 'text-white/90' : 'text-slate-500/70'}`}>{dnum}</span>
+              <span className={`text-[10px] font-bold leading-none ${numCls}`}>{dnum}</span>
             </div>
           )
         })}
@@ -76,8 +78,8 @@ export default function CapacityHeatmap({ heat: data }: Props) {
         <span>ว่าง</span>
         <span className="h-2.5 w-16 rounded" style={{ background: `linear-gradient(90deg, ${ZERO}, ${SEQ_GREEN[1]}, ${SEQ_GREEN[3]}, ${SEQ_GREEN[5]})` }} />
         <span>เต็ม</span>
-        <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded" style={{ background: OFF }} />
-        <span>วันหยุด</span>
+        <span className="ml-1.5 font-bold text-red-500">1</span>
+        <span>= วันหยุด</span>
       </div>
 
       {tip && <Tooltip x={tip.x} y={tip.y} day={tip.day} teams={teams} headcountTotal={headcountTotal} />}
@@ -98,10 +100,8 @@ function Tooltip({ x, y, day, teams, headcountTotal }: { x: number; y: number; d
       className="pointer-events-none fixed z-50 min-w-[220px] max-w-[270px] rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-xl"
       style={{ left, top }}
     >
-      <div className="font-bold text-slate-900">{dt.getDate()} {thM[dt.getMonth() + 1]} {dt.getFullYear() + 543} ({thDW[dt.getDay()]})</div>
-      {day.isOff ? (
-        <div className="text-[11px] text-slate-400">วันหยุด — ไม่มีงาน</div>
-      ) : (
+      <div className="font-bold text-slate-900">{dt.getDate()} {thM[dt.getMonth() + 1]} {dt.getFullYear() + 543} ({thDW[dt.getDay()]}){day.isOff && <span className="ml-1 text-[10.5px] font-semibold text-red-500">· วันหยุด</span>}</div>
+      {(
         <>
           <div className="mb-1.5 text-[11px] font-medium text-blue-600">ภาพรวม จอง {booked}/{headcountTotal} คน ({pct}%)</div>
           {teams.map(t => {
