@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { SEQ_GREEN } from '@/lib/chartTheme'
 
 type HeatTeam = { teamId: number; code: string; roster: { id: number; name: string }[] }
 type HeatDay  = { date: string; isOff: boolean; bookedIds: number[]; conflict: boolean }
@@ -9,58 +10,63 @@ interface Props {
 }
 
 const thDW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-// สีเข้ากับการ์ดอื่น: จาง(ว่าง) → เขียว → เหลือง → แดง(เต็ม) ; เกณฑ์เดียวกับแท่ง Capacity เดิม (70/90)
-const CELL = [
-  'bg-slate-50 border border-slate-100',   // 0 ว่างทั้งหมด
-  'bg-emerald-200',                         // 1–39
-  'bg-green-400',                           // 40–69
-  'bg-amber-400',                           // 70–89
-  'bg-red-400',                             // 90+
-]
-function lvl(p: number): number {
-  if (p <= 0) return 0
-  if (p < 40) return 1
-  if (p < 70) return 2
-  if (p < 90) return 3
-  return 4
-}
-const HATCH = 'repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 3px,#e5eaf0 3px,#e5eaf0 6px)'
-const thM = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const thM  = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-export default function CapacityHeatmap({ heat }: Props) {
+// เฉดสีเดียวกับ heatmap แผนที่: อ่อน→เข้ม (SEQ_GREEN) + ZERO สำหรับวันว่าง ; วันหยุด = เทา solid
+const ZERO = '#f1f5f9'
+const OFF  = '#e2e8f0'
+function hexToRgb(h: string): [number, number, number] {
+  const n = parseInt(h.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+const STOPS = SEQ_GREEN.map(hexToRgb)
+function heat(t: number): string {
+  if (t <= 0) return ZERO
+  const tt = Math.min(1, t)
+  const p = tt * (STOPS.length - 1)
+  const i = Math.min(STOPS.length - 2, Math.floor(p))
+  const f = p - i
+  const c = STOPS[i].map((a, k) => Math.round(a + (STOPS[i + 1][k] - a) * f))
+  return `rgb(${c[0]},${c[1]},${c[2]})`
+}
+
+export default function CapacityHeatmap({ heat: data }: Props) {
   const [tip, setTip] = useState<{ x: number; y: number; day: HeatDay } | null>(null)
 
-  if (!heat || heat.days.length === 0) {
+  if (!data || data.days.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-300">ยังไม่มีข้อมูล</p>
   }
-  const { headcountTotal, teams, days } = heat
+  const { headcountTotal, teams, days } = data
   const todayKey = new Date().toLocaleDateString('en-CA')   // YYYY-MM-DD ตาม local
   const firstDow = new Date(days[0].date + 'T00:00:00').getDay()
+  // ปรับเฉดตามค่าสูงสุดของเดือน (relative) เหมือน heatmap แผนที่ → ใช้ช่วงสีเต็ม
+  const maxBooked = Math.max(1, ...days.filter(d => !d.isOff).map(d => d.bookedIds.length))
 
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="mx-auto grid w-fit grid-cols-7 justify-items-center gap-1">
         {thDW.map((d, i) => (
-          <div key={d} className={`pb-0.5 text-center text-[10px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
+          <div key={d} className={`text-[9px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
         ))}
-        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} />)}
+        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="h-[18px] w-[18px]" />)}
         {days.map(day => {
           const booked = day.bookedIds.length
-          const pct = day.isOff || headcountTotal === 0 ? 0 : Math.round((booked / headcountTotal) * 100)
+          const t = day.isOff ? 0 : booked / maxBooked
           const dnum = Number(day.date.slice(8, 10))
           const isToday = day.date === todayKey
           const ring = day.conflict ? 'ring-2 ring-inset ring-red-600'
                      : isToday      ? 'ring-2 ring-inset ring-sky-500' : ''
+          const dark = !day.isOff && t >= 0.5
           return (
             <div
               key={day.date}
               onMouseEnter={e => setTip({ x: e.clientX, y: e.clientY, day })}
-              onMouseMove={e => setTip(t => (t ? { ...t, x: e.clientX, y: e.clientY } : t))}
+              onMouseMove={e => setTip(cur => (cur ? { ...cur, x: e.clientX, y: e.clientY } : cur))}
               onMouseLeave={() => setTip(null)}
-              className={`relative flex aspect-square cursor-pointer items-start justify-end rounded-md p-0.5 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-700 ${day.isOff ? '' : CELL[lvl(pct)]} ${ring}`}
-              style={day.isOff ? { background: HATCH } : undefined}
+              className={`relative flex h-[18px] w-[18px] cursor-pointer items-start justify-end rounded p-px transition-transform hover:scale-125 hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
+              style={{ background: day.isOff ? OFF : heat(t) }}
             >
-              <span className={`text-[9px] font-semibold ${lvl(pct) >= 2 && !day.isOff ? 'text-slate-800/70' : 'text-slate-500/60'}`}>{dnum}</span>
+              <span className={`text-[8px] font-semibold leading-none ${dark ? 'text-white/85' : 'text-slate-500/70'}`}>{dnum}</span>
             </div>
           )
         })}
@@ -69,13 +75,11 @@ export default function CapacityHeatmap({ heat }: Props) {
       {/* legend */}
       <div className="mt-3 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">
         <span>ว่าง</span>
-        {CELL.map((c, i) => (
-          <span key={i} className={`inline-block h-3 w-3 rounded ${c}`} />
-        ))}
+        <span className="h-2.5 w-16 rounded" style={{ background: `linear-gradient(90deg, ${ZERO}, ${SEQ_GREEN[1]}, ${SEQ_GREEN[3]}, ${SEQ_GREEN[5]})` }} />
         <span>เต็ม</span>
-        <span className="ml-1.5 inline-block h-3 w-3 rounded" style={{ background: HATCH }} />
+        <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded" style={{ background: OFF }} />
         <span>วันหยุด</span>
-        <span className="ml-1.5 inline-block h-3 w-3 rounded bg-red-400 ring-2 ring-inset ring-red-600" />
+        <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded ring-2 ring-inset ring-red-600" style={{ background: SEQ_GREEN[4] }} />
         <span>จองซ้อน</span>
       </div>
 
@@ -89,7 +93,6 @@ function Tooltip({ x, y, day, teams, headcountTotal }: { x: number; y: number; d
   const bookedSet = new Set(day.bookedIds)
   const booked = day.bookedIds.length
   const pct = headcountTotal === 0 ? 0 : Math.round((booked / headcountTotal) * 100)
-  // วางกล่องไม่ให้ล้นจอ
   const left = Math.min(x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 285)
   const top  = Math.min(y + 14, (typeof window !== 'undefined' ? window.innerHeight : 9999) - 240)
 
