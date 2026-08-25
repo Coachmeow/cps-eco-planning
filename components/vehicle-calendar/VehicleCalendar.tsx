@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
-import { Car, AlertTriangle, Loader2, FileText, MapPin, Umbrella } from 'lucide-react'
+import { Car, AlertTriangle, Loader2, FileText, MapPin, Umbrella, X, ArrowRight } from 'lucide-react'
 import { useVehicleCalendar } from '@/hooks/useVehicleCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -20,6 +20,9 @@ function getDaysInMonth(year: number, month: number): Date[] {
 
 const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const thaiDays   = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+function fmtThaiDay(dateKey: string): string {
+  return new Date(dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+}
 
 // legend สีทีม (โทนเดียวกับปุ่มกรองทีมในแผนพนักงาน) — ดูอย่างเดียว
 const TEAM_LEGEND: [string, string][] = [
@@ -35,6 +38,7 @@ export default function VehicleCalendar() {
   const [popup, setPopup] = useState<{ vehicle: Vehicle; dateKey: string; initialDays?: number } | null>(null)
   const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
   const [rangeHover, setRangeHover] = useState<number | null>(null)
+  const [conflictOnly, setConflictOnly] = useState(false)   // กดชิป conflict → กรองเหลือเฉพาะรถที่จองซ้อน + เปิดกล่องรายละเอียด
 
   const { vehicles, calendarData, conflicts, sites, employees, loading, addBooking, removeBooking, moveBooking, confirmBooking } =
     useVehicleCalendar(year, month)
@@ -71,6 +75,39 @@ export default function VehicleCalendar() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
   useEffect(() => { setRangeStart(null); setRangeHover(null) }, [year, month])
+
+  // ── Conflict: แยก key `${vId}-${dateKey}` → เซ็ตรถที่ซ้อน + รายละเอียดต่อคัน (ใช้ข้อมูลที่มีอยู่แล้ว) ──
+  const conflictVIds = useMemo(() => {
+    const s = new Set<number>()
+    for (const key of conflicts) s.add(Number(key.slice(0, key.indexOf('-'))))
+    return s
+  }, [conflicts])
+
+  const conflictGroups = useMemo(() => {
+    const vById = new Map(vehicles.map(v => [v.id, v]))
+    const byV = new Map<number, string[]>()
+    for (const key of conflicts) {
+      const dash = key.indexOf('-')
+      const vId = Number(key.slice(0, dash))
+      const dateKey = key.slice(dash + 1)
+      if (!byV.has(vId)) byV.set(vId, [])
+      byV.get(vId)!.push(dateKey)
+    }
+    return Array.from(byV.entries())
+      .map(([vId, dateKeys]) => ({
+        vId,
+        v: vById.get(vId),
+        days: dateKeys.sort().map(dateKey => ({ dateKey, bookings: calendarData.get(vId)?.get(dateKey) ?? [] })),
+      }))
+      .sort((a, b) => (a.v?.licensePlate ?? '').localeCompare(b.v?.licensePlate ?? ''))
+  }, [conflicts, vehicles, calendarData])
+
+  useEffect(() => { if (conflicts.size === 0) setConflictOnly(false) }, [conflicts])
+
+  const visibleVehicles = useMemo(
+    () => (conflictOnly ? vehicles.filter(v => conflictVIds.has(v.id)) : vehicles),
+    [vehicles, conflictOnly, conflictVIds],
+  )
 
   function renderRowCells(v: Vehicle): ReactNode[] {
     const dayMap = calendarData.get(v.id)
@@ -120,7 +157,17 @@ export default function VehicleCalendar() {
           <button onClick={nextMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
         </div>
         {conflicts.size > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600"><AlertTriangle className="h-3 w-3" /> {conflicts.size} conflict</span>
+          <button
+            onClick={() => setConflictOnly(v => !v)}
+            title={conflictOnly ? 'กลับไปแสดงทุกคัน' : 'ดูเฉพาะรถที่จองซ้อน + รายละเอียด'}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              conflictOnly ? 'bg-red-600 text-white shadow-sm' : 'bg-red-100 text-red-600 hover:bg-red-200'
+            }`}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {conflictOnly ? 'กรอง conflict' : `${conflicts.size} conflict`}
+            {conflictOnly && <X className="ml-0.5 h-3 w-3" />}
+          </button>
         )}
         <div className="ml-auto flex items-center gap-1 flex-wrap">
           <span className="text-[10px] text-slate-400">สีทีมที่ใช้รถ:</span>
@@ -134,6 +181,56 @@ export default function VehicleCalendar() {
           </button>
         </div>
       </div>
+
+      {conflictOnly && conflicts.size > 0 && (
+        <div className="border-b-2 border-red-400 bg-white">
+          <div className="px-6 py-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                พบการจองซ้อน {conflicts.size} วัน · {conflictVIds.size} คัน
+              </span>
+              <span className="ml-auto flex items-center gap-3 text-[11px] text-slate-400">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> ยืนยันแล้ว</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-400" /> รอยืนยัน</span>
+              </span>
+            </div>
+            <div className="flex max-h-72 flex-col gap-1.5 overflow-auto">
+              {conflictGroups.map(g => (
+                <div key={g.vId} className="rounded-lg border border-red-100 bg-red-50/40 px-3 py-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-800">{g.v ? g.v.licensePlate : `#${g.vId}`}</span>
+                    {g.v && (g.v.name || g.v.vehicleType) && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{[g.v.name, g.v.vehicleType].filter(Boolean).join(' · ')}</span>}
+                    <span className="ml-auto text-[11px] font-semibold text-red-600">{g.days.length} วันซ้อน</span>
+                  </div>
+                  {g.days.map(d => (
+                    <div key={d.dateKey} className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-red-100 py-1 first:border-t-0">
+                      <span className="min-w-[64px] rounded bg-red-100 px-2 py-0.5 text-center text-[11px] font-semibold text-red-700">{fmtThaiDay(d.dateKey)}</span>
+                      {d.bookings.map((b, i) => (
+                        <span key={b.id} className="flex items-center gap-1.5">
+                          {i > 0 && <span className="text-[11px] font-bold text-slate-300">✕</span>}
+                          <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] ${b.isTentative ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-red-300 bg-white text-slate-700'}`}>
+                            <span className="font-semibold">{b.site?.code ?? b.destination ?? '—'}</span>
+                            {b.site?.name && <span className="opacity-70">{b.site.name}</span>}
+                            {(b.driver?.nickname || b.driverName) && <span className="opacity-70">· {b.driver?.nickname ?? b.driverName}</span>}
+                            {b.isTentative && <span className="opacity-70">· รอยืนยัน</span>}
+                          </span>
+                        </span>
+                      ))}
+                      {g.v && (
+                        <button onClick={() => setPopup({ vehicle: g.v!, dateKey: d.dateKey })}
+                          className="ml-auto inline-flex items-center gap-0.5 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-600 hover:bg-sky-100">
+                          ไปที่ช่อง <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {rangeStart && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
@@ -169,7 +266,7 @@ export default function VehicleCalendar() {
               </tr>
             </thead>
             <tbody>
-              {vehicles.map(v => (
+              {visibleVehicles.map(v => (
                 <tr key={v.id} className="hover:bg-slate-50/50">
                   <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
                     <div className="font-medium text-slate-700">{v.licensePlate}</div>

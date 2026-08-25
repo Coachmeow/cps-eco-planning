@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
-import { Wrench, AlertTriangle, Loader2, FileText, MapPin, Umbrella } from 'lucide-react'
+import { Wrench, AlertTriangle, Loader2, FileText, MapPin, Umbrella, X, ArrowRight } from 'lucide-react'
 import { useEquipmentCalendar } from '@/hooks/useEquipmentCalendar'
 import { useMe } from '@/hooks/useMe'
 import { useHolidays } from '@/hooks/useHolidays'
@@ -28,6 +28,9 @@ function utilColor(pct: number): string {
 
 const thaiMonths = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 const thaiDays   = ['อา','จ','อ','พ','พฤ','ศ','ส']
+function fmtThaiDay(dateKey: string): string {
+  return new Date(dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+}
 
 export default function EquipmentCalendar() {
   const today = new Date()
@@ -36,6 +39,7 @@ export default function EquipmentCalendar() {
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null)
   const [showRental, setShowRental] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')   // '' = ทุกสถานะ | ACTIVE | CALIBRATING | BROKEN | RETIRED
+  const [conflictOnly, setConflictOnly] = useState(false)   // กดชิป conflict → กรองเหลือเฉพาะเครื่องที่จองซ้อน + เปิดกล่องรายละเอียด
   const [popup, setPopup] = useState<{ equipment: Equipment; dateKey: string; initialDays?: number } | null>(null)
   // เลือกช่วงวันแบบ 2 คลิก (คลิกวันเริ่ม → วันสิ้นสุด แถวเดียวกัน)
   const [rangeStart, setRangeStart] = useState<{ rowId: number; idx: number; dateKey: string } | null>(null)
@@ -113,6 +117,46 @@ export default function EquipmentCalendar() {
 
   function prevMonth() { if (month === 1) { setYear(y => y-1); setMonth(12) } else setMonth(m => m-1) }
   function nextMonth() { if (month === 12) { setYear(y => y+1); setMonth(1) } else setMonth(m => m+1) }
+
+  // ── Conflict: แยก key `${eqId}-${dateKey}` → เซ็ตเครื่องที่ซ้อน + รายละเอียดต่อเครื่อง (ใช้ข้อมูลที่มีอยู่แล้ว ไม่ยิง API เพิ่ม) ──
+  const conflictEqIds = useMemo(() => {
+    const s = new Set<number>()
+    for (const key of conflicts.equipmentConflicts) s.add(Number(key.slice(0, key.indexOf('-'))))
+    return s
+  }, [conflicts])
+
+  const conflictGroups = useMemo(() => {
+    const eqById = new Map(equipment.map(e => [e.id, e]))
+    const byEq = new Map<number, string[]>()
+    for (const key of conflicts.equipmentConflicts) {
+      const dash = key.indexOf('-')
+      const eqId = Number(key.slice(0, dash))
+      const dateKey = key.slice(dash + 1)
+      if (!byEq.has(eqId)) byEq.set(eqId, [])
+      byEq.get(eqId)!.push(dateKey)
+    }
+    const groups = Array.from(byEq.entries()).map(([eqId, dateKeys]) => {
+      const eq = eqById.get(eqId)
+      const days = dateKeys.sort().map(dateKey => ({
+        dateKey,
+        bookings: (calendarData.get(eqId)?.get(dateKey) ?? []),
+      }))
+      return { eqId, eq, days }
+    })
+    // เรียงตามชื่อเครื่อง (เครื่องที่ resolve ไม่ได้ = filter ประเภทซ่อนอยู่ ให้ไปท้าย)
+    return groups.sort((a, b) => (a.eq ? 0 : 1) - (b.eq ? 0 : 1))
+  }, [conflicts, equipment, calendarData])
+
+  // เดือนไหนไม่มี conflict → ออกจากโหมดกรองอัตโนมัติ (กันแถวว่าง)
+  useEffect(() => { if (conflicts.equipmentConflicts.size === 0) setConflictOnly(false) }, [conflicts])
+
+  // โหมดกรอง conflict → เหลือเฉพาะกลุ่ม/เครื่องที่ซ้อน
+  const visibleGroups = useMemo(() => {
+    if (!conflictOnly) return grouped
+    return grouped
+      .map(g => ({ ...g, items: g.items.filter(e => conflictEqIds.has(e.id)) }))
+      .filter(g => g.items.length > 0)
+  }, [grouped, conflictOnly, conflictEqIds])
 
   const [exporting, setExporting] = useState(false)
   async function handleExportPdf() {
@@ -221,7 +265,17 @@ export default function EquipmentCalendar() {
         </div>
         <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">{workdays} วันทำงาน</span>
         {conflicts.equipmentConflicts.size > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600"><AlertTriangle className="h-3 w-3" /> {conflicts.equipmentConflicts.size} conflict</span>
+          <button
+            onClick={() => setConflictOnly(v => !v)}
+            title={conflictOnly ? 'กลับไปแสดงทุกเครื่อง' : 'ดูเฉพาะเครื่องที่จองซ้อน + รายละเอียด'}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              conflictOnly ? 'bg-red-600 text-white shadow-sm' : 'bg-red-100 text-red-600 hover:bg-red-200'
+            }`}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {conflictOnly ? 'กรอง conflict' : `${conflicts.equipmentConflicts.size} conflict`}
+            {conflictOnly && <X className="ml-0.5 h-3 w-3" />}
+          </button>
         )}
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
@@ -248,6 +302,55 @@ export default function EquipmentCalendar() {
           </button>
         </div>
       </div>
+
+      {conflictOnly && conflicts.equipmentConflicts.size > 0 && (
+        <div className="border-b-2 border-red-400 bg-white">
+          <div className="px-6 py-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-bold text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                พบการจองซ้อน {conflicts.equipmentConflicts.size} วัน · {conflictEqIds.size} เครื่อง
+              </span>
+              <span className="ml-auto flex items-center gap-3 text-[11px] text-slate-400">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> ยืนยันแล้ว</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-400" /> รอยืนยัน</span>
+              </span>
+            </div>
+            <div className="flex max-h-72 flex-col gap-1.5 overflow-auto">
+              {conflictGroups.map(g => (
+                <div key={g.eqId} className="rounded-lg border border-red-100 bg-red-50/40 px-3 py-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-800">{g.eq ? (g.eq.internalNo ?? g.eq.serialNo ?? `#${g.eq.id}`) : `#${g.eqId}`}</span>
+                    {g.eq && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{g.eq.type.code} — {g.eq.type.name}</span>}
+                    <span className="ml-auto text-[11px] font-semibold text-red-600">{g.days.length} วันซ้อน</span>
+                  </div>
+                  {g.days.map(d => (
+                    <div key={d.dateKey} className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-red-100 py-1 first:border-t-0">
+                      <span className="min-w-[64px] rounded bg-red-100 px-2 py-0.5 text-center text-[11px] font-semibold text-red-700">{fmtThaiDay(d.dateKey)}</span>
+                      {d.bookings.map((b, i) => (
+                        <span key={b.id} className="flex items-center gap-1.5">
+                          {i > 0 && <span className="text-[11px] font-bold text-slate-300">✕</span>}
+                          <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] ${b.isTentative ? 'border-orange-300 bg-orange-50 text-orange-700' : 'border-red-300 bg-white text-slate-700'}`}>
+                            <span className="font-semibold">{b.site?.code ?? '—'}</span>
+                            {b.site?.name && <span className="opacity-70">{b.site.name}</span>}
+                            {b.isTentative && <span className="opacity-70">· รอยืนยัน</span>}
+                          </span>
+                        </span>
+                      ))}
+                      {g.eq && (
+                        <button onClick={() => setPopup({ equipment: g.eq!, dateKey: d.dateKey })}
+                          className="ml-auto inline-flex items-center gap-0.5 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-600 hover:bg-sky-100">
+                          ไปที่ช่อง <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {rangeStart && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-6 py-1.5 text-xs text-sky-700">
@@ -283,7 +386,7 @@ export default function EquipmentCalendar() {
               </tr>
             </thead>
             <tbody>
-              {grouped.map(({ type, items }) => (
+              {visibleGroups.map(({ type, items }) => (
                 <>
                   {!selectedTypeId && (
                     <tr key={`group-${type.id}`}>
