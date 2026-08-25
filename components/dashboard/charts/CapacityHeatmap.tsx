@@ -44,11 +44,11 @@ export default function CapacityHeatmap({ heat: data }: Props) {
 
   return (
     <div>
-      <div className="mx-auto grid w-fit grid-cols-7 justify-items-center gap-1">
+      <div className="grid grid-cols-7 gap-1.5">
         {thDW.map((d, i) => (
-          <div key={d} className={`text-[9px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
+          <div key={d} className={`text-center text-[10px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
         ))}
-        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="h-[18px] w-[18px]" />)}
+        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="aspect-square" />)}
         {days.map(day => {
           const booked = day.bookedIds.length
           const t = day.isOff ? 0 : booked / maxBooked
@@ -63,10 +63,10 @@ export default function CapacityHeatmap({ heat: data }: Props) {
               onMouseEnter={e => setTip({ x: e.clientX, y: e.clientY, day })}
               onMouseMove={e => setTip(cur => (cur ? { ...cur, x: e.clientX, y: e.clientY } : cur))}
               onMouseLeave={() => setTip(null)}
-              className={`relative flex h-[18px] w-[18px] cursor-pointer items-start justify-end rounded p-px transition-transform hover:scale-125 hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
+              className={`relative flex aspect-square cursor-pointer items-start justify-end rounded-md p-1 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
               style={{ background: day.isOff ? OFF : heat(t) }}
             >
-              <span className={`text-[8px] font-semibold leading-none ${dark ? 'text-white/85' : 'text-slate-500/70'}`}>{dnum}</span>
+              <span className={`text-[10px] font-semibold leading-none ${dark ? 'text-white/90' : 'text-slate-500/70'}`}>{dnum}</span>
             </div>
           )
         })}
