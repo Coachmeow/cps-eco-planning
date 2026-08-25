@@ -12,22 +12,27 @@ interface Props {
 const thDW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 const thM  = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
-// เฉดสีเดียวกับ heatmap แผนที่: อ่อน→เข้ม (SEQ_GREEN) + ZERO สำหรับวันว่าง ; วันหยุดลงสีตามงานจริง (เลขวันเป็นสีแดง)
+// เฉดสีตาม heatmap แผนที่: วันปกติ = เขียวอ่อน→เข้ม (SEQ_GREEN) ; วันหยุด = แดงพาสเทลอ่อน→เข้ม
 const ZERO = '#f1f5f9'
+const ZERO_HOL = '#fceaea'
+const SEQ_RED = ['#f9d5d5', '#f3b0b0', '#ec8a8a', '#e26565', '#d44545', '#bf2f2f']
 function hexToRgb(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 const STOPS = SEQ_GREEN.map(hexToRgb)
-function heat(t: number): string {
-  if (t <= 0) return ZERO
+const STOPS_RED = SEQ_RED.map(hexToRgb)
+function ramp(stops: [number, number, number][], zero: string, t: number): string {
+  if (t <= 0) return zero
   const tt = Math.min(1, t)
-  const p = tt * (STOPS.length - 1)
-  const i = Math.min(STOPS.length - 2, Math.floor(p))
+  const p = tt * (stops.length - 1)
+  const i = Math.min(stops.length - 2, Math.floor(p))
   const f = p - i
-  const c = STOPS[i].map((a, k) => Math.round(a + (STOPS[i + 1][k] - a) * f))
+  const c = stops[i].map((a, k) => Math.round(a + (stops[i + 1][k] - a) * f))
   return `rgb(${c[0]},${c[1]},${c[2]})`
 }
+const heat    = (t: number) => ramp(STOPS, ZERO, t)
+const heatHol = (t: number) => ramp(STOPS_RED, ZERO_HOL, t)
 
 export default function CapacityHeatmap({ heat: data }: Props) {
   const [tip, setTip] = useState<{ x: number; y: number; day: HeatDay } | null>(null)
@@ -43,31 +48,28 @@ export default function CapacityHeatmap({ heat: data }: Props) {
 
   return (
     <div>
-      <div className="mx-auto grid w-[77%] grid-cols-7 gap-1.5">
+      <div className="mx-auto grid w-[88%] grid-cols-7 gap-1.5">
         {thDW.map((d, i) => (
           <div key={d} className={`text-center text-[10px] font-semibold ${i === 0 ? 'text-red-400' : 'text-slate-400'}`}>{d}</div>
         ))}
-        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="aspect-[7/6]" />)}
+        {Array.from({ length: firstDow }).map((_, i) => <div key={`pad${i}`} className="aspect-[3/2]" />)}
         {days.map(day => {
           const booked = day.bookedIds.length
-          const t = booked / maxBooked   // วันหยุดก็ลงสีตามงานจริง (แค่เลขวันเป็นสีแดง)
+          const t = booked / maxBooked   // เฉดตามงานจริง (วันหยุด = โทนแดง, วันปกติ = โทนเขียว)
           const dnum = Number(day.date.slice(8, 10))
           const isToday = day.date === todayKey
           const ring = isToday ? 'ring-2 ring-inset ring-sky-500' : ''
           const dark = t >= 0.5
-          const numCls = day.isOff
-            ? (dark ? 'text-red-200' : 'text-red-500')   // วันหยุด = เลขแดง
-            : (dark ? 'text-white/90' : 'text-slate-500/70')
           return (
             <div
               key={day.date}
               onMouseEnter={e => setTip({ x: e.clientX, y: e.clientY, day })}
               onMouseMove={e => setTip(cur => (cur ? { ...cur, x: e.clientX, y: e.clientY } : cur))}
               onMouseLeave={() => setTip(null)}
-              className={`relative flex aspect-[7/6] cursor-pointer items-start justify-end rounded-md p-1 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
-              style={{ background: heat(t) }}
+              className={`relative flex aspect-[3/2] cursor-pointer items-start justify-end rounded-md p-1 transition-transform hover:scale-110 hover:outline hover:outline-2 hover:-outline-offset-1 hover:outline-slate-600 ${ring}`}
+              style={{ background: day.isOff ? heatHol(t) : heat(t) }}
             >
-              <span className={`text-[10px] font-bold leading-none ${numCls}`}>{dnum}</span>
+              <span className={`text-[10px] font-semibold leading-none ${dark ? 'text-white/90' : 'text-slate-500/70'}`}>{dnum}</span>
             </div>
           )
         })}
@@ -78,8 +80,8 @@ export default function CapacityHeatmap({ heat: data }: Props) {
         <span>ว่าง</span>
         <span className="h-2.5 w-16 rounded" style={{ background: `linear-gradient(90deg, ${ZERO}, ${SEQ_GREEN[1]}, ${SEQ_GREEN[3]}, ${SEQ_GREEN[5]})` }} />
         <span>เต็ม</span>
-        <span className="ml-1.5 font-bold text-red-500">1</span>
-        <span>= วันหยุด</span>
+        <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded" style={{ background: SEQ_RED[2] }} />
+        <span>วันหยุด</span>
       </div>
 
       {tip && <Tooltip x={tip.x} y={tip.y} day={tip.day} teams={teams} headcountTotal={headcountTotal} />}
