@@ -243,7 +243,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const idleShown = !travelView && !shown
   useEffect(() => {
     if (!idleAuto || idlePaused || !idleShown) return
-    const t = setInterval(() => setIdleView((v) => (v === 'wx' ? 'loc' : 'wx')), 3000)
+    const t = setInterval(() => setIdleView((v) => (v === 'wx' ? 'loc' : 'wx')), 6000)
     return () => clearInterval(t)
   }, [idleAuto, idlePaused, idleShown])
 
@@ -456,44 +456,34 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
               <div onMouseEnter={() => setIdlePaused(true)} onMouseLeave={() => setIdlePaused(false)}>
-                {/* toggle สลับ สภาพอากาศ ↔ ประจำ Location — ติดหัวกล่องขณะเลื่อน */}
-                <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-1 bg-slate-50 px-4 pt-4 pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-                      {([['wx', 'สภาพอากาศ', CloudSunRain], ['loc', 'ประจำ Location', MapPin]] as const).map(([k, label, Icon]) => (
-                        <button
-                          key={k}
-                          onClick={() => setIdleView(k)}
-                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                            idleView === k ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5" /> {label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setIdleAuto((a) => !a)}
-                      title={idleAuto ? 'หยุดการสลับอัตโนมัติ' : 'สลับอัตโนมัติทุก 3 วิ'}
-                      className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-slate-400 hover:bg-white hover:text-slate-600"
-                    >
-                      {idleAuto ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                      {idleAuto ? 'อัตโนมัติ' : 'หยุด'}
-                    </button>
+                {/* toggle สลับ สภาพอากาศ ↔ ประจำ Location (เล็ก ไม่ทับเนื้อหา) */}
+                <div className="mb-3 flex items-center gap-1.5">
+                  <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                    {([['wx', 'สภาพอากาศ', CloudSunRain], ['loc', 'ประจำ Location', MapPin]] as const).map(([k, label, Icon]) => (
+                      <button
+                        key={k}
+                        onClick={() => setIdleView(k)}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                          idleView === k ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" /> {label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="mt-2 h-0.5 overflow-hidden rounded bg-slate-200">
-                    {idleAuto && (
-                      <div
-                        key={idleView}
-                        className="idle-fill h-full rounded bg-emerald-400"
-                        style={{ animationPlayState: idlePaused ? 'paused' : 'running' }}
-                      />
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setIdleAuto((a) => !a)}
+                    title={idleAuto ? 'หยุดการสลับอัตโนมัติ' : 'สลับอัตโนมัติทุก 6 วิ'}
+                    className="ml-auto inline-flex items-center rounded p-1 text-slate-400 hover:bg-white hover:text-slate-600"
+                  >
+                    {idleAuto ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                  </button>
                 </div>
-                {idleView === 'wx'
-                  ? <WeatherPanel wx={wx} />
-                  : <LocationPanel provinces={locProvinces} wxRank={wxRank} loading={!locData} error={!!locData?.error} />}
+                <div key={idleView} className="idle-fade">
+                  {idleView === 'wx'
+                    ? <WeatherPanel wx={wx} />
+                    : <LocationPanel provinces={locProvinces} wxRank={wxRank} loading={!locData} error={!!locData?.error} />}
+                </div>
               </div>
             )}
           </div>

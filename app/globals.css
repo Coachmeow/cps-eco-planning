@@ -25,10 +25,10 @@ body {
 .route-flow { animation: dashflow 1.1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .route-flow { animation: none; } }
 
-/* แถบ progress ของ toggle สภาพอากาศ ↔ ประจำ Location (วิ่งเต็มใน 3 วิ แล้วสลับ) */
-@keyframes idlefill { from { width: 0; } to { width: 100%; } }
-.idle-fill { animation: idlefill 3s linear forwards; }
-@media (prefers-reduced-motion: reduce) { .idle-fill { animation: none; width: 100%; } }
+/* สลับหน้า toggle สภาพอากาศ ↔ ประจำ Location แบบ fade เข้า */
+@keyframes idlefade { from { opacity: 0; } to { opacity: 1; } }
+.idle-fade { animation: idlefade 0.45s ease; }
+@media (prefers-reduced-motion: reduce) { .idle-fade { animation: none; } }
 
 /* ซ่อนแถบเลื่อนสนิท (แถวพนักงานเลื่อนแนวนอน) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
