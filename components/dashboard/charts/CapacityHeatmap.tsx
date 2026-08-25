@@ -54,8 +54,7 @@ export default function CapacityHeatmap({ heat: data }: Props) {
           const t = day.isOff ? 0 : booked / maxBooked
           const dnum = Number(day.date.slice(8, 10))
           const isToday = day.date === todayKey
-          const ring = day.conflict ? 'ring-2 ring-inset ring-red-600'
-                     : isToday      ? 'ring-2 ring-inset ring-sky-500' : ''
+          const ring = isToday ? 'ring-2 ring-inset ring-sky-500' : ''
           const dark = !day.isOff && t >= 0.5
           return (
             <div
@@ -79,8 +78,6 @@ export default function CapacityHeatmap({ heat: data }: Props) {
         <span>เต็ม</span>
         <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded" style={{ background: OFF }} />
         <span>วันหยุด</span>
-        <span className="ml-1.5 inline-block h-2.5 w-2.5 rounded ring-2 ring-inset ring-red-600" style={{ background: SEQ_GREEN[4] }} />
-        <span>จองซ้อน</span>
       </div>
 
       {tip && <Tooltip x={tip.x} y={tip.y} day={tip.day} teams={teams} headcountTotal={headcountTotal} />}
@@ -106,7 +103,7 @@ function Tooltip({ x, y, day, teams, headcountTotal }: { x: number; y: number; d
         <div className="text-[11px] text-slate-400">วันหยุด — ไม่มีงาน</div>
       ) : (
         <>
-          <div className="mb-1.5 text-[11px] font-medium text-blue-600">ภาพรวม จอง {booked}/{headcountTotal} คน ({pct}%){day.conflict && ' · มีจองซ้อน'}</div>
+          <div className="mb-1.5 text-[11px] font-medium text-blue-600">ภาพรวม จอง {booked}/{headcountTotal} คน ({pct}%)</div>
           {teams.map(t => {
             const free = t.roster.filter(r => !bookedSet.has(r.id))
             return (
