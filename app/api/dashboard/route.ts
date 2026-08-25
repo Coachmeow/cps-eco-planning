@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
   // booked   = วัน FIELD ที่คนในทีมถูกจองไปแล้ว (ไม่ว่าจะทำให้ทีมไหน — คนไม่ว่างคือไม่ว่าง)
   const activeEmployees = await prisma.employee.findMany({
     where:  { isActive: true, inPlanner: true },
-    select: { id: true, primaryTeamId: true },
+    select: { id: true, primaryTeamId: true, nickname: true, fullName: true },
   })
   const bookedRaw = await prisma.staffAssignment.groupBy({
     by:    ['employeeId'],
@@ -177,6 +177,49 @@ export async function GET(req: NextRequest) {
       remaining: Math.round(remaining * 10) / 10, usedPct,
     }
   }).filter((t) => t.headcount > 0).sort((a, b) => b.remaining - a.remaining)
+
+  // ── Heatmap กำลังพล (รายวัน) ────────────────────────────────
+  // roster = พนักงานภาคสนาม active+inPlanner ; ต่อวันคืน employeeId ที่ถูกจอง FIELD (รวม row วันลูก)
+  // client คำนวณ "ว่าง" = roster − booked ต่อทีมเอง (tooltip) → ไม่ยิง API ซ้ำ
+  const fieldTeamIds = new Set(teams.filter((t) => t.isFieldTeam !== false).map((t) => t.id))
+  const rosterEmps = activeEmployees.filter((e) => fieldTeamIds.has(e.primaryTeamId))
+  const rosterIdSet = new Set(rosterEmps.map((e) => e.id))
+  const heatTeams = teams
+    .filter((t) => t.isFieldTeam !== false)
+    .map((t) => ({
+      teamId: t.id,
+      code:   t.code,
+      roster: rosterEmps
+        .filter((e) => e.primaryTeamId === t.id)
+        .map((e) => ({ id: e.id, name: e.nickname || e.fullName })),
+    }))
+    .filter((t) => t.roster.length > 0)
+
+  const heatAsg = await prisma.staffAssignment.findMany({
+    where:  { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', siteId: { not: null } },
+    select: { assignedDate: true, employeeId: true },
+  })
+  // นับจำนวน record ต่อ (วัน,คน) → distinct = booked, >1 = จองซ้อน (conflict)
+  const cntByDay = new Map<string, Map<number, number>>()
+  for (const a of heatAsg) {
+    const k = toDateKey(a.assignedDate)
+    if (!cntByDay.has(k)) cntByDay.set(k, new Map())
+    const m = cntByDay.get(k)!
+    m.set(a.employeeId, (m.get(a.employeeId) ?? 0) + 1)
+  }
+  const daysInMonth = endDate.getDate()
+  const heatDays: { date: string; isOff: boolean; bookedIds: number[]; conflict: boolean }[] = []
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month - 1, d)
+    const k  = toDateKey(dt)
+    const isOff = dt.getDay() === 0 || holidays.has(k)   // อาทิตย์ + วันหยุด (เสาร์ = วันทำงานปกติ)
+    const m = cntByDay.get(k)
+    const bookedIds: number[] = []
+    let conflict = false
+    if (m) for (const [id, c] of m) { if (rosterIdSet.has(id)) { bookedIds.push(id); if (c > 1) conflict = true } }
+    heatDays.push({ date: k, isOff, bookedIds, conflict })
+  }
+  const capacityHeat = { headcountTotal: rosterEmps.length, teams: heatTeams, days: heatDays }
 
   // ── แนวโน้มย้อนหลัง 6 เดือน ──────────────────────────────────
   // util เครื่องมือใช้จำนวนเครื่อง active ปัจจุบันเป็นตัวหาร (ประมาณการสำหรับ trend สั้น)
@@ -347,5 +390,5 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, sankeyRows, workdays, year, month })
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, capacityHeat, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, sankeyRows, workdays, year, month })
 }

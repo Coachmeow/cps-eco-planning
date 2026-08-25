@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ExportButton from '@/components/ExportButton'
-import type { DashboardData, SiteMandayRow, TeamCapacityRow } from '@/lib/types'
+import type { DashboardData, SiteMandayRow } from '@/lib/types'
 import CapacityRings from '@/components/dashboard/charts/CapacityRings'
 import TrendComposed from '@/components/dashboard/charts/TrendComposed'
 import DemandChart from '@/components/dashboard/charts/DemandChart'
@@ -10,6 +10,7 @@ import TeamStackChart from '@/components/dashboard/charts/TeamStackChart'
 import HBarList from '@/components/dashboard/charts/HBarList'
 import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
 import PersonUtilBars from '@/components/dashboard/charts/PersonUtilBars'
+import CapacityHeatmap from '@/components/dashboard/charts/CapacityHeatmap'
 import ProvinceMap from '@/components/dashboard/charts/ProvinceMap'
 import { Wrench, Users, Car, CircleCheck } from 'lucide-react'
 import { utilHex, siteHex } from '@/lib/chartTheme'
@@ -139,37 +140,15 @@ export default function DashboardView() {
               <TeamStackChart rows={data.teamWorkload} />
             </Card>
 
-            {/* Team capacity remaining — sorted by remaining desc */}
-            <Card title="Capacity คงเหลือต่อทีม (วัน-คน)">
+            {/* Heatmap กำลังพล — คนว่างรายวันแยกทีม (แทนกล่อง Capacity เดิม; ยอดต่อทีมดูที่วงแหวนข้าง Sankey) */}
+            <Card title="Heatmap กำลังพล">
               {/* งานรอยืนยันนับรวมอยู่ในยอด "ใช้" แล้ว (คิวถูกกันไว้จริง) — แยกโชว์ให้เห็นความเสี่ยง */}
               {(data.tentativeDays ?? 0) > 0 && (
                 <p className="mb-3 rounded border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-                  ⏳ ในยอดนี้เป็น<b>งานรอยืนยัน {data.tentativeDays} วัน-คน</b> — ถ้าลูกค้ายกเลิกจะว่างเพิ่มเท่านี้
+                  ⏳ มี<b>งานรอยืนยัน {data.tentativeDays} วัน-คน</b> รวมอยู่ในยอดจอง — ถ้าลูกค้ายกเลิกจะว่างเพิ่มเท่านี้
                 </p>
               )}
-              {data.teamCapacity.length === 0
-                ? <p className="text-center text-sm text-slate-300 py-8">ยังไม่มีข้อมูล</p>
-                : (
-                <div className="space-y-3">
-                  {data.teamCapacity.map((t: TeamCapacityRow) => {
-                    const usedColor = t.usedPct >= 90 ? 'bg-red-400' : t.usedPct >= 70 ? 'bg-amber-400' : 'bg-emerald-400'
-                    const remColor  = t.remaining <= 0 ? 'text-red-500' : t.usedPct >= 70 ? 'text-amber-600' : 'text-emerald-600'
-                    return (
-                      <div key={t.teamId} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="font-medium text-slate-600">{t.teamCode} <span className="text-slate-400">· {t.headcount} คน</span></span>
-                          <span className="text-slate-500">
-                            ใช้ {t.booked} / {t.capacity} · เหลือ <span className={`font-semibold ${remColor}`}>{t.remaining} วัน</span>
-                          </span>
-                        </div>
-                        <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
-                          <div className={`h-full ${usedColor}`} style={{ width: `${Math.min(t.usedPct, 100)}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              <CapacityHeatmap heat={data.capacityHeat} />
             </Card>
 
             {/* แนวโน้ม 6 เดือน — ย้ายมาต่อขวาของ Capacity */}

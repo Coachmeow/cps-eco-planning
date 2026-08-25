@@ -325,6 +325,12 @@ export interface DashboardData {
   personUtil: PersonUtilRow[]
   siteMandays: SiteMandayRow[]
   teamCapacity: TeamCapacityRow[]
+  // Heatmap กำลังพล — รายวัน: คนที่ถูกจอง FIELD ต่อวัน (client คำนวณ "ว่าง" = roster − booked ต่อทีม)
+  capacityHeat?: {
+    headcountTotal: number
+    teams: { teamId: number; code: string; roster: { id: number; name: string }[] }[]
+    days: { date: string; isOff: boolean; bookedIds: number[]; conflict: boolean }[]
+  }
   trend: TrendPoint[]
   vehicleUtil?: VehicleUtilRow[]
   alerts?: DashboardAlerts
