@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Wrench, Car, Users, Lock, StickyNote, Clock } from 'lucide-react'
+import { Wrench, Car, Users, Lock, StickyNote, Clock, Pencil, AlertTriangle } from 'lucide-react'
 import type { Employee, Site, ServiceTeam, StaffAssignment, AssignmentStatus } from '@/lib/types'
+import type { EditResult, StrandedResult } from '@/hooks/useStaffCalendar'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
 import { TentativeField, TentativeRow } from '@/components/TentativeControls'
@@ -22,6 +23,7 @@ interface Props {
   onSave:              (payloads: Record<string, unknown>[]) => Promise<void>
   onDelete:            (id: number) => Promise<void>
   onMove?:             (p: { assignmentId: number; newStartDate: string; includeIds: number[] }) => Promise<{ moved: number; skipped: string[] }>
+  onEdit?:             (id: number, payload: Record<string, unknown>) => Promise<EditResult>   // แก้ไขงาน
   onConfirm?:          (id: number) => Promise<void>   // ยืนยันงานจองรอยืนยัน
   onClose:             () => void
 }
@@ -43,7 +45,7 @@ export default function AssignmentPopup({
   employeeAssignments = [],
   initialDays,
   canEdit = true,
-  onSave, onDelete, onMove, onConfirm, onClose,
+  onSave, onDelete, onMove, onEdit, onConfirm, onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -169,6 +171,84 @@ export default function AssignmentPopup({
   const [moveInclude, setMoveInclude] = useState<number[]>([])
   const [moving,      setMoving]      = useState(false)
 
+  // แก้ไขงาน (edit) — งานแม่ที่กำลังแก้ + ชุดเครื่องมือ/รถเดิม (ไว้คำนวณ diff) + กลุ่ม + สถานะ stranded
+  const [editing,     setEditing]     = useState<StaffAssignment | null>(null)
+  const [origEquip,   setOrigEquip]   = useState<number[]>([])
+  const [origVeh,     setOrigVeh]     = useState<number[]>([])
+  const [editPeers,   setEditPeers]   = useState<MovePeer[]>([])
+  const [editApply,   setEditApply]   = useState<number[]>([])
+  const [editSaving,  setEditSaving]  = useState(false)
+  const [stranded,    setStranded]    = useState<StrandedResult | null>(null)
+  const [regearTo,    setRegearTo]    = useState<number | null>(null)
+
+  function startEdit(a: StaffAssignment) {
+    const at = attach.get(a.id)
+    const eq = at?.equipment.map(e => e.id) ?? []
+    const vh = at?.vehicles.map(v => v.id) ?? []
+    setEditing(a)
+    setStatus(a.status)
+    setSiteId(a.siteId ? String(a.siteId) : '')
+    setLeaveType(a.leaveType ?? '')
+    setServiceTypeId(a.serviceTypeId ? String(a.serviceTypeId) : String(employee.primaryTeamId))
+    setEstimatedDays(String(Number(a.estimatedDays)))
+    setNotes(a.notes ?? '')
+    setIsTentative(a.isTentative)
+    setTentativeReason(a.tentativeReason ?? '')
+    setEquipIds(eq); setVehicleIds(vh)
+    setOrigEquip(eq); setOrigVeh(vh)
+    setShowAdd(true)
+    setEditPeers([]); setEditApply([])
+    // หาคนร่วมกลุ่ม (ไซต์+วัน+จำนวนวัน+ประเภทงานตรงกัน) ไว้ให้ติ๊ก "ใช้ทั้งกลุ่ม"
+    fetch(`/api/staff-assignments/move?assignmentId=${a.id}`)
+      .then(r => r.json())
+      .then((rows: MovePeer[]) => { if (Array.isArray(rows)) { setEditPeers(rows); setEditApply(rows.map(p => p.id)) } })
+      .catch(() => {})
+  }
+
+  // การ์ดนี้ "เป็นเจ้าของเครื่องมือ" (มี gear ผูกอยู่) → แก้ gear ได้; ถ้าไม่ใช่และอยู่ในกลุ่ม → ซ่อน (กันจองซ้ำ)
+  const isGearOwner = origEquip.length > 0 || origVeh.length > 0
+  const canEditGear = !editing || isGearOwner || editPeers.length === 0
+
+  async function runEdit(extra: Record<string, unknown> = {}) {
+    if (!editing || !onEdit) return
+    const addEquipmentIds    = equipIds.filter(id => !origEquip.includes(id))
+    const removeEquipmentIds = origEquip.filter(id => !equipIds.includes(id))
+    const addVehicleIds      = vehicleIds.filter(id => !origVeh.includes(id))
+    const removeVehicleIds   = origVeh.filter(id => !vehicleIds.includes(id))
+    const payload = {
+      status,
+      siteId: status === 'FIELD' && siteId ? parseInt(siteId) : null,
+      serviceTypeId: serviceTypeId ? parseInt(serviceTypeId) : null,
+      estimatedDays: parseFloat(estimatedDays),
+      leaveType: status === 'LEAVE' ? leaveType : null,
+      notes: notes || null,
+      isTentative,
+      tentativeReason: isTentative ? (tentativeReason || null) : null,
+      ...(canEditGear ? { addEquipmentIds, removeEquipmentIds, addVehicleIds, removeVehicleIds } : {}),
+      applyToIds: editApply,
+      ...extra,
+    }
+    setEditSaving(true)
+    try {
+      const res = await onEdit(editing.id, payload)
+      if ('error' in res && res.error === 'equipment_stranded') {
+        setStranded(res); setRegearTo(res.targets[0]?.id ?? null); return
+      }
+      if ('skipped' in res && Array.isArray(res.skipped) && res.skipped.length > 0) alert(`ข้ามงานที่ถูกล็อก: ${res.skipped.join(', ')}`)
+      onClose()
+    } catch (err) {
+      alert(`แก้ไขไม่สำเร็จ: ${err instanceof Error ? err.message : err}`)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  function handleEditSave() {
+    if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
+    if (status === 'LEAVE' && !leaveType) { alert('กรุณาเลือกประเภทการลา'); return }
+    runEdit()
+  }
+
   function openMove(a: StaffAssignment) {
     setMoveFor(a)
     setMoveDate(String(a.assignedDate).slice(0, 10))
@@ -200,12 +280,12 @@ export default function AssignmentPopup({
   // click-outside closes popup (ยกเว้นตอนเปิดแผงเลือกเครื่อง/หน้าสรุป/แผงเลื่อนงาน)
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (pickerOpen || confirmOpen || vehPickerOpen || moveFor) return
+      if (pickerOpen || confirmOpen || vehPickerOpen || moveFor || stranded) return
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [onClose, pickerOpen, confirmOpen, vehPickerOpen, moveFor])
+  }, [onClose, pickerOpen, confirmOpen, vehPickerOpen, moveFor, stranded])
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
@@ -362,6 +442,9 @@ export default function AssignmentPopup({
                       </span>
                       {canEdit && !a.isLocked
                         ? <span className="flex items-center gap-2">
+                            {a.parentId == null && onEdit && (
+                              <button onClick={() => startEdit(a)} className="inline-flex items-center gap-0.5 text-slate-500 hover:text-slate-700"><Pencil className="h-3 w-3" /> แก้ไข</button>
+                            )}
                             {a.parentId == null && a.status === 'FIELD' && onMove && (
                               <button onClick={() => openMove(a)} className="text-sky-500 hover:text-sky-700">↔ เลื่อน</button>
                             )}
@@ -385,8 +468,11 @@ export default function AssignmentPopup({
                       {a.isCrossTeam && <span className="ml-1 rounded bg-sky-100 px-1 text-sky-600">{a.serviceType?.code}</span>}
                       <span className="ml-1 font-normal text-slate-400">({group.length} วัน)</span>
                     </span>
-                    {canEdit && !a.isLocked && a.status === 'FIELD' && onMove && (
-                      <button onClick={() => openMove(a)} className="font-normal text-sky-500 hover:text-sky-700">↔ เลื่อน</button>
+                    {canEdit && !a.isLocked && (
+                      <span className="flex items-center gap-2 font-normal">
+                        {onEdit && <button onClick={() => startEdit(a)} className="inline-flex items-center gap-0.5 text-slate-500 hover:text-slate-700"><Pencil className="h-3 w-3" /> แก้ไข</button>}
+                        {a.status === 'FIELD' && onMove && <button onClick={() => openMove(a)} className="text-sky-500 hover:text-sky-700">↔ เลื่อน</button>}
+                      </span>
                     )}
                   </div>
                   {a.isTentative && <TentativeRow reason={a.tentativeReason} canEdit={canEdit} busy={confirming === a.id} wholeJob onConfirm={() => doConfirm(a.id)} />}
@@ -432,7 +518,11 @@ export default function AssignmentPopup({
         {/* ── Form (เฉพาะผู้มีสิทธิ์จัดแผน + กางฟอร์มแล้ว) ── */}
         {canEdit && showAdd && (
         <div className="px-4 py-3 space-y-3">
-          <p className="text-xs font-medium text-slate-500">เพิ่มรายการใหม่</p>
+          <p className="text-xs font-medium text-slate-500">
+            {editing
+              ? <span className="inline-flex items-center gap-1 text-slate-700"><Pencil className="h-3.5 w-3.5" /> แก้ไขงาน{editPeers.length > 0 ? ` (มีคนร่วมงาน ${editPeers.length} คน)` : ''}</span>
+              : 'เพิ่มรายการใหม่'}
+          </p>
 
           {/* Status */}
           <div>
@@ -493,6 +583,13 @@ export default function AssignmentPopup({
                 </select>
               </div>
 
+              {editing && !canEditGear && (
+                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                  <Wrench className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />เครื่องมือ/รถผูกกับการ์ดคนหลักที่ถืออุปกรณ์ — แก้ได้ที่การ์ดคนนั้น (การ์ดนี้แก้ได้เฉพาะข้อมูลงาน)
+                </div>
+              )}
+
+              {canEditGear && <>
               {/* เครื่องมือที่เอาไปด้วย (ไม่บังคับ) → เปิดแผงด้านข้าง */}
               <div>
                 <button type="button" disabled={!siteId} onClick={() => setPickerOpen(true)}
@@ -537,6 +634,7 @@ export default function AssignmentPopup({
                 )}
                 <p className="mt-1 text-[10px] text-slate-400">คนขับเริ่มต้น = {employee.nickname ?? employee.fullName} (แก้ได้ในแผนใช้รถ)</p>
               </div>
+              </>}
             </>
           )}
 
@@ -554,8 +652,8 @@ export default function AssignmentPopup({
         </div>
         )}
 
-        {/* ── Companion section ── */}
-        {canEdit && showAdd && displayed.length > 0 && (
+        {/* ── Companion section (เฉพาะตอนเพิ่มใหม่ ไม่โชว์ตอนแก้ไข) ── */}
+        {canEdit && showAdd && !editing && displayed.length > 0 && (
           <div className="border-t border-slate-100 px-4 pb-3 pt-2">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium text-slate-500"><Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />คนร่วมงาน</p>
@@ -635,9 +733,37 @@ export default function AssignmentPopup({
           </div>
         )}
 
-        {/* ── Save button → เปิดหน้าสรุป ── */}
+        {/* ── กลุ่มคนร่วมงาน (ตอนแก้ไข) → เลือกใช้ทั้งกลุ่ม ── */}
+        {canEdit && showAdd && editing && editPeers.length > 0 && (
+          <div className="border-t border-slate-100 px-4 pb-3 pt-3">
+            <p className="mb-1 text-xs font-medium text-slate-500"><Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />ใช้กับคนร่วมงานในกลุ่มนี้ด้วย ({editPeers.length} คน)</p>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-slate-100 p-2">
+              {editPeers.map(p => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                  <input type="checkbox" checked={editApply.includes(p.id)}
+                    onChange={() => setEditApply(prev => prev.includes(p.id) ? prev.filter(i => i !== p.id) : [...prev, p.id])} />
+                  {p.name}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">ติ๊กออก = คนนั้นไม่ถูกแก้ (งานเดิมคงอยู่)</p>
+          </div>
+        )}
+
+        {/* ── Save button ── */}
         {canEdit && showAdd && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+          {editing ? (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setEditing(null)} disabled={editSaving}
+                className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-50">ยกเลิก</button>
+              <button type="button" onClick={handleEditSave}
+                disabled={editSaving || (status === 'FIELD' && !siteId) || (status === 'LEAVE' && !leaveType)}
+                className="flex-1 rounded bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                {editSaving ? 'กำลังบันทึก...' : `บันทึกการแก้ไข${editApply.length > 0 ? ` (${1 + editApply.length} คน)` : ''}`}
+              </button>
+            </div>
+          ) : (
           <button
             onClick={() => {
               if (status === 'FIELD' && !siteId) { alert('กรุณาเลือกไซต์งานก่อนบันทึกงานภาคสนาม'); return }
@@ -649,6 +775,7 @@ export default function AssignmentPopup({
           >
             ตรวจสอบและบันทึก{totalPeople > 1 ? ` (${totalPeople} คน)` : ''} ›
           </button>
+          )}
         </div>
         )}
       </div>
@@ -887,6 +1014,51 @@ export default function AssignmentPopup({
                 className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
                 {moving ? 'กำลังเลื่อน...' : 'ยืนยันเลื่อน'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── เตือน "เครื่องมือค้าง" (เจ้าของไม่ถูกย้าย แต่คนอื่นย้าย) ── */}
+      {stranded && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !editSaving && setStranded(null)}>
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <p className="text-sm font-semibold text-slate-800">เครื่องมือจะค้างที่ไซต์เดิม</p>
+            </div>
+            <div className="space-y-2 px-5 py-4 text-sm">
+              <p className="text-slate-600">
+                เครื่องมือ/รถผูกกับ <b className="text-slate-800">{stranded.ownerName}</b> ที่ <b>ไม่ถูกย้าย</b> —
+                คนที่ย้ายไปไซต์ใหม่จะไม่มีอุปกรณ์ติดตัว
+              </p>
+              {(stranded.ownerEquipment.length > 0 || stranded.ownerVehicles.length > 0) && (
+                <div className="flex flex-wrap gap-1">
+                  {stranded.ownerEquipment.map((e, i) => <span key={`e${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600"><Wrench className="inline h-3 w-3 align-[-1px]" /> {e}</span>)}
+                  {stranded.ownerVehicles.map((v, i) => <span key={`v${i}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600"><Car className="inline h-3 w-3 align-[-1px]" /> {v}</span>)}
+                </div>
+              )}
+              <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                <p className="mb-1 text-xs text-slate-500">ย้ายเครื่องมือไปให้:</p>
+                <select value={regearTo ?? ''} onChange={e => setRegearTo(parseInt(e.target.value))}
+                  className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                  {stranded.targets.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-slate-100 px-5 py-3">
+              <button type="button" disabled={editSaving || !regearTo}
+                onClick={() => { const from = stranded.ownerId; setStranded(null); runEdit({ regearFromId: from, regearToId: regearTo }) }}
+                className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                ย้ายเครื่องมือไปให้คนที่ย้าย
+              </button>
+              <button type="button" disabled={editSaving}
+                onClick={() => { const owner = stranded.ownerId; setStranded(null); setEditApply(prev => [...new Set([...prev, owner])]); runEdit({ applyToIds: [...new Set([...editApply, owner])] }) }}
+                className="w-full rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                ย้าย {stranded.ownerName} ไปด้วย (ทั้งเครื่องมือ)
+              </button>
+              <button type="button" onClick={() => setStranded(null)} disabled={editSaving}
+                className="w-full rounded-lg py-1.5 text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50">ยกเลิก</button>
             </div>
           </div>
         </div>

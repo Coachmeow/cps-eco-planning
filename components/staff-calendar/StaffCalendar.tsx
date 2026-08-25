@@ -57,7 +57,7 @@ export default function StaffCalendar() {
   const [rangeStart, setRangeStart] = useState<{ empId: number; idx: number; dateKey: string } | null>(null)
   const [rangeHover, setRangeHover] = useState<number | null>(null)
 
-  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment, moveAssignment, confirmAssignment } =
+  const { employees, calendarData, conflicts, sites, teams, loading, error, addAssignments, removeAssignment, moveAssignment, editAssignment, confirmAssignment } =
     useStaffCalendar(year, month)
   const { role } = useMe()
   const canEdit = canPlan(role)
@@ -312,7 +312,7 @@ export default function StaffCalendar() {
           sites={sites} teams={teams}
           allEmployees={employees}
           canEdit={canEdit}
-          onSave={addAssignments} onDelete={removeAssignment} onMove={moveAssignment} onConfirm={confirmAssignment} onClose={() => setPopup(null)}
+          onSave={addAssignments} onDelete={removeAssignment} onMove={moveAssignment} onEdit={editAssignment} onConfirm={confirmAssignment} onClose={() => setPopup(null)}
         />
       )}
 

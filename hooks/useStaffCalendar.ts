@@ -4,6 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Employee, StaffAssignment, Site, ServiceTeam, CalendarData, ConflictSet } from '@/lib/types'
 import { toDateKey } from '@/lib/dateKey'
 
+// ผลลัพธ์เมื่อ PATCH เจอ "เครื่องมือค้าง" (เจ้าของไม่ถูกย้าย แต่คนอื่นย้าย)
+export interface StrandedResult {
+  error: 'equipment_stranded'
+  ownerId: number
+  ownerName: string
+  ownerEquipment: string[]
+  ownerVehicles: string[]
+  targets: { id: number; name: string }[]
+}
+export type EditResult = StrandedResult | { ok: true; appliedPeers?: number; skipped?: string[] }
+
 function buildCalendarData(assignments: StaffAssignment[]): CalendarData {
   const map: CalendarData = new Map()
   for (const a of assignments) {
@@ -121,6 +132,21 @@ export function useStaffCalendar(year: number, month: number) {
     return data as { moved: number; skipped: string[] }
   }, [fetchAll])
 
+  // แก้ไขงาน (ไซต์/ประเภทงาน/วัน/สถานะ/หมายเหตุ/tentative + เครื่องมือ/รถ) — ใช้ทั้งกลุ่มได้ผ่าน applyToIds
+  // คืน 409 { error:'equipment_stranded', ... } เมื่อเจ้าของเครื่องมือไม่ถูกย้าย → ให้ UI ถามก่อน retry
+  const editAssignment = useCallback(async (id: number, payload: Record<string, unknown>) => {
+    const res = await fetch(`/api/staff-assignments/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 409 && data?.error === 'equipment_stranded') return data as StrandedResult
+    if (!res.ok) throw new Error(data?.error ?? 'แก้ไขไม่สำเร็จ')
+    await fetchAll()
+    return { ok: true as const, ...data }
+  }, [fetchAll])
+
   // ยืนยันงานจอง — ปลดธงรอยืนยันทั้งชุด (วันแม่+ลูก+เครื่องมือ/รถที่แนบ)
   const confirmAssignment = useCallback(async (id: number) => {
     const res = await fetch(`/api/staff-assignments/${id}/confirm`, { method: 'POST' })
@@ -128,5 +154,5 @@ export function useStaffCalendar(year: number, month: number) {
     await fetchAll()
   }, [fetchAll])
 
-  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment, moveAssignment, confirmAssignment }
+  return { employees, calendarData, conflicts, sites, teams, loading, error, addAssignment, addAssignments, removeAssignment, moveAssignment, editAssignment, confirmAssignment }
 }
