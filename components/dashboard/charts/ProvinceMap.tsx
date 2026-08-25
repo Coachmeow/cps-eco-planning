@@ -5,7 +5,7 @@
 //  2) เส้นทางเดินทาง (arcs ฐานสระบุรี→ไซต์ วันนี้/พรุ่งนี้) + รายการรถที่กำลังเดินทาง
 // ขวา: พนักงานประจำออฟฟิศ + รถพร้อมใช้งาน (เลือกวันที่แยกอิสระต่อกล่อง)
 // API: province-map · weather · office-staff · office-vehicles · travel
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Truck, HardHat, Building2, CloudRain, Thermometer, Sun, CloudSunRain, Droplet, Pin, Phone, Plane, Layers, Car, Bus, MapPin, Play, Pause, type LucideIcon } from 'lucide-react'
 import { PROVINCES, MAP_W, MAP_H } from '@/lib/thailandGeo'
 import { teamHex, SEQ_GREEN } from '@/lib/chartTheme'
@@ -91,10 +91,15 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [wx, setWx] = useState<Wx | null>(null)
   const [office, setOffice] = useState<OfficeResp | null>(null)
   // กล่อง idle (ตรงกลาง) — สลับ 2 มุมมอง: สภาพอากาศ ↔ พนักงานประจำ Location วันนี้
-  const [idleView, setIdleView] = useState<'wx' | 'loc'>('wx')
-  const [idleAuto, setIdleAuto] = useState(true)   // หมุนอัตโนมัติทุก 3 วิ
+  const [idleView, setIdleView] = useState<'wx' | 'loc'>('wx')       // แท็บที่เลือก
+  const [idleDisplay, setIdleDisplay] = useState<'wx' | 'loc'>('wx') // หน้าที่แสดงจริง (สลับตอนจางหาย)
+  const [idleVisible, setIdleVisible] = useState(true)              // opacity สำหรับ crossfade
+  const [idleAuto, setIdleAuto] = useState(true)   // หมุนอัตโนมัติทุก 6 วิ
   const [idlePaused, setIdlePaused] = useState(false) // หยุดชั่วคราวเมื่อชี้เมาส์
   const [locData, setLocData] = useState<(Resp & { error?: boolean }) | null>(null) // สแนปช็อตพนักงานวันนี้ (คงที่)
+  const wxTabRef = useRef<HTMLButtonElement>(null)
+  const locTabRef = useRef<HTMLButtonElement>(null)
+  const [pill, setPill] = useState<{ left: number; width: number }>({ left: 0, width: 0 }) // ตำแหน่งไฮไลต์เลื่อน
   const [viewMode, setViewMode] = useState<'heat' | 'travel'>('heat')
   const [travelDay, setTravelDay] = useState<'today' | 'tomorrow' | 'date'>('today')
   const [travelPickDate, setTravelPickDate] = useState(todayKey())
@@ -239,13 +244,27 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
     })
   }, [locData, wxRank])
 
-  // หมุนสลับ สภาพอากาศ ↔ Location ทุก 3 วิ — หยุดเมื่อชี้เมาส์ / ปิดสวิตช์ / ไม่ได้อยู่โหมด idle
+  // หมุนสลับ สภาพอากาศ ↔ Location ทุก 6 วิ — หยุดเมื่อชี้เมาส์ / ปิดสวิตช์ / ไม่ได้อยู่โหมด idle
   const idleShown = !travelView && !shown
   useEffect(() => {
     if (!idleAuto || idlePaused || !idleShown) return
     const t = setInterval(() => setIdleView((v) => (v === 'wx' ? 'loc' : 'wx')), 6000)
     return () => clearInterval(t)
   }, [idleAuto, idlePaused, idleShown])
+
+  // crossfade: จางหน้าเดิมออก → สลับเนื้อหาตอนมองไม่เห็น (ความสูงเปลี่ยนตอนซ่อน) → จางเข้า
+  useEffect(() => {
+    if (idleView === idleDisplay) return
+    setIdleVisible(false)
+    const t = setTimeout(() => { setIdleDisplay(idleView); setIdleVisible(true) }, 220)
+    return () => clearTimeout(t)
+  }, [idleView, idleDisplay])
+
+  // ไฮไลต์ toggle เลื่อนไปยังแท็บที่เลือก (วัดตำแหน่งจริงของปุ่ม)
+  useEffect(() => {
+    const el = idleView === 'wx' ? wxTabRef.current : locTabRef.current
+    if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth })
+  }, [idleView, idleShown, wx, locData])
 
   function togglePin(name: string) { setPinnedName((cur) => (cur === name ? null : name)) }
 
@@ -456,15 +475,21 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
               <ProvincePanel prov={shown} live={live} mode={mode} date={resp?.date} isPinned={shownName === pinnedName} onUnpin={() => setPinnedName(null)} />
             ) : (
               <div onMouseEnter={() => setIdlePaused(true)} onMouseLeave={() => setIdlePaused(false)}>
-                {/* toggle สลับ สภาพอากาศ ↔ ประจำ Location (เล็ก ไม่ทับเนื้อหา) */}
+                {/* toggle สลับ สภาพอากาศ ↔ ประจำ Location — ไฮไลต์เลื่อนตาม */}
                 <div className="mb-3 flex items-center gap-1.5">
-                  <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                  <div className="relative inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                    <span
+                      aria-hidden
+                      className="absolute bottom-0.5 top-0.5 rounded bg-emerald-600 transition-all duration-300 ease-out"
+                      style={{ left: pill.left, width: pill.width, opacity: pill.width ? 1 : 0 }}
+                    />
                     {([['wx', 'สภาพอากาศ', CloudSunRain], ['loc', 'ประจำ Location', MapPin]] as const).map(([k, label, Icon]) => (
                       <button
                         key={k}
+                        ref={k === 'wx' ? wxTabRef : locTabRef}
                         onClick={() => setIdleView(k)}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                          idleView === k ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                        className={`relative z-10 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors duration-300 ${
+                          idleView === k ? 'text-white' : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
                         <Icon className="h-3 w-3" /> {label}
@@ -479,8 +504,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                     {idleAuto ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </button>
                 </div>
-                <div key={idleView} className="idle-fade">
-                  {idleView === 'wx'
+                <div className="transition-opacity duration-200 ease-out" style={{ opacity: idleVisible ? 1 : 0 }}>
+                  {idleDisplay === 'wx'
                     ? <WeatherPanel wx={wx} />
                     : <LocationPanel provinces={locProvinces} wxRank={wxRank} loading={!locData} error={!!locData?.error} />}
                 </div>
