@@ -33,13 +33,19 @@ export async function POST(req: NextRequest) {
     const intervalMonths = mode === 'TIME_BASE' && b.intervalMonths ? parseInt(String(b.intervalMonths)) : null
     if (mode === 'TIME_BASE' && !intervalMonths) return NextResponse.json({ error: 'กรอกรอบ (เดือน) สำหรับ Time-base' }, { status: 400 })
     const lastReplacedDate = b.lastReplacedDate ? new Date(b.lastReplacedDate) : null
+    // วันเปลี่ยนครั้งถัดไป (กรอกวันอนาคตตรงๆ ได้) = anchor ของแผน ; ถ้าไม่กรอก → คำนวณจาก last + interval
+    const explicitNextDue = b.nextDueDate ? new Date(b.nextDueDate) : null
+    // TIME_BASE ต้องมี anchor อย่างน้อย 1 อย่าง ไม่งั้นแผนจะไม่ขึ้นตาราง
+    if (mode === 'TIME_BASE' && !explicitNextDue && !lastReplacedDate) {
+      return NextResponse.json({ error: 'กรอกวันเปลี่ยนครั้งถัดไป หรือวันเปลี่ยนล่าสุด อย่างน้อย 1 อย่าง' }, { status: 400 })
+    }
 
     const created = await prisma.cemsPartSchedule.create({
       data: {
         partId, analyzerId, siteId, mode, intervalMonths,
         qtyPerReplace: b.qtyPerReplace != null && b.qtyPerReplace !== '' ? parseInt(String(b.qtyPerReplace)) : 1,
         lastReplacedDate,
-        nextDueDate: computeNextDue(mode, intervalMonths, lastReplacedDate),
+        nextDueDate: mode === 'ON_CONDITION' ? null : (explicitNextDue ?? computeNextDue(mode, intervalMonths, lastReplacedDate)),
         notes: b.notes || null,
       },
     })

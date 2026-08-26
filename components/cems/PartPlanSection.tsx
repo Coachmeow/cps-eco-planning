@@ -33,7 +33,7 @@ const CELL_CLS: Record<string, string> = {
   done:    'bg-emerald-100 text-emerald-700',
 }
 
-const emptyForm = { partId: '', targetType: 'analyzer' as 'analyzer' | 'site', analyzerId: '', siteId: '', mode: 'TIME_BASE', intervalMonths: '12', qtyPerReplace: '1', lastReplacedDate: '', notes: '' }
+const emptyForm = { partId: '', targetType: 'analyzer' as 'analyzer' | 'site', analyzerId: '', siteId: '', mode: 'TIME_BASE', intervalMonths: '12', qtyPerReplace: '1', nextDueDate: '', lastReplacedDate: '', notes: '' }
 
 interface WithdrawTarget { partId: number; scheduleId: number; analyzerId?: number; siteId?: number }
 
@@ -102,6 +102,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
       siteId: s.siteId ? String(s.siteId) : '',
       mode: s.mode, intervalMonths: s.intervalMonths ? String(s.intervalMonths) : '12',
       qtyPerReplace: String(s.qtyPerReplace),
+      nextDueDate: s.nextDueDate ? s.nextDueDate.slice(0, 10) : '',
       lastReplacedDate: s.lastReplacedDate ? s.lastReplacedDate.slice(0, 10) : '',
       notes: s.notes ?? '',
     })
@@ -113,6 +114,9 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
     if (form.targetType === 'analyzer' && !form.analyzerId) { alert('เลือก analyzer'); return }
     if (form.targetType === 'site' && !form.siteId) { alert('เลือกไซต์'); return }
     if (form.mode === 'TIME_BASE' && !form.intervalMonths) { alert('กรอกรอบ (เดือน)'); return }
+    if (form.mode === 'TIME_BASE' && !form.nextDueDate && !form.lastReplacedDate) {
+      alert('กรอกวันเปลี่ยนครั้งถัดไป หรือวันเปลี่ยนล่าสุด อย่างน้อย 1 อย่าง'); return
+    }
     setSaving(true)
     const body = {
       partId: form.partId,
@@ -121,6 +125,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
       mode: form.mode,
       intervalMonths: form.mode === 'TIME_BASE' ? form.intervalMonths : null,
       qtyPerReplace: form.qtyPerReplace,
+      nextDueDate: form.mode === 'TIME_BASE' ? (form.nextDueDate || null) : null,
       lastReplacedDate: form.lastReplacedDate || null,
       notes: form.notes,
     }
@@ -333,6 +338,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                       <span className="text-slate-400"> · {s.analyzer?.tag ?? (s.site ? `${s.site.code} (ใช้ร่วม)` : '—')}</span>
                       <span className="ml-1.5 text-[10px] text-slate-400">
                         {s.mode === 'TIME_BASE' ? `ทุก ${s.intervalMonths} เดือน · ครั้งละ ${s.qtyPerReplace}` : 'เปลี่ยนเมื่อชำรุด'}
+                        {s.mode === 'TIME_BASE' && s.nextDueDate && ` · ถัดไป ${fmtDate(s.nextDueDate)}`}
                         {s.lastReplacedDate && ` · ล่าสุด ${fmtDate(s.lastReplacedDate)}`}
                       </span>
                     </div>
@@ -392,7 +398,13 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
               <Input label="จำนวนต่อครั้ง" type="number" value={form.qtyPerReplace} onChange={v => setForm(f => ({ ...f, qtyPerReplace: v }))} placeholder="1" />
             </div>
 
-            <Input label="วันเปลี่ยนล่าสุด (คำนวณรอบถัดไป)" type="date" value={form.lastReplacedDate} onChange={v => setForm(f => ({ ...f, lastReplacedDate: v }))} />
+            {form.mode === 'TIME_BASE' && (
+              <>
+                <Input label="วันเปลี่ยนครั้งถัดไป (วันที่วางแผน)" type="date" value={form.nextDueDate} onChange={v => setForm(f => ({ ...f, nextDueDate: v }))} />
+                <p className="-mt-1.5 text-[11px] text-slate-400">กรอกวันเปลี่ยนครั้งถัดไปได้ตรงๆ (รวมวันในอนาคต) → ระบบใช้วันนั้นเป็นแผน · ถ้าเว้นว่าง จะคำนวณจากวันเปลี่ยนล่าสุด + รอบ</p>
+              </>
+            )}
+            <Input label="วันเปลี่ยนล่าสุด (ถ้ามี)" type="date" value={form.lastReplacedDate} onChange={v => setForm(f => ({ ...f, lastReplacedDate: v }))} />
             <Input label="หมายเหตุ" value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="ถ้ามี" />
 
             {editing && canManage && (

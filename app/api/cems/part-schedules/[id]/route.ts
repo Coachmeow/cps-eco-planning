@@ -22,11 +22,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (b.isActive !== undefined)   data.isActive   = !!b.isActive
     if (b.notes !== undefined)      data.notes      = b.notes || null
 
-    // recompute nextDueDate จากค่าล่าสุด (ผสมของเดิม)
+    // nextDueDate: ถ้าส่งมาตรงๆ → ใช้ค่านั้น (กรอกวันอนาคตเองได้ / ล้างค่าได้) ;
+    //              ถ้าไม่ส่ง → recompute จาก last + interval (แก้ "วันล่าสุด" แล้ว refresh)
     const mode = (data.mode ?? cur.mode) as string
-    const interval = (data.intervalMonths !== undefined ? data.intervalMonths : cur.intervalMonths) as number | null
-    const last = (data.lastReplacedDate !== undefined ? data.lastReplacedDate : cur.lastReplacedDate) as Date | null
-    data.nextDueDate = computeNextDue(mode, interval, last)
+    if (b.nextDueDate !== undefined) {
+      data.nextDueDate = b.nextDueDate ? new Date(b.nextDueDate) : null
+    } else {
+      const interval = (data.intervalMonths !== undefined ? data.intervalMonths : cur.intervalMonths) as number | null
+      const last = (data.lastReplacedDate !== undefined ? data.lastReplacedDate : cur.lastReplacedDate) as Date | null
+      data.nextDueDate = computeNextDue(mode, interval, last)
+    }
+    // ON_CONDITION ไม่มีรอบ → บังคับ null เสมอ
+    if (mode === 'ON_CONDITION') data.nextDueDate = null
 
     const updated = await prisma.cemsPartSchedule.update({ where: { id: sid }, data })
     return NextResponse.json(updated)
