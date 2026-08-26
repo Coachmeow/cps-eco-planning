@@ -581,9 +581,12 @@ model CemsPartTxn {
   quoteNo    String?       // เลขใบเสนอราคาที่เสนอลูกค้า
   person     String?       // ผู้เบิก/ผู้รับเข้า
   notes      String?
+  scheduleId Int?              // OUT ตามแผน/ชำรุด: ตรึงว่าเป็นการเปลี่ยนของแผนไหน (นับรอบ/มาร์กในตารางปี)
+  schedule   CemsPartSchedule? @relation(fields: [scheduleId], references: [id])
   createdAt  DateTime      @default(now())
 
   @@index([partId, txnDate])
+  @@index([scheduleId, txnDate])
   @@map("cems_part_txns")
 }
 
@@ -611,6 +614,7 @@ model CemsPartSchedule {
   createdAt        DateTime         @default(now())
 
   requests         CemsPartRequest[]
+  txns             CemsPartTxn[]
 
   @@index([partId])
   @@index([siteId])

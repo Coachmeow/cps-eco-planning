@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 export interface WithdrawPart { id: number; code: string; name: string; unit?: string | null }
 export interface WithdrawEmployee { id: number; nickname: string | null; fullName: string }
 export interface WithdrawSite { id: number; code: string }
-export interface WithdrawAnalyzer { id: number; tag: string; currentSiteId: number | null }
+export interface WithdrawAnalyzer { id: number; tag: string; serialNo?: string | null; currentSiteId: number | null }
 export interface WithdrawSchedule {
   id: number
   analyzerId: number | null
@@ -59,6 +59,18 @@ export default function PartWithdrawForm({ part, employees, sites, analyzers, sc
     const sid = siteId ? parseInt(siteId) : null
     return (a.currentSiteId === sid ? 0 : 1) - (b.currentSiteId === sid ? 0 : 1)
   }), [analyzers, siteId])
+  const anLabel = (a: WithdrawAnalyzer) => a.serialNo ? `${a.tag} · S/N ${a.serialNo}` : a.tag
+
+  // โหมดตามแผน: แผนผูกไซต์ → ต้องเลือก "เครื่องที่เปลี่ยนจริง" เพื่อเก็บประวัติในตัวเครื่อง
+  // เครื่องของไซต์นั้นขึ้นก่อน ; บังคับเลือกถ้าไซต์นั้นมีเครื่องอยู่
+  const selectedSched = useMemo(() => schedules.find(s => String(s.id) === scheduleId) ?? null, [schedules, scheduleId])
+  const planSiteId = selectedSched?.siteId ?? (siteId ? parseInt(siteId) : null)
+  const siteAnalyzers = useMemo(() => analyzers.filter(a => a.currentSiteId != null && a.currentSiteId === planSiteId), [analyzers, planSiteId])
+  const plannedMachineOpts = useMemo(() => {
+    const inSite = new Set(siteAnalyzers.map(a => a.id))
+    return [...siteAnalyzers, ...analyzers.filter(a => !inSite.has(a.id))]
+  }, [analyzers, siteAnalyzers])
+  const machineRequired = mode === 'PLANNED' && !!scheduleId && siteAnalyzers.length > 0
 
   function pickSchedule(id: string) {
     setScheduleId(id)
@@ -85,6 +97,7 @@ export default function PartWithdrawForm({ part, employees, sites, analyzers, sc
     const q = parseInt(qty)
     if (!qty || q <= 0) { setErr('กรอกจำนวน'); return }
     if (mode === 'PLANNED' && !scheduleId) { setErr('เลือกแผนที่จะเบิก'); return }
+    if (machineRequired && !analyzerId) { setErr('เลือกเครื่อง (S/N) ที่เปลี่ยน'); return }
     if (mode === 'BREAKDOWN' && !analyzerId && !siteId) { setErr('เลือกเครื่องหรือไซต์ที่ชำรุด'); return }
     setSubmitting(true); setErr('')
     const body: Record<string, unknown> = {
@@ -142,6 +155,18 @@ export default function PartWithdrawForm({ part, employees, sites, analyzers, sc
                   </span>
                 </label>
               ))}
+            </div>
+          )}
+          {scheduleId && (
+            <div className="mt-3">
+              <label className={lbl}>เครื่องที่เปลี่ยน (S/N) {machineRequired && <span className="text-red-500">*</span>}</label>
+              <select value={analyzerId} onChange={e => setAnalyzerId(e.target.value)} className={inp}>
+                <option value="">{machineRequired ? '— เลือกเครื่องที่เปลี่ยน —' : '— ไม่ระบุเครื่อง —'}</option>
+                {plannedMachineOpts.map(a => (
+                  <option key={a.id} value={a.id}>{anLabel(a)}{siteAnalyzers.some(x => x.id === a.id) ? '' : ' · ต่างไซต์'}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-400">บันทึกว่าอะไหล่ไปเปลี่ยนที่เครื่องไหน → เก็บเป็นประวัติในตัวเครื่องนั้น</p>
             </div>
           )}
         </div>

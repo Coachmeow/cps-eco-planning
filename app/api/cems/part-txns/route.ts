@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
           quoteNo:    body.quoteNo    || null,
           person:     body.person     || null,
           notes:      body.notes      || null,
+          scheduleId: advanceSchedId,   // ตรึงว่าเป็นการเปลี่ยนของแผนไหน (นับรอบ/มาร์กในตารางปี)
         },
       })
       // รับเข้า → อัปเดตราคาอ้างอิงล่าสุด

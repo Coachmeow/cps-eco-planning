@@ -253,6 +253,24 @@ async function main() {
       for (const eq of calib) console.log(`     - ${eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}`)
     }
   }
+
+  // 11) ย้ายแผนเปลี่ยนอะไหล่ที่ "ผูกเครื่อง" เดิม → "ผูกไซต์" (โมเดลใหม่: แผนเป็นของไซต์ ไม่ใช่ตัวเครื่อง)
+  //     ใช้ไซต์ปัจจุบันของเครื่อง (currentSite) ก่อน ถ้าไม่มีใช้ไซต์เจ้าของ (homeSite)
+  //     idempotent: เมื่อ analyzerId เป็น null แล้วจะไม่แตะอีก ; เครื่องที่ไม่มีไซต์เลย = ข้าม + log
+  {
+    const analyzerBound = await prisma.cemsPartSchedule.findMany({
+      where:  { analyzerId: { not: null } },
+      select: { id: true, siteId: true, analyzer: { select: { currentSiteId: true, homeSiteId: true } } },
+    })
+    let moved = 0, orphan = 0
+    for (const s of analyzerBound) {
+      const target = s.siteId ?? s.analyzer?.currentSiteId ?? s.analyzer?.homeSiteId ?? null
+      if (target == null) { orphan++; continue }   // ไม่มีไซต์อ้างอิง — คงผูกเครื่องไว้ก่อน (fallback ยังอ่านได้)
+      await prisma.cemsPartSchedule.update({ where: { id: s.id }, data: { siteId: target, analyzerId: null } })
+      moved++
+    }
+    console.log(`🔧 ย้ายแผนอะไหล่ผูกเครื่อง → ผูกไซต์: ${moved} แผน${orphan ? ` · ข้าม (ไม่มีไซต์) ${orphan}` : ''}`)
+  }
 }
 
 main()

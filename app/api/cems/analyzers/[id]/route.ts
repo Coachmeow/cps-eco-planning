@@ -13,6 +13,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       currentSite: { select: { id: true, code: true } },
       homeSite:    { select: { id: true, code: true } },
       events: { include: { site: { select: { code: true } } }, orderBy: [{ eventDate: 'desc' }, { createdAt: 'desc' }] },
+      // ประวัติเปลี่ยนอะไหล่ของเครื่องนี้ (OUT ที่ stamp analyzerId ไว้) — ตรึงถาวร แม้ย้าย/ปลดระวางก็ไม่หลุด
+      partTxns: {
+        where: { type: 'OUT' },
+        select: {
+          id: true, qty: true, txnDate: true, quoteNo: true, person: true, notes: true,
+          part: { select: { code: true, name: true, unit: true } },
+          site: { select: { code: true } },
+        },
+        orderBy: [{ txnDate: 'desc' }, { id: 'desc' }],
+      },
     },
   })
   if (!analyzer) return NextResponse.json({ error: 'ไม่พบเครื่อง' }, { status: 404 })

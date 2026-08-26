@@ -10,12 +10,16 @@ interface EventRow {
   id: number; type: string; eventDate: string; symptom: string | null; action: string | null
   site: { code: string } | null; vendor: string | null; receiver: string | null; reporter: string | null; notes: string | null; createdAt: string
 }
+interface PartTxnRow {
+  id: number; qty: number; txnDate: string; quoteNo: string | null; person: string | null; notes: string | null
+  part: { code: string; name: string; unit: string | null }; site: { code: string } | null
+}
 interface Detail {
   id: number; tag: string; brand: string | null; model: string | null; serialNo: string | null
   parameter: string | null; ownership: string; status: string
   homeSite: { code: string } | null; currentSite: { code: string } | null
   receivedDate: string | null; statusUpdatedAt: string; notes: string | null
-  hasPhoto?: boolean; events: EventRow[]
+  hasPhoto?: boolean; events: EventRow[]; partTxns: PartTxnRow[]
 }
 
 const EVENT_TYPES = ['REPAIR', 'RETURN', 'MOVE', 'PM', 'ISSUE']
@@ -135,6 +139,26 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
               </div>
             </div>
             {a.notes && <p className="px-5 pb-1 text-xs text-amber-600"><StickyNote className="inline h-3 w-3 align-[-1px]" /> {a.notes}</p>}
+
+            {/* ประวัติเปลี่ยนอะไหล่ (ตรึงกับเครื่องนี้ แม้ย้าย/ปลดระวางก็ไม่หลุด) */}
+            {a.partTxns.length > 0 && (
+              <div className="border-t border-slate-100 px-5 py-3">
+                <p className="mb-2 text-xs font-semibold text-slate-500">ประวัติเปลี่ยนอะไหล่ ({a.partTxns.length})</p>
+                <div className="space-y-1.5">
+                  {a.partTxns.map(t => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-1.5 text-xs">
+                      <div className="min-w-0">
+                        <span className="font-medium text-slate-700">{t.part.code}</span>
+                        <span className="text-slate-400"> · {t.part.name}</span>
+                        <span className="ml-1 text-slate-500">×{t.qty}{t.part.unit ? ` ${t.part.unit}` : ''}</span>
+                        {(t.site?.code || t.quoteNo) && <span className="text-[10px] text-slate-400"> · {[t.site?.code, t.quoteNo].filter(Boolean).join(' · ')}</span>}
+                      </div>
+                      <span className="shrink-0 text-slate-400">{fmtDate(t.txnDate)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* timeline */}
             <div className="flex-1 overflow-y-auto border-t border-slate-100 px-5 py-3">

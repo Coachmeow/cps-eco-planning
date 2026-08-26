@@ -10,9 +10,9 @@ const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.
 
 interface Site { id: number; code: string; name?: string | null }
 interface Part { id: number; code: string; name: string; unit?: string | null }
-interface Analyzer { id: number; tag: string; currentSite?: { id: number; code: string } | null }
-interface Cell { qty: number; state: 'plan' | 'overdue' | 'done' }
-interface Row { scheduleId: number; partId: number; partCode: string; partName: string; unit: string | null; target: string; intervalMonths: number | null; qtyPerReplace: number; months: Record<number, Cell>; total: number }
+interface Analyzer { id: number; tag: string; serialNo?: string | null; currentSiteId?: number | null; currentSite?: { id: number; code: string } | null }
+interface Cell { plan?: 'plan' | 'overdue'; actual?: number; actualLabel?: string }
+interface Row { scheduleId: number; partId: number; partCode: string; partName: string; unit: string | null; target: string; intervalMonths: number | null; qtyPerReplace: number; months: Record<number, Cell>; total: number; rounds: number }
 interface Plan {
   year: number
   rows: Row[]
@@ -27,13 +27,23 @@ interface Schedule {
   part: Part; analyzer?: { id: number; tag: string } | null; site?: { id: number; code: string } | null
 }
 
-const CELL_CLS: Record<string, string> = {
-  plan:    'bg-sky-100 text-sky-700',
-  overdue: 'bg-red-100 text-red-600',
-  done:    'bg-emerald-100 text-emerald-700',
-}
+const emptyForm = { partId: '', siteId: '', mode: 'TIME_BASE', intervalMonths: '12', qtyPerReplace: '1', nextDueDate: '', lastReplacedDate: '', notes: '' }
 
-const emptyForm = { partId: '', targetType: 'analyzer' as 'analyzer' | 'site', analyzerId: '', siteId: '', mode: 'TIME_BASE', intervalMonths: '12', qtyPerReplace: '1', nextDueDate: '', lastReplacedDate: '', notes: '' }
+// จุดในตารางปี: วงแหวน = แผน (ฟ้า) / เลยกำหนด (แดง) ; จุดเขียวทึบ = เปลี่ยนจริง (ตัวเลข = จำนวนรอบเดือนนั้น)
+function MonthCell({ c, small }: { c?: Cell; small?: boolean }) {
+  if (!c || (!c.plan && !c.actual)) return null
+  const d = small ? 'h-2.5 w-2.5' : 'h-3 w-3'
+  return (
+    <span className="inline-flex items-center justify-center gap-0.5" title={c.actualLabel || undefined}>
+      {c.plan && <span className={`${d} rounded-full border-2 ${c.plan === 'overdue' ? 'border-red-500' : 'border-sky-400'}`} />}
+      {c.actual != null && c.actual > 0 && (
+        c.actual > 1
+          ? <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold leading-none text-white">{c.actual}</span>
+          : <span className={`${d} rounded-full bg-emerald-500`} />
+      )}
+    </span>
+  )
+}
 
 interface WithdrawTarget { partId: number; scheduleId: number; analyzerId?: number; siteId?: number }
 
@@ -92,13 +102,11 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
   useEffect(() => { if (siteId) loadPlan() }, [siteId, year, loadPlan])
   useEffect(() => { setExpanded(new Set()) }, [siteId, year])
 
-  function openAdd() { setEditing(null); setForm({ ...emptyForm, siteId }); setModalOpen(true) }
+  function openAdd() { setEditing(null); setForm({ ...emptyForm, siteId: siteId !== 'all' ? siteId : '' }); setModalOpen(true) }
   function openEdit(s: Schedule) {
     setEditing(s)
     setForm({
       partId: String(s.partId),
-      targetType: s.analyzerId ? 'analyzer' : 'site',
-      analyzerId: s.analyzerId ? String(s.analyzerId) : '',
       siteId: s.siteId ? String(s.siteId) : '',
       mode: s.mode, intervalMonths: s.intervalMonths ? String(s.intervalMonths) : '12',
       qtyPerReplace: String(s.qtyPerReplace),
@@ -111,8 +119,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
 
   async function save() {
     if (!form.partId) { alert('เลือกอะไหล่'); return }
-    if (form.targetType === 'analyzer' && !form.analyzerId) { alert('เลือก analyzer'); return }
-    if (form.targetType === 'site' && !form.siteId) { alert('เลือกไซต์'); return }
+    if (!form.siteId) { alert('เลือกไซต์'); return }
     if (form.mode === 'TIME_BASE' && !form.intervalMonths) { alert('กรอกรอบ (เดือน)'); return }
     if (form.mode === 'TIME_BASE' && !form.nextDueDate && !form.lastReplacedDate) {
       alert('กรอกวันเปลี่ยนครั้งถัดไป หรือวันเปลี่ยนล่าสุด อย่างน้อย 1 อย่าง'); return
@@ -120,8 +127,7 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
     setSaving(true)
     const body = {
       partId: form.partId,
-      analyzerId: form.targetType === 'analyzer' ? form.analyzerId : null,
-      siteId: form.targetType === 'site' ? form.siteId : null,
+      siteId: form.siteId,
       mode: form.mode,
       intervalMonths: form.mode === 'TIME_BASE' ? form.intervalMonths : null,
       qtyPerReplace: form.qtyPerReplace,
@@ -154,10 +160,10 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
           <CustomSelect className="w-24" value={String(year)} onChange={v => setYear(parseInt(v))}
             options={yearOptions.map(y => ({ value: String(y), label: String(y + 543) }))} />
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[11px] text-slate-500">
-          <span className="rounded px-1.5 py-0.5 bg-sky-100 text-sky-700">ตามแผน</span>
-          <span className="rounded px-1.5 py-0.5 bg-red-100 text-red-600">เลยกำหนด</span>
-          <span className="rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-700">เปลี่ยนแล้ว</span>
+        <div className="ml-auto flex items-center gap-2.5 text-[11px] text-slate-500">
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full border-2 border-sky-400" /> วางแผน</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full border-2 border-red-500" /> เลยกำหนด</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> เปลี่ยนจริง</span>
         </div>
         {canManage && <DeletionLogButton group="cems" />}
         {canManage && <Btn small onClick={openAdd}>+ เพิ่มแผน</Btn>}
@@ -186,14 +192,11 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                   <tr key={r.scheduleId} className="border-t border-slate-100 hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 bg-white px-3 py-1.5">
                       <div className="font-medium text-slate-700">{r.partCode} <span className="text-slate-400">· {r.target}</span></div>
-                      <div className="text-[10px] text-slate-400">{r.partName}{r.intervalMonths ? ` · ทุก ${r.intervalMonths} เดือน` : ''}</div>
+                      <div className="text-[10px] text-slate-400">{r.partName}{r.intervalMonths ? ` · ทุก ${r.intervalMonths} เดือน` : ''}{r.rounds > 0 ? ` · เปลี่ยนปีนี้ ${r.rounds} รอบ` : ''}</div>
                     </td>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                      const c = r.months[m]
-                      return <td key={m} className="px-1 py-1.5 text-center">
-                        {c && <span className={`inline-block min-w-[22px] rounded px-1 py-0.5 font-semibold ${CELL_CLS[c.state]}`}>{c.qty}</span>}
-                      </td>
-                    })}
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                      <td key={m} className="px-1 py-1.5 text-center"><MonthCell c={r.months[m]} /></td>
+                    ))}
                     <td className="px-2 text-center font-semibold text-slate-600">{r.total || '—'}</td>
                     <td className="px-2 text-center">
                       {dueScheduleIds.has(r.scheduleId) && (
@@ -209,17 +212,22 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                     if (!groups.has(r.partId)) groups.set(r.partId, { partCode: r.partCode, partName: r.partName, items: [] })
                     groups.get(r.partId)!.items.push(r)
                   }
-                  const rank: Record<string, number> = { overdue: 3, plan: 2, done: 1 }
+                  const planRank = (p?: string) => p === 'overdue' ? 2 : p === 'plan' ? 1 : 0
                   return [...groups.entries()].sort((a, b) => a[1].partCode.localeCompare(b[1].partCode)).map(([partId, g]) => {
                     const open = expanded.has(partId)
                     const sum: Record<number, Cell> = {}
-                    let total = 0
+                    let total = 0, roundsAll = 0
                     for (const r of g.items) {
                       total += r.total
+                      roundsAll += r.rounds
                       for (const [mStr, c] of Object.entries(r.months)) {
                         const m = Number(mStr)
-                        const cur = sum[m]
-                        sum[m] = { qty: (cur?.qty ?? 0) + c.qty, state: !cur || rank[c.state] > rank[cur.state] ? c.state : cur.state }
+                        const cur = sum[m] ?? {}
+                        const actual = (cur.actual ?? 0) + (c.actual ?? 0)
+                        sum[m] = {
+                          plan: planRank(c.plan) > planRank(cur.plan) ? c.plan : cur.plan,
+                          actual: actual || undefined,
+                        }
                       }
                     }
                     return (
@@ -232,14 +240,11 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                               {g.partCode}
                               <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-normal text-slate-500">{g.items.length} แผน</span>
                             </div>
-                            <div className="pl-4 text-[10px] text-slate-400">{g.partName}</div>
+                            <div className="pl-4 text-[10px] text-slate-400">{g.partName}{roundsAll > 0 ? ` · เปลี่ยนปีนี้ ${roundsAll} รอบ` : ''}</div>
                           </td>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                            const c = sum[m]
-                            return <td key={m} className="px-1 py-1.5 text-center">
-                              {c && <span className={`inline-block min-w-[22px] rounded px-1 py-0.5 font-semibold ${CELL_CLS[c.state]}`}>{c.qty}</span>}
-                            </td>
-                          })}
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                            <td key={m} className="px-1 py-1.5 text-center"><MonthCell c={sum[m]} /></td>
+                          ))}
                           <td className="px-2 text-center font-semibold text-slate-600">{total || '—'}</td>
                           <td></td>
                         </tr>
@@ -247,14 +252,11 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
                           <tr key={r.scheduleId} className="border-t border-slate-50 bg-slate-50/50">
                             <td className="sticky left-0 z-10 bg-slate-50 px-3 py-1">
                               <div className="pl-4 text-[11px] text-slate-600">{r.target}</div>
-                              <div className="pl-4 text-[10px] text-slate-400">{r.intervalMonths ? `ทุก ${r.intervalMonths} เดือน` : ''}</div>
+                              <div className="pl-4 text-[10px] text-slate-400">{r.intervalMonths ? `ทุก ${r.intervalMonths} เดือน` : ''}{r.rounds > 0 ? ` · เปลี่ยนปีนี้ ${r.rounds} รอบ` : ''}</div>
                             </td>
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                              const c = r.months[m]
-                              return <td key={m} className="px-1 py-1 text-center">
-                                {c && <span className={`inline-block min-w-[20px] rounded px-1 text-[11px] font-medium ${CELL_CLS[c.state]}`}>{c.qty}</span>}
-                              </td>
-                            })}
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                              <td key={m} className="px-1 py-1 text-center"><MonthCell c={r.months[m]} small /></td>
+                            ))}
                             <td className="px-2 text-center text-[11px] font-medium text-slate-500">{r.total || '—'}</td>
                             <td className="px-2 text-center">
                               {dueScheduleIds.has(r.scheduleId) && (
@@ -365,20 +367,10 @@ export default function PartPlanSection({ canManage = false }: { canManage?: boo
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">ผูกกับ <span className="text-red-500">*</span></label>
-              <div className="flex gap-1">
-                {(['analyzer', 'site'] as const).map(t => (
-                  <button key={t} onClick={() => setForm(f => ({ ...f, targetType: t }))}
-                    className={`flex-1 rounded border px-2 py-1.5 text-xs font-medium ${form.targetType === t ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 text-slate-600'}`}>
-                    {t === 'analyzer' ? 'ราย Analyzer' : 'รายไซต์ (ใช้ร่วม)'}
-                  </button>
-                ))}
-              </div>
-              {form.targetType === 'analyzer'
-                ? <CustomSelect value={form.analyzerId} onChange={v => setForm(f => ({ ...f, analyzerId: v }))}
-                    options={analyzers.map(a => ({ value: String(a.id), label: `${a.tag}${a.currentSite ? ` · ${a.currentSite.code}` : ''}` }))} placeholder="เลือกเครื่อง" />
-                : <CustomSelect value={form.siteId} onChange={v => setForm(f => ({ ...f, siteId: v }))}
-                    options={sites.map(s => ({ value: String(s.id), label: `${s.code}${s.name ? ` — ${s.name}` : ''}` }))} placeholder="เลือกไซต์" />}
+              <label className="text-xs font-medium text-slate-600">ไซต์ <span className="text-red-500">*</span></label>
+              <CustomSelect value={form.siteId} onChange={v => setForm(f => ({ ...f, siteId: v }))}
+                options={sites.map(s => ({ value: String(s.id), label: `${s.code}${s.name ? ` — ${s.name}` : ''}` }))} placeholder="เลือกไซต์" />
+              <p className="text-[11px] text-slate-400">แผนผูกกับไซต์ · เครื่อง (S/N) ที่เปลี่ยนจริงเลือกตอนเบิก → เก็บเป็นประวัติในตัวเครื่อง</p>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -472,7 +464,7 @@ function WithdrawModal({ target, parts, sites, analyzers, employees, onClose, on
           part={part}
           employees={employees}
           sites={sites.map(s => ({ id: s.id, code: s.code }))}
-          analyzers={analyzers.map(a => ({ id: a.id, tag: a.tag, currentSiteId: a.currentSite?.id ?? null }))}
+          analyzers={analyzers.map(a => ({ id: a.id, tag: a.tag, serialNo: a.serialNo ?? null, currentSiteId: a.currentSiteId ?? a.currentSite?.id ?? null }))}
           schedules={schedules}
           submitUrl="/api/cems/part-requests"
           extraBody={{ partId: target.partId }}

@@ -25,9 +25,11 @@ export async function POST(req: NextRequest) {
     const b = await req.json()
     const partId = parseInt(String(b.partId))
     if (!partId) return NextResponse.json({ error: 'เลือกอะไหล่' }, { status: 400 })
-    const analyzerId = b.analyzerId ? parseInt(String(b.analyzerId)) : null
+    // แผนผูกกับไซต์อย่างเดียว (ภาระเปลี่ยนอะไหล่เป็นของจุดติดตั้งที่ไซต์ ไม่ใช่ตัวเครื่อง)
+    // เครื่องที่เปลี่ยนจริง (analyzer + S/N) เลือกตอนเบิก → ตรึงเป็นประวัติในตัวเครื่อง
+    const analyzerId = null
     const siteId     = b.siteId ? parseInt(String(b.siteId)) : null
-    if (!analyzerId && !siteId) return NextResponse.json({ error: 'เลือก analyzer หรือไซต์อย่างน้อย 1 อย่าง' }, { status: 400 })
+    if (!siteId) return NextResponse.json({ error: 'เลือกไซต์' }, { status: 400 })
 
     const mode = b.mode === 'ON_CONDITION' ? 'ON_CONDITION' : 'TIME_BASE'
     const intervalMonths = mode === 'TIME_BASE' && b.intervalMonths ? parseInt(String(b.intervalMonths)) : null

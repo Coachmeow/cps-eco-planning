@@ -13,8 +13,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!cur) return NextResponse.json({ error: 'ไม่พบแผน' }, { status: 404 })
 
     const data: Record<string, unknown> = {}
-    if (b.analyzerId !== undefined) data.analyzerId = b.analyzerId ? parseInt(String(b.analyzerId)) : null
-    if (b.siteId !== undefined)     data.siteId     = b.siteId ? parseInt(String(b.siteId)) : null
+    // แผนผูกไซต์อย่างเดียว — แก้ไซต์แล้วตัดสายผูกเครื่องออก (ย้ายของเก่าเป็น site-only ไปในตัว)
+    if (b.siteId !== undefined) { data.siteId = b.siteId ? parseInt(String(b.siteId)) : null; data.analyzerId = null }
     if (b.mode !== undefined)       data.mode       = b.mode === 'ON_CONDITION' ? 'ON_CONDITION' : 'TIME_BASE'
     if (b.intervalMonths !== undefined) data.intervalMonths = b.intervalMonths ? parseInt(String(b.intervalMonths)) : null
     if (b.qtyPerReplace !== undefined)  data.qtyPerReplace  = b.qtyPerReplace ? parseInt(String(b.qtyPerReplace)) : 1

@@ -45,6 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           txnDate,
           siteId: r.siteId, manualSite: r.manualSite, analyzerId: r.analyzerId,
           quoteNo: r.quoteNo, person, notes: r.note,
+          scheduleId: r.scheduleId,   // ตรึงว่าเป็นการเปลี่ยนของแผนไหน (นับรอบ/มาร์กในตารางปี)
         },
       })
       await tx.cemsPartRequest.update({
