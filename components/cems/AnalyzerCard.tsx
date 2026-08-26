@@ -50,11 +50,35 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
     setQr(await QRCode.toDataURL(`${window.location.origin}/a/${token}`, { width: 320, margin: 2 }))
   }
 
-  function downloadQR() {
+  // สร้าง PNG ที่ฝัง label (ชื่อเครื่อง + S/N) ไว้บน QR → ดาวน์โหลดไปปริ้นแล้วรู้ว่าเครื่องไหน
+  async function buildLabeledQR(): Promise<string | null> {
+    if (!qr || !a) return null
+    const img = new Image()
+    try { await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = qr }) } catch { return qr }
+    const W = 360, pad = 20, qrSize = 300, headerH = 22, tagH = 34, gap = 6, footH = 26
+    const sub = [a.serialNo ? `S/N ${a.serialNo}` : '', [a.brand, a.model].filter(Boolean).join(' ')].filter(Boolean).join('  ·  ')
+    const subH = sub ? 20 : 0
+    const c = document.createElement('canvas')
+    c.width = W; c.height = pad + headerH + tagH + subH + gap + qrSize + footH + pad
+    const ctx = c.getContext('2d'); if (!ctx) return qr
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height)
+    ctx.textAlign = 'center'
+    let y = pad
+    ctx.fillStyle = '#0284c7'; ctx.font = "700 12px system-ui,'Segoe UI',sans-serif"; ctx.fillText('CEMS SERVICE', W / 2, y + 12); y += headerH
+    ctx.fillStyle = '#1e293b'; ctx.font = "800 24px system-ui,'Segoe UI',sans-serif"; ctx.fillText(a.tag, W / 2, y + 24); y += tagH
+    if (sub) { ctx.fillStyle = '#475569'; ctx.font = "600 14px system-ui,'Segoe UI',sans-serif"; ctx.fillText(sub, W / 2, y + 14); y += subH }
+    y += gap
+    ctx.drawImage(img, (W - qrSize) / 2, y, qrSize, qrSize); y += qrSize
+    ctx.fillStyle = '#94a3b8'; ctx.font = "400 11px system-ui,'Segoe UI',sans-serif"; ctx.fillText('สแกนเพื่อแจ้งซ่อม / บันทึก PM', W / 2, y + 16)
+    return c.toDataURL('image/png')
+  }
+
+  async function downloadQR() {
     if (!qr || !a) return
-    const name = a.tag.replace(/[\\/:*?"<>|\s]+/g, '')
+    const name = [a.tag, a.serialNo].filter(Boolean).join('_').replace(/[\\/:*?"<>|\s]+/g, '')
+    const data = await buildLabeledQR()
     const el = document.createElement('a')
-    el.href = qr; el.download = `QR_CEMS_${name}.png`; el.click()
+    el.href = data ?? qr; el.download = `QR_CEMS_${name}.png`; el.click()
   }
 
   function printQR() {
@@ -66,10 +90,12 @@ export default function AnalyzerCard({ analyzerId, sites, onClose, canManage = f
       body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
       .tag{font-size:12px;letter-spacing:2px;color:#0284c7;font-weight:700}
       .plate{font-size:26px;font-weight:800;color:#1e293b;margin:6px 0 2px}
+      .sn{font-size:15px;font-weight:700;color:#334155;margin-bottom:2px}
       .hint{font-size:13px;color:#64748b;margin-bottom:16px}
       img{width:300px;height:300px}.foot{font-size:12px;color:#94a3b8;margin-top:14px}</style></head>
       <body><div class="tag">Eco Planning System · CEMS SERVICE</div>
       <div class="plate">📟 ${a.tag}</div>
+      ${a.serialNo ? `<div class="sn">S/N ${a.serialNo}</div>` : ''}
       <div class="hint">${[a.brand, a.model].filter(Boolean).join(' · ')}</div>
       <img src="${qr}" alt="QR" />
       <div class="foot">สแกนเพื่อแจ้งอาการผิดปกติ / บันทึกเข้า PM (ไม่ต้องล็อกอิน)</div>
