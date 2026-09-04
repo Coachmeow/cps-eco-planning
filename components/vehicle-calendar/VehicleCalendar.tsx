@@ -175,6 +175,8 @@ export default function VehicleCalendar() {
             <span key={code} className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{code}</span>
           ))}
           <span className="ml-1 text-[10px] text-slate-400">· ไม่ระบุคนขับ = สีตามประเภท</span>
+          <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-slate-400"><span className="h-3 w-3 rounded-sm ring-1 ring-inset ring-red-400" /> จองซ้อน (ทีมเดิม)</span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-slate-400"><span className="h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-inset ring-amber-400" /> จองซ้อนข้ามทีม</span>
           <button onClick={handleExportPdf} disabled={exporting}
             className="ml-2 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50">
             {exporting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> กำลังสร้าง...</> : <><FileText className="h-3.5 w-3.5" /> Export PDF</>}

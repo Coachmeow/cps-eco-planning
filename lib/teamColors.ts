@@ -49,6 +49,9 @@ export const TEAM_CELL: Record<string, string[]> = {
   ],
 }
 
+// conflict ข้ามทีม (2+ หมวดงาน) — สีเตือนที่ไม่ใช่ hue ของทีมใดทีมหนึ่ง (เขียนเต็มกัน Tailwind purge)
+export const CONFLICT_CROSS_TEAM = 'bg-amber-100 border border-amber-400 text-amber-900'
+
 /** คืน Tailwind class ของช่องปฏิทินตามทีม + tier ; fallback → slate tier0 */
 export function teamCellClass(teamCode: string | null | undefined, tier = 0): string {
   const tiers = TEAM_CELL[teamCode ?? ''] ?? TEAM_CELL.ST

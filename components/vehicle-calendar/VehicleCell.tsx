@@ -3,7 +3,7 @@
 import { User, Clock, StickyNote } from 'lucide-react'
 import type { VehicleBooking } from '@/lib/types'
 import { PURPOSE_META } from '@/lib/vehiclePurpose'
-import { teamCellClass } from '@/lib/teamColors'
+import { teamCellClass, CONFLICT_CROSS_TEAM } from '@/lib/teamColors'
 
 // ทีมที่ใช้รถ: งานจากแผนพนักงาน = ทีมของงาน (รองรับ cross-team) ; จองตรง = ทีมของคนขับ
 function bookingTeam(b: VehicleBooking): string | undefined {
@@ -11,7 +11,13 @@ function bookingTeam(b: VehicleBooking): string | undefined {
 }
 
 function cellStyle(bookings: VehicleBooking[], isConflict: boolean): string {
-  if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
+  if (isConflict) {
+    // จองซ้อนวันเดียว → คงสีทีมถ้าทีมเดียว, สีส้มถ้าข้าม 2 หมวดงาน
+    const teams = new Set(bookings.map(bookingTeam).filter((t): t is string => !!t))
+    if (teams.size > 1) return CONFLICT_CROSS_TEAM
+    const only = [...teams][0]
+    return only ? teamCellClass(only, 2) : (PURPOSE_META[bookings[0].purpose]?.cell ?? 'bg-slate-50')
+  }
   if (bookings.length === 0) return 'bg-white hover:bg-slate-50'
   const team = bookingTeam(bookings[0])
   if (team) return teamCellClass(team, 2)                        // สีทีมเดียวกับแผนพนักงาน (เฉด -200)
@@ -62,7 +68,7 @@ export default function VehicleCell({ bookings, isConflict, dayOfWeek, isHoliday
       colSpan={colSpan}
       title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[90px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
-        px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${rangeCls}`}
+        px-1 py-0.5 text-center text-xs align-middle transition-colors ${base} ${extra} ${isConflict ? 'ring-1 ring-inset ring-red-400' : ''} ${rangeCls}`}
     >
       {bookings.length > 0 && first && (
         <div className="flex flex-col items-center gap-px leading-tight">

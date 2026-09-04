@@ -11,7 +11,8 @@ const MAINT_META: Record<MaintKind, { label: string; cls: string }> = {
 }
 
 function cellStyle(assignments: EquipmentAssignment[], isConflict: boolean, team: string, maint?: MaintKind | null): string {
-  if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
+  // เครื่องมือผูกทีมเดียว → conflict (จองซ้อน 2 ไซต์) คงสีทีมไว้ + กรอบ/จุดแดงเตือน (ดูออกว่าหมวดไหน)
+  if (isConflict) return teamCellClass(team, 2)
   if (assignments.length === 0) return maint ? MAINT_META[maint].cls : 'bg-white hover:bg-slate-50'
   // สีเดียวต่อทีม (เฉด -200 ตัวหนังสือดำ) ; hue = ทีมของเครื่อง (type.primaryTeam)
   return teamCellClass(team, 2)
@@ -62,7 +63,7 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
       title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[56px] max-w-[80px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
         px-1 py-0.5 text-center text-xs align-middle
-        transition-colors ${base} ${extra} ${rangeCls}`}
+        transition-colors ${base} ${extra} ${isConflict ? 'ring-1 ring-inset ring-red-400' : ''} ${rangeCls}`}
     >
       {assignments.length > 0 ? (
         <div className="flex flex-col items-center gap-px leading-tight">

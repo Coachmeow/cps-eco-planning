@@ -277,6 +277,9 @@ export default function EquipmentCalendar() {
             {conflictOnly && <X className="ml-0.5 h-3 w-3" />}
           </button>
         )}
+        {conflicts.equipmentConflicts.size > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-slate-400"><span className="h-3 w-3 rounded-sm ring-1 ring-inset ring-red-400" /> กรอบแดง = จองซ้อน (ยังเห็นสีทีม)</span>
+        )}
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
             <input type="checkbox" checked={showRental} onChange={(e) => setShowRental(e.target.checked)} className="rounded" />

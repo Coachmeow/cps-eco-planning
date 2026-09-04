@@ -2,7 +2,7 @@
 
 import { Clock, Lock, StickyNote } from 'lucide-react'
 import type { StaffAssignment, Employee } from '@/lib/types'
-import { teamCellClass } from '@/lib/teamColors'
+import { teamCellClass, CONFLICT_CROSS_TEAM } from '@/lib/teamColors'
 import { LEAVE_ABBR, LEAVE_LABEL } from '@/lib/leaveTypes'
 
 // Cross-team badge ring color to complement the site color (subtle ring inside cell)
@@ -18,7 +18,15 @@ const TEAM_RING: Record<string, string> = {
 function cellStyle(
   assignments: StaffAssignment[], isConflict: boolean, employee: Employee,
 ): string {
-  if (isConflict) return 'bg-red-50 border border-red-300 text-red-700'
+  if (isConflict) {
+    // conflict = คนเดียวลงงานสนามหลายไซต์วันเดียว → คงสีทีมถ้าเป็นทีมเดียว, สีส้มถ้าข้าม 2 หมวดงาน
+    const teams = new Set(
+      assignments.filter(a => a.status === 'FIELD')
+        .map(a => a.serviceType?.code ?? employee.primaryTeam.code),
+    )
+    if (teams.size > 1) return CONFLICT_CROSS_TEAM
+    return teamCellClass([...teams][0] ?? employee.primaryTeam.code, 2)
+  }
   if (assignments.length === 0) return 'bg-white hover:bg-slate-50'
   const first = assignments[0]
   switch (first.status) {
@@ -105,7 +113,7 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
       title={tipText || undefined}
       className={`relative h-10 ${merged ? '' : 'min-w-[52px] max-w-[80px]'} cursor-pointer border-r border-r-slate-300 border-b border-b-slate-400
         px-1 py-0.5 text-center text-xs align-middle
-        transition-colors ${base} ${extra} ${rangeCls}`}
+        transition-colors ${base} ${extra} ${isConflict ? 'ring-1 ring-inset ring-red-400' : ''} ${rangeCls}`}
     >
       {/* ธงมุมบนซ้าย = การ์ดแม่ (ถืออุปกรณ์ของกลุ่ม) */}
       {isGroupMain && (

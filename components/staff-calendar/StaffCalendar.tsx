@@ -259,6 +259,7 @@ export default function StaffCalendar() {
             <Clock className="inline h-3 w-3 align-[-1px]" /> รอยืนยัน {tentativeCount}
           </button>
         )}
+        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400"><span className="h-3 w-3 rounded-sm ring-1 ring-inset ring-red-400" /> จองซ้อน (ทีมเดิม) ·<span className="ml-1 h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-inset ring-amber-400" /> จองซ้อนข้ามทีม</span>
         <div className="ml-auto flex items-center gap-1.5 flex-wrap">
           <button onClick={() => setTeamFilter('ALL')}
             className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${teamFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
