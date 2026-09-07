@@ -165,9 +165,12 @@ function SitesSection({ role }: { role?: UserRole }) {
   const [saving, setSaving] = useState(false)
   const [delTarget, setDelTarget] = useState<Site | null>(null)
   const [geoTarget, setGeoTarget] = useState<Site | null>(null)   // ไซต์ที่กำลังแก้ Geofence
+  const [geoSites, setGeoSites] = useState<Set<number>>(new Set()) // ไซต์ที่มี geofence แล้ว
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/sites'); setSites(await r.json())
+    const [sitesRes, geoRes] = await Promise.all([fetch('/api/sites'), fetch('/api/sites/geofence-summary')])
+    setSites(await sitesRes.json())
+    try { const ids: number[] = await geoRes.json(); setGeoSites(new Set(ids)) } catch { /* noop */ }
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -242,9 +245,17 @@ function SitesSection({ role }: { role?: UserRole }) {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-1.5">
-                      <Btn small variant="ghost" onClick={() => setGeoTarget(s)}>
-                        <span className="inline-flex items-center gap-1"><MapPin size={13} /> Geofence</span>
-                      </Btn>
+                      <button
+                        onClick={() => setGeoTarget(s)}
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                          geoSites.has(s.id)
+                            ? 'text-emerald-600 hover:bg-emerald-50'
+                            : 'text-slate-500 hover:bg-slate-100'
+                        }`}
+                        title={geoSites.has(s.id) ? 'มี Geofence แล้ว — แก้ไข' : 'ยังไม่มี Geofence — วาดเลย'}
+                      >
+                        <MapPin size={13} /> Geofence
+                      </button>
                       <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
                     </div>
                   </td>
@@ -342,7 +353,7 @@ function SitesSection({ role }: { role?: UserRole }) {
             siteName={`${geoTarget.code} — ${geoTarget.name}`}
             initialLat={c?.lat ?? null}
             initialLng={c?.lng ?? null}
-            onClose={() => setGeoTarget(null)}
+            onClose={() => { setGeoTarget(null); load() }}
           />
         )
       })()}
