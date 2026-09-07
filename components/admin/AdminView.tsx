@@ -2135,10 +2135,10 @@ export default function AdminView() {
     <div className="h-full overflow-auto bg-slate-50 p-6">
       <h1 className="mb-5 flex items-center gap-2 text-xl font-bold text-slate-800"><Settings className="h-5 w-5 text-slate-500" /> จัดการข้อมูล</h1>
 
-      <div className="mb-5 flex gap-1 rounded-xl bg-slate-200 p-1 w-fit">
+      <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-slate-200 p-1 w-fit">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-sm font-medium transition-colors ${active === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${active === t.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
             <t.icon className="h-4 w-4" /> {t.label}
           </button>
         ))}
