@@ -40,8 +40,36 @@ export async function GET(req: NextRequest) {
     if (km >= 0) manualKm.set(t.vehicleId, (manualKm.get(t.vehicleId) ?? 0) + km)
   }
 
+  // แผนใช้รถของวันนั้น (ปฏิทินใช้รถ) → ไซต์+คนขับที่ถูก assign (ไว้เทียบกับ GPS จริง)
+  const bookings = await prisma.vehicleBooking.findMany({
+    where: { assignedDate: forDate },
+    include: {
+      site:   { select: { code: true, name: true, color: true } },
+      driver: { select: { fullName: true, nickname: true } },
+    },
+  })
+  type AssignedSite = { code: string | null; name: string; color: string | null; tentative: boolean }
+  const assignedByVeh = new Map<number, { sites: AssignedSite[]; drivers: string[] }>()
+  for (const b of bookings) {
+    const cur = assignedByVeh.get(b.vehicleId) ?? { sites: [], drivers: [] }
+    // ไซต์ที่ assign — ในระบบ (site) หรือปลายทางพิมพ์อิสระ (งานนอก)
+    const name = b.site?.name ?? b.destination ?? null
+    if (name) {
+      const code = b.site?.code ?? null
+      const key = `${code ?? ''}|${name}`
+      if (!cur.sites.some((s) => `${s.code ?? ''}|${s.name}` === key)) {
+        cur.sites.push({ code, name, color: b.site?.color ?? null, tentative: b.isTentative })
+      }
+    }
+    // คนขับที่ assign — ในระบบ (driver) หรือชื่อพิมพ์อิสระ
+    const drv = b.driver ? (b.driver.nickname || b.driver.fullName) : (b.driverName || null)
+    if (drv && !cur.drivers.includes(drv)) cur.drivers.push(drv)
+    assignedByVeh.set(b.vehicleId, cur)
+  }
+
   const vehicles = days.map((d) => {
     const manual = manualKm.get(d.vehicleId) ?? null
+    const assigned = assignedByVeh.get(d.vehicleId) ?? null
     return {
       vehicleId: d.vehicleId,
       plate: d.vehicle.licensePlate,
@@ -57,6 +85,7 @@ export async function GET(req: NextRequest) {
       path: (d.pathJson as [number, number][] | null) ?? [],
       manualKm: manual,
       mileageDelta: manual != null ? Math.round((d.distanceKm - manual) * 10) / 10 : null,
+      assigned,
       visits: d.visits.map((v) => ({
         siteId: v.siteId,
         siteCode: v.site?.code ?? null,

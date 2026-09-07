@@ -14,11 +14,14 @@ interface Visit {
   siteId: number | null; siteCode: string | null; siteName: string | null; siteColor: string | null
   rawPlace: string | null; lat: number; lng: number; arriveAt: string; departAt: string | null; dwellMin: number
 }
+interface AssignedSite { code: string | null; name: string; color: string | null; tentative: boolean }
+interface Assigned { sites: AssignedSite[]; drivers: string[] }
 interface VehicleRow {
   vehicleId: number; plate: string; name: string | null
   distanceKm: number; movingMin: number; idleMin: number; tripCount: number; maxSpeed: number
   firstMoveAt: string | null; lastStopAt: string | null; driverName: string | null
-  path: [number, number][]; manualKm: number | null; mileageDelta: number | null; visits: Visit[]
+  path: [number, number][]; manualKm: number | null; mileageDelta: number | null
+  assigned: Assigned | null; visits: Visit[]
 }
 interface GpsData { date: string; availableDates: string[]; vehicles: VehicleRow[]; geofences: GeofenceRow[] }
 
@@ -157,7 +160,7 @@ export default function GpsSection() {
                   <th className="px-3 py-2 text-left font-medium">คัน / คนขับ</th>
                   <th className="px-3 py-2 text-right font-medium">กม.</th>
                   <th className="px-3 py-2 text-center font-medium">ทริป</th>
-                  <th className="px-3 py-2 text-left font-medium">ไซต์ที่ไป</th>
+                  <th className="px-3 py-2 text-left font-medium">ไซต์ (แผน / จริง)</th>
                   <th className="px-3 py-2 text-right font-medium">เทียบไมล์</th>
                 </tr>
               </thead>
@@ -170,13 +173,30 @@ export default function GpsSection() {
                       className={`cursor-pointer border-t border-slate-100 ${sel ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
                       <td className="px-3 py-2">
                         <div className="font-mono font-semibold text-slate-700">{v.plate}</div>
-                        <div className="text-[11px] text-slate-400">{v.driverName || v.name || '—'}</div>
+                        {v.assigned?.drivers.length ? (
+                          <div className="text-[11px] text-indigo-500" title="คนขับตามแผน (ปฏิทินใช้รถ)"><span className="text-slate-400">แผน:</span> {v.assigned.drivers.join(', ')}</div>
+                        ) : null}
+                        <div className="text-[11px] text-slate-400" title="คนขับจาก GPS (Cartrack)"><span className="text-slate-300">GPS:</span> {v.driverName || v.name || '—'}</div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono font-semibold text-slate-800">{v.distanceKm.toLocaleString()}</td>
                       <td className="px-3 py-2 text-center text-slate-500">{v.tripCount}</td>
                       <td className="px-3 py-2">
-                        {v.visits.length === 0 ? <span className="text-slate-300">—</span> : (
-                          <div className="flex flex-wrap gap-1">
+                        {/* แผน (assign จากปฏิทินใช้รถ) */}
+                        <div className="mb-1 flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-slate-400">แผน</span>
+                          {v.assigned?.sites.length ? v.assigned.sites.map((s, i) => (
+                            <span key={i} title={s.name}
+                              className={`inline-block max-w-[130px] truncate rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium ${s.tentative ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                              {s.code || s.name}{s.tentative ? ' •รอยืนยัน' : ''}
+                            </span>
+                          )) : <span className="text-[10px] text-slate-300">—</span>}
+                        </div>
+                        {/* จริง (GPS) */}
+                        {v.visits.length === 0 ? (
+                          <div className="flex items-center gap-1"><span className="text-[10px] text-slate-400">จริง</span><span className="text-slate-300">—</span></div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] text-slate-400">จริง</span>
                             {v.visits.map((vi, i) => {
                               const matched = vi.siteId != null
                               const label = matched ? (vi.siteName || vi.siteCode || 'ไซต์') : (vi.rawPlace || 'จุดจอด')
