@@ -34,6 +34,7 @@ export default function GpsSection() {
   const [loading, setLoading] = useState(true)
   const [selId, setSelId] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState<string | null>(null)
   const [report, setReport] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -59,23 +60,42 @@ export default function GpsSection() {
   }
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
     setUploading(true); setReport(null)
-    try {
-      const fd = new FormData(); fd.append('file', file)
-      const r = await fetch('/api/gps/upload', { method: 'POST', body: fd })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j.error || 'อัปโหลดไม่สำเร็จ')
-      const skipTxt = j.skipped?.length ? ` · ข้าม ${j.skipped.length} ทะเบียนที่ไม่มีในระบบ (${j.skipped.slice(0, 3).map((s: {plate:string}) => s.plate).join(', ')}${j.skipped.length > 3 ? '…' : ''})` : ''
-      setReport(`นำเข้าสำเร็จ ${j.savedDays} คัน · ${j.savedVisits} จุดจอด · วันที่ ${j.days?.join(', ')}${skipTxt}`)
-      if (j.days?.[0]) setDate(j.days[0]); else load()
-    } catch (err) {
-      setReport(String(err instanceof Error ? err.message : err))
-    } finally {
-      setUploading(false)
-      if (fileRef.current) fileRef.current.value = ''
+    const lines: string[] = []
+    let lastDay: string | null = null
+
+    // อัปโหลดทีละไฟล์ (ไฟล์รายวัน ~5-6MB ผ่านชัวร์) — ไฟล์เดียวที่รวมหลายวันจะใหญ่เกินลิมิต
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      setProgress(`กำลังนำเข้า ${i + 1}/${files.length}: ${file.name}`)
+      // เตือนไฟล์ใหญ่ (>18MB) — น่าจะเป็นไฟล์รวมหลายวัน แนะนำ export รายวัน
+      if (file.size > 18 * 1024 * 1024) {
+        lines.push(`✗ ${file.name} (${(file.size / 1024 / 1024).toFixed(0)}MB): ไฟล์ใหญ่เกินไป — โปรด export แยกเป็นรายวันแล้วอัปโหลดหลายไฟล์พร้อมกัน`)
+        continue
+      }
+      try {
+        const fd = new FormData(); fd.append('file', file)
+        const r = await fetch('/api/gps/upload', { method: 'POST', body: fd })
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+        const skipTxt = j.skipped?.length ? ` · ข้าม ${j.skipped.length} ทะเบียน` : ''
+        lines.push(`✓ ${file.name}: ${j.savedDays} คัน · วันที่ ${j.days?.join(', ')}${skipTxt}`)
+        if (j.days?.length) lastDay = j.days[j.days.length - 1]
+      } catch (err) {
+        const msg = String(err instanceof Error ? err.message : err)
+        const hint = /FormData|Failed to fetch|Load failed|NetworkError|413/i.test(msg)
+          ? ' — ไฟล์อาจใหญ่เกินไป โปรด export แยกเป็นรายวัน' : ''
+        lines.push(`✗ ${file.name}: ${msg}${hint}`)
+      }
     }
+
+    setProgress(null)
+    setReport(lines.join('\n'))
+    if (lastDay) setDate(lastDay); else load()
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const selected = data?.vehicles.find(v => v.vehicleId === selId) ?? null
@@ -105,17 +125,18 @@ export default function GpsSection() {
         )}
         {canUpload && (
           <div className="ml-auto">
-            <input ref={fileRef} type="file" accept=".xls,.xlsx" className="hidden" onChange={onUpload} />
+            <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple className="hidden" onChange={onUpload} />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50">
-              <Upload className="h-3.5 w-3.5" /> {uploading ? 'กำลังนำเข้า...' : 'อัปโหลดไฟล์ GPS'}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+              title="เลือกได้หลายไฟล์พร้อมกัน (ไฟล์รายวัน) เพื่อ backfill ย้อนหลัง">
+              <Upload className="h-3.5 w-3.5" /> {uploading ? (progress ?? 'กำลังนำเข้า...') : 'อัปโหลดไฟล์ GPS'}
             </button>
           </div>
         )}
       </div>
 
       {report && (
-        <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{report}</div>
+        <div className="mb-3 whitespace-pre-line rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{report}</div>
       )}
 
       {loading ? (
