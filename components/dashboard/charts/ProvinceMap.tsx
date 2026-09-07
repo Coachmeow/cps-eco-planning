@@ -91,8 +91,8 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const [wx, setWx] = useState<Wx | null>(null)
   const [office, setOffice] = useState<OfficeResp | null>(null)
   // กล่อง idle (ตรงกลาง) — สลับ 2 มุมมอง: สภาพอากาศ ↔ พนักงานประจำ Location วันนี้
-  const [idleView, setIdleView] = useState<'wx' | 'loc'>('wx')       // แท็บที่เลือก
-  const [idleDisplay, setIdleDisplay] = useState<'wx' | 'loc'>('wx') // หน้าที่แสดงจริง (สลับตอนจางหาย)
+  const [idleView, setIdleView] = useState<'wx' | 'loc'>('loc')       // แท็บที่เลือก — เริ่มที่ Location ก่อน
+  const [idleDisplay, setIdleDisplay] = useState<'wx' | 'loc'>('loc') // หน้าที่แสดงจริง (สลับตอนจางหาย)
   const [idleVisible, setIdleVisible] = useState(true)              // opacity สำหรับ crossfade
   const [idleAuto, setIdleAuto] = useState(true)   // หมุนอัตโนมัติทุก 6 วิ
   const [idlePaused, setIdlePaused] = useState(false) // หยุดชั่วคราวเมื่อชี้เมาส์
@@ -468,7 +468,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
           </div>
 
           {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
-          <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:h-[600px] lg:flex-1 lg:min-w-0">
+          <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 h-[400px] lg:h-[600px] lg:flex-1 lg:min-w-0">
             {travelView ? (
               <TravelPanel trips={allTrips} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
             ) : shown ? (
