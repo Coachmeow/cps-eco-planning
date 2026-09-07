@@ -115,24 +115,30 @@ export async function GET(req: NextRequest) {
   )
 
   // ── Per-person Utilization ─────────────────────────────────
-  const personGroups = await prisma.staffAssignment.groupBy({
-    by:    ['employeeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
-    _sum:  { estimatedDays: true },
+  // นับ "วันจริงที่ไม่ว่าง": วันในปฏิทินที่คนนั้นมีงานหน้างาน (FIELD) — จองซ้อนหลายไซต์ในวันเดียว = 1 วัน
+  // จึง group ตาม (คน, วัน) เพื่อยุบวันซ้ำ และ "ไม่" ใส่ parentId:null เพื่อให้ได้ครบทุกวันของงานหลายวัน
+  // (การเข้าหลายไซต์/วัน ยังเก็บอยู่ในข้อมูลดิบ ไว้ทำ metric contribute ทีหลัง)
+  const personDayRows = await prisma.staffAssignment.groupBy({
+    by:    ['employeeId', 'assignedDate'],
+    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', siteId: { not: null } },
   })
+  // วันจริงที่ถูกจอง (distinct assignedDate) ต่อคน — ใช้ร่วมกับ Team Capacity ด้านล่าง
+  const fieldDaysByEmp = new Map<number, number>()
+  for (const r of personDayRows) {
+    fieldDaysByEmp.set(r.employeeId, (fieldDaysByEmp.get(r.employeeId) ?? 0) + 1)
+  }
 
   const personUtil = (await Promise.all(
-    personGroups.map(async (g) => {
+    Array.from(fieldDaysByEmp.entries()).map(async ([employeeId, fieldDays]) => {
       const emp = await prisma.employee.findUnique({
-        where: { id: g.employeeId },
+        where: { id: employeeId },
         select: { fullName: true, nickname: true, primaryTeam: { select: { code: true, isFieldTeam: true } } },
       })
       // คนของทีมสนับสนุน/แอดมิน ไม่จัดอันดับ Utilization (งานที่ออกไปยังนับใน man-day ไซต์/ภาระงานทีมตามปกติ)
       if (emp?.primaryTeam.isFieldTeam === false) return null
-      const fieldDays = Number(g._sum.estimatedDays ?? 0)
-      const utilPct   = workdays > 0 ? Math.round((fieldDays / workdays) * 100) : 0
+      const utilPct = workdays > 0 ? Math.round((fieldDays / workdays) * 100) : 0
       return {
-        employeeId:  g.employeeId,
+        employeeId,
         fullName:    emp?.fullName ?? '',
         nickname:    emp?.nickname ?? '',
         primaryTeam: emp?.primaryTeam.code ?? '',
@@ -149,20 +155,13 @@ export async function GET(req: NextRequest) {
     where:  { isActive: true, inPlanner: true },
     select: { id: true, primaryTeamId: true, nickname: true, fullName: true },
   })
-  const bookedRaw = await prisma.staffAssignment.groupBy({
-    by:    ['employeeId'],
-    where: { assignedDate: { gte: startDate, lte: endDate }, status: 'FIELD', parentId: null, siteId: { not: null } },
-    _sum:  { estimatedDays: true },
-  })
-  const bookedByEmp = new Map<number, number>(
-    bookedRaw.map((b) => [b.employeeId, Number(b._sum.estimatedDays ?? 0)] as [number, number])
-  )
-
+  // booked = "วันจริงที่ไม่ว่าง" ต่อคน (distinct days) — ใช้ชุดเดียวกับ Per-person Utilization
+  // เพื่อให้ capacity คงเหลือสอดคล้องกัน (คนไม่ว่างในวันเดียว = 1 วัน ไม่ทบกันเมื่อจองซ้อนหลายไซต์)
   const capMap = new Map<number, { count: number; booked: number }>()
   for (const e of activeEmployees) {
     const cur = capMap.get(e.primaryTeamId) ?? { count: 0, booked: 0 }
     cur.count  += 1
-    cur.booked += bookedByEmp.get(e.id) ?? 0
+    cur.booked += fieldDaysByEmp.get(e.id) ?? 0
     capMap.set(e.primaryTeamId, cur)
   }
   // ทีมสนับสนุน/แอดมิน (isFieldTeam=false เช่น LOG) ไม่ใช่กำลังคนภาคสนาม — ตัดออกจากฐาน Capacity
