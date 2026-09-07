@@ -52,7 +52,14 @@ export default function StaffCalendar() {
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
-  const [teamFilter, setTeamFilter] = useState<TeamCode | 'ALL'>('ALL')
+  const [teamFilter, setTeamFilter] = useState<Set<string>>(new Set())  // ว่าง = ทุกทีม ; เลือกได้หลายทีมพร้อมกัน
+  function toggleTeam(code: TeamCode) {
+    setTeamFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code); else next.add(code)
+      return next
+    })
+  }
   const [popup, setPopup] = useState<{ employee: Employee; dateKey: string; initialDays?: number } | null>(null)
   const [viewing, setViewing] = useState<Employee | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -119,7 +126,7 @@ export default function StaffCalendar() {
       .sort((a, b) => (a.emp ? 0 : 1) - (b.emp ? 0 : 1))
   }, [conflicts, employees, calendarData])
 
-  const filteredEmployees = (teamFilter === 'ALL' ? employees : employees.filter((e) => e.primaryTeam.code === teamFilter))
+  const filteredEmployees = (teamFilter.size === 0 ? employees : employees.filter((e) => teamFilter.has(e.primaryTeam.code)))
     .filter(e => !tentativeOnly || tentativeEmpIds.has(e.id))
     .filter(e => !conflictOnly  || conflictEmpIds.has(e.id))
 
@@ -261,13 +268,13 @@ export default function StaffCalendar() {
         )}
         <span className="inline-flex items-center gap-1 text-[10px] text-slate-400"><span className="h-3 w-3 rounded-sm ring-1 ring-inset ring-red-400" /> จองซ้อน (ทีมเดิม) ·<span className="ml-1 h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-inset ring-amber-400" /> จองซ้อนข้ามทีม</span>
         <div className="ml-auto flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => setTeamFilter('ALL')}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${teamFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+          <button onClick={() => setTeamFilter(new Set())}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${teamFilter.size === 0 ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             ทุกทีม
           </button>
           {TEAM_CODES.map((code) => (
-            <button key={code} onClick={() => setTeamFilter(code === teamFilter ? 'ALL' : code)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${teamFilter === code ? 'ring-2 ring-offset-1 ring-slate-400 ' + TEAM_FILTER_COLOR[code] : TEAM_FILTER_COLOR[code] + ' opacity-60 hover:opacity-100'}`}>
+            <button key={code} onClick={() => toggleTeam(code)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${teamFilter.has(code) ? 'ring-2 ring-offset-1 ring-slate-400 ' + TEAM_FILTER_COLOR[code] : TEAM_FILTER_COLOR[code] + ' opacity-60 hover:opacity-100'}`}>
               {code}
             </button>
           ))}
