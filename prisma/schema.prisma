@@ -10,12 +10,12 @@ datasource db {
 // บันทึกประวัติการลบข้อมูลออกจากระบบ (เก็บ snapshot ไว้กู้/ตรวจสอบย้อนหลัง)
 model DeletionLog {
   id            Int      @id @default(autoincrement())
-  entityType    String   // เช่น 'equipment'
-  entityLabel   String   // ป้ายอ่านง่าย เช่น "SO2 A-5552 (serial 5552)"
-  reason        String?  // เหตุผลที่ลบ
-  snapshot      Json     // ข้อมูลเต็มก่อนลบ (ไม่รวมรูปภาพ)
-  deletedById   Int?     // uid ผู้ลบ
-  deletedByName String   // ชื่อผู้ลบ (เก็บไว้เผื่อ user ถูกลบภายหลัง)
+  entityType    String // เช่น 'equipment'
+  entityLabel   String // ป้ายอ่านง่าย เช่น "SO2 A-5552 (serial 5552)"
+  reason        String? // เหตุผลที่ลบ
+  snapshot      Json // ข้อมูลเต็มก่อนลบ (ไม่รวมรูปภาพ)
+  deletedById   Int? // uid ผู้ลบ
+  deletedByName String // ชื่อผู้ลบ (เก็บไว้เผื่อ user ถูกลบภายหลัง)
   createdAt     DateTime @default(now())
 
   @@index([entityType])
@@ -23,10 +23,10 @@ model DeletionLog {
 }
 
 model ServiceTeam {
-  id        Int    @id @default(autoincrement())
-  code      String @unique
-  name      String
-  sortOrder Int    @default(999)  // ลำดับการแสดงผล (ทีมใหม่ที่ไม่ตั้งค่าจะต่อท้าย)
+  id          Int     @id @default(autoincrement())
+  code        String  @unique
+  name        String
+  sortOrder   Int     @default(999) // ลำดับการแสดงผล (ทีมใหม่ที่ไม่ตั้งค่าจะต่อท้าย)
   // false = ทีมสนับสนุน/แอดมิน (เช่น LOG) — ยังลงแผนในปฏิทินได้ แต่ไม่นับใน Capacity/Utilization
   isFieldTeam Boolean @default(true)
 
@@ -57,7 +57,7 @@ model EquipmentType {
   name          String
   primaryTeamId Int
   primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
-  requiresCal   Boolean     @default(false)  // ต้องส่ง Calibrate เป็นรอบ → ใช้เตือน/หาเครื่องที่ยังไม่มีแผน
+  requiresCal   Boolean     @default(false) // ต้องส่ง Calibrate เป็นรอบ → ใช้เตือน/หาเครื่องที่ยังไม่มีแผน
 
   equipment Equipment[]
 
@@ -65,11 +65,11 @@ model EquipmentType {
 }
 
 model Equipment {
-  id           Int             @id @default(autoincrement())
-  typeId       Int
-  type         EquipmentType   @relation(fields: [typeId], references: [id])
-  serialNo     String?
-  internalNo   String?
+  id              Int             @id @default(autoincrement())
+  typeId          Int
+  type            EquipmentType   @relation(fields: [typeId], references: [id])
+  serialNo        String?
+  internalNo      String?
   isRental        Boolean         @default(false)
   rentalVendor    String?
   rentalStartDate DateTime?       @db.Date
@@ -77,14 +77,14 @@ model Equipment {
   status          EquipmentStatus @default(ACTIVE)
   notes           String?
   // ฐานข้อมูลเครื่องมือออฟฟิศ
-  photoUrl        String?           // base64 data URL หรือ URL ภายนอก
+  photoUrl        String? // base64 data URL หรือ URL ภายนอก
   brand           String?
   model           String?
-  vendor          String?           // ผู้ขายหลัก
-  purchaseDate    DateTime?         @db.Date
-  purchasePrice   Int?              // บาท
-  lifespanYears   Int?              // อายุการใช้งานประเมิน (ปี)
-  calDueDate      DateTime?         @db.Date  // กำหนด Calibrate ครั้งถัดไป
+  vendor          String? // ผู้ขายหลัก
+  purchaseDate    DateTime?       @db.Date
+  purchasePrice   Int? // บาท
+  lifespanYears   Int? // อายุการใช้งานประเมิน (ปี)
+  calDueDate      DateTime?       @db.Date // กำหนด Calibrate ครั้งถัดไป
 
   assignments EquipmentAssignment[]
   events      EquipmentEvent[]
@@ -107,27 +107,27 @@ model Employee {
   primaryTeamId Int
   primaryTeam   ServiceTeam @relation(fields: [primaryTeamId], references: [id])
   isActive      Boolean     @default(true)
-  phone         String?     // เบอร์โทร
-  photoUrl      String?     // base64 data URL หรือ URL ภายนอก
+  phone         String? // เบอร์โทร
+  photoUrl      String? // base64 data URL หรือ URL ภายนอก
   birthDate     DateTime?   @db.Date
   startDate     DateTime?   @db.Date
-  eduLevel      String?     // วุฒิการศึกษา (ป.ตรี (วท.บ), ปวส., ต่ำกว่า ปวส.)
-  eduField      String?     // สาขา/คณะ
-  eduInstitute  String?     // สถาบัน
+  eduLevel      String? // วุฒิการศึกษา (ป.ตรี (วท.บ), ปวส., ต่ำกว่า ปวส.)
+  eduField      String? // สาขา/คณะ
+  eduInstitute  String? // สถาบัน
   // ทีมย่อย (optional) — หัวหน้าอยู่บนสุด, เรียงตาม subTeam.sortOrder แล้ว subTeamOrder
   subTeamId     Int?
   subTeam       SubTeam?    @relation("SubTeamMembers", fields: [subTeamId], references: [id])
   subTeamOrder  Int         @default(999)
   isSubLeader   Boolean     @default(false)
-  inPlanner     Boolean     @default(true)   // false = office/admin ไม่โชว์ในปฏิทินวางแผน
+  inPlanner     Boolean     @default(true) // false = office/admin ไม่โชว์ในปฏิทินวางแผน
 
-  siteAccess  EmployeeSiteAccess[]
-  assignments StaffAssignment[]
-  user        User?
-  vehicleBookings VehicleBooking[] @relation("VehicleDriver")
-  vehicleLogs     VehicleLog[]     @relation("VehicleLogDriver")
-  vehicleTrips    VehicleTrip[]    @relation("VehicleTripDriver")
-  cemsRequests    CemsPartRequest[] @relation("CemsRequester")
+  siteAccess      EmployeeSiteAccess[]
+  assignments     StaffAssignment[]
+  user            User?
+  vehicleBookings VehicleBooking[]     @relation("VehicleDriver")
+  vehicleLogs     VehicleLog[]         @relation("VehicleLogDriver")
+  vehicleTrips    VehicleTrip[]        @relation("VehicleTripDriver")
+  cemsRequests    CemsPartRequest[]    @relation("CemsRequester")
 
   @@map("employees")
 }
@@ -152,8 +152,8 @@ model User {
   passwordHash String
   role         UserRole  @default(GENERAL)
   isActive     Boolean   @default(true)
-  cemsAccess   Boolean   @default(false)   // (legacy) สิทธิ์เข้า CEMS — เก็บไว้เป็น fallback กัน lockout ระหว่างย้ายมาใช้ cemsRole
-  cemsRole     CemsRole  @default(NONE)    // สิทธิ์โมดูล CEMS Service (ADMIN ของระบบ = CEMS Admin เสมอ)
+  cemsAccess   Boolean   @default(false) // (legacy) สิทธิ์เข้า CEMS — เก็บไว้เป็น fallback กัน lockout ระหว่างย้ายมาใช้ cemsRole
+  cemsRole     CemsRole  @default(NONE) // สิทธิ์โมดูล CEMS Service (ADMIN ของระบบ = CEMS Admin เสมอ)
   employeeId   Int?      @unique
   employee     Employee? @relation(fields: [employeeId], references: [id])
   createdAt    DateTime  @default(now())
@@ -187,31 +187,56 @@ model Site {
   vehicleBookings      VehicleBooking[]
   vehicleLogs          VehicleLog[]
   vehicleTrips         VehicleTrip[]
+  geofences            SiteGeofence[]
+  gpsVisits            VehicleGpsVisit[]
 
   @@map("sites")
 }
 
+// กรอบ Geofence ของไซต์ (วาดเองบนแผนที่) — ใช้จับคู่พิกัด GPS ว่า "รถอยู่ไซต์ไหน"
+// 1 ไซต์วาดได้หลายกรอบ (เช่น หลายอาคาร/หลายประตู) · rectangle = polygon 4 จุด
+enum GeofenceKind {
+  CIRCLE
+  POLYGON
+}
+
+model SiteGeofence {
+  id        Int          @id @default(autoincrement())
+  siteId    Int
+  site      Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  kind      GeofenceKind @default(CIRCLE)
+  label     String?
+  centerLat Float? // สำหรับ CIRCLE
+  centerLng Float?
+  radiusM   Float? // รัศมี (เมตร) สำหรับ CIRCLE
+  points    Json? // สำหรับ POLYGON/rect: [[lat,lng], ...]
+  createdAt DateTime     @default(now())
+
+  @@index([siteId])
+  @@map("site_geofences")
+}
+
 model StaffAssignment {
-  id            Int              @id @default(autoincrement())
-  employeeId    Int
-  employee      Employee         @relation(fields: [employeeId], references: [id])
-  assignedDate  DateTime         @db.Date
-  siteId        Int?
-  site          Site?            @relation(fields: [siteId], references: [id])
-  serviceTypeId Int?
-  serviceType   ServiceTeam?     @relation(fields: [serviceTypeId], references: [id])
-  isCrossTeam   Boolean          @default(false)
-  estimatedDays Decimal          @default(1) @db.Decimal(4, 1)
-  status        AssignmentStatus @default(FIELD)
-  leaveType     String?          // ประเภทลา (เมื่อ status=LEAVE): SICK/SICK_CERT/PERSONAL/VACATION/UNPAID
-  notes         String?
-  isLocked      Boolean          @default(false)
+  id              Int               @id @default(autoincrement())
+  employeeId      Int
+  employee        Employee          @relation(fields: [employeeId], references: [id])
+  assignedDate    DateTime          @db.Date
+  siteId          Int?
+  site            Site?             @relation(fields: [siteId], references: [id])
+  serviceTypeId   Int?
+  serviceType     ServiceTeam?      @relation(fields: [serviceTypeId], references: [id])
+  isCrossTeam     Boolean           @default(false)
+  estimatedDays   Decimal           @default(1) @db.Decimal(4, 1)
+  status          AssignmentStatus  @default(FIELD)
+  leaveType       String? // ประเภทลา (เมื่อ status=LEAVE): SICK/SICK_CERT/PERSONAL/VACATION/UNPAID
+  notes           String?
+  isLocked        Boolean           @default(false)
   // งานจองรอลูกค้ายืนยัน — กันคิวไว้แล้วแต่ยังอาจยกเลิก (reason = เหตุผลที่ยังไม่ยืนยัน เช่น รอเปิด PO)
-  isTentative     Boolean        @default(false)
+  isTentative     Boolean           @default(false)
   tentativeReason String?
-  parentId      Int?
-  parent        StaffAssignment?  @relation("MultiDay", fields: [parentId], references: [id])
-  children      StaffAssignment[] @relation("MultiDay")
+  parentId        Int?
+  parent          StaffAssignment?  @relation("MultiDay", fields: [parentId], references: [id])
+  children        StaffAssignment[] @relation("MultiDay")
 
   equipmentAssignments EquipmentAssignment[]
   vehicleBookings      VehicleBooking[]
@@ -231,19 +256,19 @@ enum AssignmentStatus {
 }
 
 model EquipmentAssignment {
-  id                Int              @id @default(autoincrement())
+  id                Int                   @id @default(autoincrement())
   equipmentId       Int
-  equipment         Equipment        @relation(fields: [equipmentId], references: [id])
-  assignedDate      DateTime         @db.Date
+  equipment         Equipment             @relation(fields: [equipmentId], references: [id])
+  assignedDate      DateTime              @db.Date
   siteId            Int?
-  site              Site?            @relation(fields: [siteId], references: [id])
+  site              Site?                 @relation(fields: [siteId], references: [id])
   staffAssignmentId Int?
-  staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
+  staffAssignment   StaffAssignment?      @relation(fields: [staffAssignmentId], references: [id])
   notes             String?
-  isLocked          Boolean          @default(false)
-  isTentative       Boolean          @default(false)   // งานจองรอยืนยัน (ดู StaffAssignment)
+  isLocked          Boolean               @default(false)
+  isTentative       Boolean               @default(false) // งานจองรอยืนยัน (ดู StaffAssignment)
   tentativeReason   String?
-  estimatedDays     Int              @default(1)
+  estimatedDays     Int                   @default(1)
   parentId          Int?
   parent            EquipmentAssignment?  @relation("EqMultiDay", fields: [parentId], references: [id])
   children          EquipmentAssignment[] @relation("EqMultiDay")
@@ -273,11 +298,11 @@ model EquipmentEvent {
   equipment    Equipment          @relation(fields: [equipmentId], references: [id])
   type         EquipmentEventType
   sentDate     DateTime           @db.Date
-  expectedDate DateTime?          @db.Date  // กำหนดรับกลับ (ซ่อม) / กำหนดเสร็จ (Cal)
-  returnedDate DateTime?          @db.Date  // วันรับกลับจริง
-  nextDueDate  DateTime?          @db.Date  // (Cal) กำหนด Cal ครั้งถัดไป → อัปเดต equipment.calDueDate ตอนรับกลับ
+  expectedDate DateTime?          @db.Date // กำหนดรับกลับ (ซ่อม) / กำหนดเสร็จ (Cal)
+  returnedDate DateTime?          @db.Date // วันรับกลับจริง
+  nextDueDate  DateTime?          @db.Date // (Cal) กำหนด Cal ครั้งถัดไป → อัปเดต equipment.calDueDate ตอนรับกลับ
   vendor       String?
-  cost         Int?               // ค่าใช้จ่าย (บาท, optional)
+  cost         Int? // ค่าใช้จ่าย (บาท, optional)
   notes        String?
   createdAt    DateTime           @default(now())
 
@@ -302,9 +327,9 @@ enum VehiclePurpose {
 
 model Vehicle {
   id           Int           @id @default(autoincrement())
-  licensePlate String        // ทะเบียน
-  name         String?       // ชื่อเรียก/รหัสภายใน
-  vehicleType  String?       // กระบะ/ตู้/เก๋ง
+  licensePlate String // ทะเบียน
+  name         String? // ชื่อเรียก/รหัสภายใน
+  vehicleType  String? // กระบะ/ตู้/เก๋ง
   brand        String?
   model        String?
   seats        Int?
@@ -316,35 +341,36 @@ model Vehicle {
   bookings VehicleBooking[]
   logs     VehicleLog[]
   trips    VehicleTrip[]
+  gpsDays  VehicleGpsDay[]
 
   @@map("vehicles")
 }
 
 // ทริปการใช้รถ: ออกรถ (mileageOut+ต้นทาง) → จอดรถ (mileageIn+ปลายทาง)
 model VehicleTrip {
-  id          Int             @id @default(autoincrement())
-  vehicleId   Int
-  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id])
-  driverId    Int?
-  driver      Employee?       @relation("VehicleTripDriver", fields: [driverId], references: [id])
-  driverName  String?
-  purpose     VehiclePurpose?
-  siteId      Int?
-  site        Site?           @relation(fields: [siteId], references: [id])
-  bookingId   Int?
-  booking     VehicleBooking? @relation("VBTrip", fields: [bookingId], references: [id])
-  forDate     DateTime        @db.Date
-  origin      String?
-  mileageOut  Int
-  startedAt   DateTime        @default(now())
-  destination String?
-  mileageIn   Int?                          // null = ยังไม่ปิดทริป
-  endedAt     DateTime?
-  nonField    Boolean         @default(false)
-  reason      String?
-  mismatch    Boolean         @default(false)
+  id              Int             @id @default(autoincrement())
+  vehicleId       Int
+  vehicle         Vehicle         @relation(fields: [vehicleId], references: [id])
+  driverId        Int?
+  driver          Employee?       @relation("VehicleTripDriver", fields: [driverId], references: [id])
+  driverName      String?
+  purpose         VehiclePurpose?
+  siteId          Int?
+  site            Site?           @relation(fields: [siteId], references: [id])
+  bookingId       Int?
+  booking         VehicleBooking? @relation("VBTrip", fields: [bookingId], references: [id])
+  forDate         DateTime        @db.Date
+  origin          String?
+  mileageOut      Int
+  startedAt       DateTime        @default(now())
+  destination     String?
+  mileageIn       Int? // null = ยังไม่ปิดทริป
+  endedAt         DateTime?
+  nonField        Boolean         @default(false)
+  reason          String?
+  mismatch        Boolean         @default(false)
   expectedMileage Int?
-  notes       String?
+  notes           String?
 
   @@index([vehicleId, startedAt])
   @@index([mileageIn])
@@ -357,31 +383,31 @@ enum VehicleLogType {
 }
 
 model VehicleLog {
-  id        Int             @id @default(autoincrement())
-  vehicleId Int
-  vehicle   Vehicle         @relation(fields: [vehicleId], references: [id])
-  type      VehicleLogType
-  mileage   Int                          // เลขไมล์ที่อ่านได้
-  loggedAt  DateTime        @default(now())
-  forDate   DateTime        @db.Date     // วันที่ใช้
-  driverId  Int?
-  driver    Employee?       @relation("VehicleLogDriver", fields: [driverId], references: [id])
-  driverName String?
-  purpose   VehiclePurpose?
-  siteId    Int?
-  site      Site?           @relation(fields: [siteId], references: [id])
-  bookingId Int?
-  booking   VehicleBooking? @relation(fields: [bookingId], references: [id])
-  origin       String?
-  destination  String?
-  nonField     Boolean      @default(false)   // ใช้นอกงาน
-  reason       String?
+  id                Int             @id @default(autoincrement())
+  vehicleId         Int
+  vehicle           Vehicle         @relation(fields: [vehicleId], references: [id])
+  type              VehicleLogType
+  mileage           Int // เลขไมล์ที่อ่านได้
+  loggedAt          DateTime        @default(now())
+  forDate           DateTime        @db.Date // วันที่ใช้
+  driverId          Int?
+  driver            Employee?       @relation("VehicleLogDriver", fields: [driverId], references: [id])
+  driverName        String?
+  purpose           VehiclePurpose?
+  siteId            Int?
+  site              Site?           @relation(fields: [siteId], references: [id])
+  bookingId         Int?
+  booking           VehicleBooking? @relation(fields: [bookingId], references: [id])
+  origin            String?
+  destination       String?
+  nonField          Boolean         @default(false) // ใช้นอกงาน
+  reason            String?
   fuelLiters        Float?
   fuelPricePerLiter Float?
   fuelCost          Float?
-  mismatch        Boolean   @default(false)   // แจ้งไมล์ไม่ตรง
-  expectedMileage Int?                        // เลขในระบบตอนนั้น (ก่อนแก้)
-  notes     String?
+  mismatch          Boolean         @default(false) // แจ้งไมล์ไม่ตรง
+  expectedMileage   Int? // เลขในระบบตอนนั้น (ก่อนแก้)
+  notes             String?
 
   @@index([vehicleId, loggedAt])
   @@map("vehicle_logs")
@@ -399,14 +425,14 @@ model VehicleBooking {
   purpose           VehiclePurpose   @default(FIELD)
   siteId            Int?
   site              Site?            @relation(fields: [siteId], references: [id])
-  destination       String?          // ปลายทางพิมพ์อิสระ (งานนอก)
+  destination       String? // ปลายทางพิมพ์อิสระ (งานนอก)
   staffAssignmentId Int?
   staffAssignment   StaffAssignment? @relation(fields: [staffAssignmentId], references: [id])
   driverId          Int?
   driver            Employee?        @relation("VehicleDriver", fields: [driverId], references: [id])
-  driverName        String?          // คนขับนอกระบบ
+  driverName        String? // คนขับนอกระบบ
   notes             String?
-  isTentative       Boolean          @default(false)   // งานจองรอยืนยัน (ดู StaffAssignment)
+  isTentative       Boolean          @default(false) // งานจองรอยืนยัน (ดู StaffAssignment)
   tentativeReason   String?
   logs              VehicleLog[]
   trips             VehicleTrip[]    @relation("VBTrip")
@@ -416,12 +442,58 @@ model VehicleBooking {
   @@map("vehicle_bookings")
 }
 
+// ══ GPS (Cartrack) ═══════════════════════════════════════════
+// สรุป GPS ต่อคัน/ต่อวัน (คำนวณจากไฟล์ Custom Trip Detail) — ไม่เก็บ ping ดิบทั้งหมด
+model VehicleGpsDay {
+  id           Int       @id @default(autoincrement())
+  vehicleId    Int
+  vehicle      Vehicle   @relation(fields: [vehicleId], references: [id])
+  forDate      DateTime  @db.Date // วันที่ (เวลาไทย)
+  distanceKm   Float     @default(0) // ระยะทางรวม (haversine)
+  movingMin    Int       @default(0) // เวลาเคลื่อนที่ (นาที)
+  idleMin      Int       @default(0) // เวลาจอดติดเครื่อง (นาที)
+  tripCount    Int       @default(0) // จำนวนทริป (Ignition ON→OFF)
+  maxSpeed     Float     @default(0)
+  firstMoveAt  DateTime?
+  lastStopAt   DateTime?
+  matchedPlate String? // ทะเบียนในไฟล์ที่จับคู่ได้
+  driverName   String?
+  pathJson     Json? // เส้นทาง downsample: [[lat,lng], ...]
+  sourceRef    String? // กันนำเข้าซ้ำ (เช่น Gmail messageId + plate)
+  createdAt    DateTime  @default(now())
+
+  visits VehicleGpsVisit[]
+
+  @@unique([vehicleId, forDate])
+  @@index([forDate])
+  @@map("vehicle_gps_days")
+}
+
+// จุดจอดที่ตรวจพบในวันนั้น → จับคู่กับไซต์ (ถ้าอยู่ในกรอบ geofence)
+model VehicleGpsVisit {
+  id       Int           @id @default(autoincrement())
+  gpsDayId Int
+  gpsDay   VehicleGpsDay @relation(fields: [gpsDayId], references: [id], onDelete: Cascade)
+  siteId   Int?
+  site     Site?         @relation(fields: [siteId], references: [id])
+  rawPlace String? // Position Description (เมื่อไม่แมตช์ไซต์)
+  lat      Float
+  lng      Float
+  arriveAt DateTime
+  departAt DateTime?
+  dwellMin Int           @default(0)
+
+  @@index([gpsDayId])
+  @@index([siteId])
+  @@map("vehicle_gps_visits")
+}
+
 // ══ CEMS Service Module ═══════════════════════════════════════
 
 enum CemsOwnership {
-  POOL_OWN     // หน่วยงานซื้อเอง (pool)
-  POOL_LEGACY  // ของเก่าจากไซต์ นำมา pool
-  CUSTOMER     // ของลูกค้าประจำไซต์
+  POOL_OWN // หน่วยงานซื้อเอง (pool)
+  POOL_LEGACY // ของเก่าจากไซต์ นำมา pool
+  CUSTOMER // ของลูกค้าประจำไซต์
 }
 
 enum CemsAnalyzerStatus {
@@ -432,11 +504,11 @@ enum CemsAnalyzerStatus {
 }
 
 enum CemsEventType {
-  REPAIR  // ส่งซ่อม
-  RETURN  // รับคืน
-  MOVE    // ย้ายที่
-  PM      // เข้า PM
-  ISSUE   // แจ้งอาการผิดปกติ (จาก QR)
+  REPAIR // ส่งซ่อม
+  RETURN // รับคืน
+  MOVE // ย้ายที่
+  PM // เข้า PM
+  ISSUE // แจ้งอาการผิดปกติ (จาก QR)
 }
 
 model CemsSite {
@@ -457,15 +529,15 @@ model CemsSite {
 
 model CemsAnalyzer {
   id              Int                @id @default(autoincrement())
-  tag             String             // ชื่อเรียก/รหัสเครื่อง
+  tag             String // ชื่อเรียก/รหัสเครื่อง
   brand           String?
   model           String?
   serialNo        String?
-  parameter       String?            // วัดอะไร เช่น SO2/NOx/CO/O2
+  parameter       String? // วัดอะไร เช่น SO2/NOx/CO/O2
   ownership       CemsOwnership      @default(POOL_OWN)
-  homeSiteId      Int?               // เครื่องลูกค้า = ไซต์เจ้าของ ; pool = null
+  homeSiteId      Int? // เครื่องลูกค้า = ไซต์เจ้าของ ; pool = null
   homeSite        CemsSite?          @relation("HomeSite", fields: [homeSiteId], references: [id])
-  currentSiteId   Int?               // อยู่ที่ไหนตอนนี้ ; null = อยู่หน่วยงาน (pool)
+  currentSiteId   Int? // อยู่ที่ไหนตอนนี้ ; null = อยู่หน่วยงาน (pool)
   currentSite     CemsSite?          @relation("CurrentSite", fields: [currentSiteId], references: [id])
   status          CemsAnalyzerStatus @default(READY)
   receivedDate    DateTime?          @db.Date // วันรับเข้า → นับอายุใช้งาน
@@ -476,7 +548,7 @@ model CemsAnalyzer {
 
   events        CemsAnalyzerEvent[]
   partTxns      CemsPartTxn[]
-  partRequests  CemsPartRequest[]  @relation("ReqAnalyzer")
+  partRequests  CemsPartRequest[]   @relation("ReqAnalyzer")
   partSchedules CemsPartSchedule[]
 
   @@map("cems_analyzers")
@@ -488,12 +560,12 @@ model CemsAnalyzerEvent {
   analyzer   CemsAnalyzer  @relation(fields: [analyzerId], references: [id])
   type       CemsEventType
   eventDate  DateTime      @db.Date
-  symptom    String?       // อาการ/สาเหตุส่งซ่อม
-  action     String?       // สิ่งที่ทำ/ผลรับคืน
-  siteId     Int?          // MOVE: ไปไซต์ไหน (null = กลับหน่วยงาน) / ISSUE: แจ้งจากไซต์ไหน
+  symptom    String? // อาการ/สาเหตุส่งซ่อม
+  action     String? // สิ่งที่ทำ/ผลรับคืน
+  siteId     Int? // MOVE: ไปไซต์ไหน (null = กลับหน่วยงาน) / ISSUE: แจ้งจากไซต์ไหน
   site       CemsSite?     @relation("EvtSite", fields: [siteId], references: [id])
-  vendor     String?       // REPAIR: สถานที่/บริษัทที่ส่งซ่อม
-  receiver   String?       // REPAIR: ชื่อผู้รับเครื่องฝั่งผู้ซ่อม
+  vendor     String? // REPAIR: สถานที่/บริษัทที่ส่งซ่อม
+  receiver   String? // REPAIR: ชื่อผู้รับเครื่องฝั่งผู้ซ่อม
   reporter   String?
   notes      String?
   createdAt  DateTime      @default(now())
@@ -505,8 +577,8 @@ model CemsAnalyzerEvent {
 // ── CEMS เฟส 2: Stock อะไหล่ ──────────────────────────────────
 
 enum CemsTxnType {
-  IN     // รับเข้า (มีต้นทุน/หน่วย)
-  OUT    // เบิกออก (ผูกไซต์/เครื่อง/ใบเสนอราคา)
+  IN // รับเข้า (มีต้นทุน/หน่วย)
+  OUT // เบิกออก (ผูกไซต์/เครื่อง/ใบเสนอราคา)
   ADJUST // ปรับยอด (qty เป็น +/- ได้)
 }
 
@@ -518,7 +590,7 @@ model CemsSparePart {
   unit     String? // ชิ้น/ชุด/เมตร/ม้วน
   minStock Int     @default(0) // Reorder level
   location String? // ตำแหน่งจัดเก็บ A1-A18, F1-F4
-  refCost  Float?  // ราคาอ้างอิงล่าสุด (อัปเดตอัตโนมัติตอนรับเข้า) → มูลค่า = stock × refCost
+  refCost  Float? // ราคาอ้างอิงล่าสุด (อัปเดตอัตโนมัติตอนรับเข้า) → มูลค่า = stock × refCost
   isActive Boolean @default(true)
   notes    String?
   qrToken  String? @unique // QR แขวนที่ชั้นเก็บ → สแกนเปิดหน้าขอเบิก
@@ -538,52 +610,52 @@ enum CemsRequestStatus {
 
 // คำขอเบิกจากการสแกน QR (ไม่แตะ stock จนกว่า CEMS Admin อนุมัติ → สร้าง OUT txn)
 model CemsPartRequest {
-  id          Int               @id @default(autoincrement())
-  partId      Int
-  part        CemsSparePart     @relation(fields: [partId], references: [id])
-  qty         Int
-  requesterId Int               // ต้องเป็นพนักงาน
-  requester   Employee          @relation("CemsRequester", fields: [requesterId], references: [id])
-  siteId      Int?
-  site        CemsSite?         @relation("ReqSite", fields: [siteId], references: [id])
-  manualSite  String?
-  analyzerId  Int?
-  analyzer    CemsAnalyzer?     @relation("ReqAnalyzer", fields: [analyzerId], references: [id])
-  quoteNo     String?
-  note        String?
-  status      CemsRequestStatus @default(PENDING)
-  createdAt   DateTime          @default(now())
-  decidedAt   DateTime?
-  decidedBy   String?
+  id           Int               @id @default(autoincrement())
+  partId       Int
+  part         CemsSparePart     @relation(fields: [partId], references: [id])
+  qty          Int
+  requesterId  Int // ต้องเป็นพนักงาน
+  requester    Employee          @relation("CemsRequester", fields: [requesterId], references: [id])
+  siteId       Int?
+  site         CemsSite?         @relation("ReqSite", fields: [siteId], references: [id])
+  manualSite   String?
+  analyzerId   Int?
+  analyzer     CemsAnalyzer?     @relation("ReqAnalyzer", fields: [analyzerId], references: [id])
+  quoteNo      String?
+  note         String?
+  status       CemsRequestStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  decidedAt    DateTime?
+  decidedBy    String?
   rejectReason String?
-  txnId       Int?              // OUT txn ที่สร้างตอนอนุมัติ
-  scheduleId  Int?              // ผูกกับแผนเปลี่ยน (ถ้าเบิกตามแผน/ชำรุดก่อนกำหนด)
-  schedule    CemsPartSchedule? @relation(fields: [scheduleId], references: [id])
-  replaceType String?           // 'PLANNED' | 'BREAKDOWN' | 'OTHER' ; null = เบิกแบบเดิม (ไม่ผูกแผน)
+  txnId        Int? // OUT txn ที่สร้างตอนอนุมัติ
+  scheduleId   Int? // ผูกกับแผนเปลี่ยน (ถ้าเบิกตามแผน/ชำรุดก่อนกำหนด)
+  schedule     CemsPartSchedule? @relation(fields: [scheduleId], references: [id])
+  replaceType  String? // 'PLANNED' | 'BREAKDOWN' | 'OTHER' ; null = เบิกแบบเดิม (ไม่ผูกแผน)
 
   @@index([status, createdAt])
   @@map("cems_part_requests")
 }
 
 model CemsPartTxn {
-  id         Int           @id @default(autoincrement())
+  id         Int               @id @default(autoincrement())
   partId     Int
-  part       CemsSparePart @relation(fields: [partId], references: [id])
+  part       CemsSparePart     @relation(fields: [partId], references: [id])
   type       CemsTxnType
-  qty        Float         // IN/OUT บวกเสมอ ; ADJUST เป็น +/- ได้
-  unitCost   Float?        // IN: ต้นทุนต่อหน่วยของล็อตนี้
-  txnDate    DateTime      @db.Date
-  siteId     Int?          // OUT: เบิกไปไซต์ไหน
-  site       CemsSite?     @relation("PartTxnSite", fields: [siteId], references: [id])
-  manualSite String?       // ไซต์นอกฐานข้อมูล (พิมพ์เอง)
-  analyzerId Int?          // OUT: ใช้กับเครื่องไหน
-  analyzer   CemsAnalyzer? @relation(fields: [analyzerId], references: [id])
-  quoteNo    String?       // เลขใบเสนอราคาที่เสนอลูกค้า
-  person     String?       // ผู้เบิก/ผู้รับเข้า
+  qty        Float // IN/OUT บวกเสมอ ; ADJUST เป็น +/- ได้
+  unitCost   Float? // IN: ต้นทุนต่อหน่วยของล็อตนี้
+  txnDate    DateTime          @db.Date
+  siteId     Int? // OUT: เบิกไปไซต์ไหน
+  site       CemsSite?         @relation("PartTxnSite", fields: [siteId], references: [id])
+  manualSite String? // ไซต์นอกฐานข้อมูล (พิมพ์เอง)
+  analyzerId Int? // OUT: ใช้กับเครื่องไหน
+  analyzer   CemsAnalyzer?     @relation(fields: [analyzerId], references: [id])
+  quoteNo    String? // เลขใบเสนอราคาที่เสนอลูกค้า
+  person     String? // ผู้เบิก/ผู้รับเข้า
   notes      String?
-  scheduleId Int?              // OUT ตามแผน/ชำรุด: ตรึงว่าเป็นการเปลี่ยนของแผนไหน (นับรอบ/มาร์กในตารางปี)
+  scheduleId Int? // OUT ตามแผน/ชำรุด: ตรึงว่าเป็นการเปลี่ยนของแผนไหน (นับรอบ/มาร์กในตารางปี)
   schedule   CemsPartSchedule? @relation(fields: [scheduleId], references: [id])
-  createdAt  DateTime      @default(now())
+  createdAt  DateTime          @default(now())
 
   @@index([partId, txnDate])
   @@index([scheduleId, txnDate])
@@ -591,8 +663,8 @@ model CemsPartTxn {
 }
 
 enum CemsScheduleMode {
-  TIME_BASE     // เปลี่ยนตามรอบเวลา ทุก N เดือน
-  ON_CONDITION  // เปลี่ยนเมื่อชำรุดเท่านั้น (ไม่มีรอบ)
+  TIME_BASE // เปลี่ยนตามรอบเวลา ทุก N เดือน
+  ON_CONDITION // เปลี่ยนเมื่อชำรุดเท่านั้น (ไม่มีรอบ)
 }
 
 // แผนรอบเปลี่ยนอะไหล่ (Time-base) — ผูกราย analyzer (analyzerId) หรือรายไซต์ใช้ร่วม (siteId, analyzerId=null)
@@ -605,16 +677,16 @@ model CemsPartSchedule {
   siteId           Int?
   site             CemsSite?        @relation("SchedSite", fields: [siteId], references: [id])
   mode             CemsScheduleMode @default(TIME_BASE)
-  intervalMonths   Int?             // เฉพาะ TIME_BASE เช่น 6, 12
+  intervalMonths   Int? // เฉพาะ TIME_BASE เช่น 6, 12
   qtyPerReplace    Int              @default(1) // รายไซต์ใช้ร่วม = จำนวนรวมต่อรอบ
   lastReplacedDate DateTime?        @db.Date
-  nextDueDate      DateTime?        @db.Date    // = lastReplacedDate + intervalMonths (คำนวณตอนบันทึก)
+  nextDueDate      DateTime?        @db.Date // = lastReplacedDate + intervalMonths (คำนวณตอนบันทึก)
   isActive         Boolean          @default(true)
   notes            String?
   createdAt        DateTime         @default(now())
 
-  requests         CemsPartRequest[]
-  txns             CemsPartTxn[]
+  requests CemsPartRequest[]
+  txns     CemsPartTxn[]
 
   @@index([partId])
   @@index([siteId])
@@ -625,29 +697,29 @@ model CemsPartSchedule {
 // ── CEMS เฟส 3: แก๊สมาตรฐาน (Standard Gas / Cal gas) ──────────
 
 enum CemsGasStatus {
-  ACTIVE   // ใช้งานได้ มีของ
-  EMPTY    // หมดแล้ว (ความดันต่ำเกินใช้)
+  ACTIVE // ใช้งานได้ มีของ
+  EMPTY // หมดแล้ว (ความดันต่ำเกินใช้)
   RETURNED // ส่งคืนซัพพลายเออร์
 }
 
 // ถังแก๊สมาตรฐาน — หลายองค์ประกอบต่อถัง ; ความดัน psi ↔ น้ำหนัก kg แปรผันตรง (แก๊สอัด)
 model CemsGasCylinder {
   id              Int           @id @default(autoincrement())
-  cylinderNo      String        @unique          // เลขถัง/serial
-  brand           String?                        // ผู้ผลิต/ซัพพลายเออร์
-  size            String?                        // ขนาดถัง เช่น 47L, 10L
-  originCountry   String?                        // ประเทศผู้ผลิต (ไทย/อเมริกา/อื่นๆ) — ข้อมูลประกอบ
-  initialPressure Float                          // ความดันเต็มถัง (psi)
-  currentPressure Float                          // ความดันปัจจุบัน (psi)
-  lowThreshold    Float?                         // ต่ำกว่านี้เตือนใกล้หมด (psi)
-  initialWeight   Float?                         // น้ำหนักแก๊สเต็มถัง (kg) → คำนวณ kg คงเหลือ
-  receivedDate    DateTime?     @db.Date         // วันที่ผลิต (ใช้นับอายุแก๊ส) — เดิมชื่อ "วันรับเข้า"
-  expiryDate      DateTime?     @db.Date         // วันหมดอายุแก๊ส (cal gas มี shelf-life)
-  dealerDate      DateTime?     @db.Date         // วันที่รับถังจาก Dealer ในไทย (เริ่มนับกำหนดส่งคืน)
-  returnDueDate   DateTime?     @db.Date         // วันที่ต้องส่งคืนถัง (เกินแล้วเสียค่าเช่า)
-  returnedDate    DateTime?     @db.Date         // วันที่ส่งคืนถังจริง (status=RETURNED)
-  returnedBy      String?                        // ผู้ส่งคืนถัง
-  location        String?                        // ที่เก็บ/ไซต์ที่ใช้
+  cylinderNo      String        @unique // เลขถัง/serial
+  brand           String? // ผู้ผลิต/ซัพพลายเออร์
+  size            String? // ขนาดถัง เช่น 47L, 10L
+  originCountry   String? // ประเทศผู้ผลิต (ไทย/อเมริกา/อื่นๆ) — ข้อมูลประกอบ
+  initialPressure Float // ความดันเต็มถัง (psi)
+  currentPressure Float // ความดันปัจจุบัน (psi)
+  lowThreshold    Float? // ต่ำกว่านี้เตือนใกล้หมด (psi)
+  initialWeight   Float? // น้ำหนักแก๊สเต็มถัง (kg) → คำนวณ kg คงเหลือ
+  receivedDate    DateTime?     @db.Date // วันที่ผลิต (ใช้นับอายุแก๊ส) — เดิมชื่อ "วันรับเข้า"
+  expiryDate      DateTime?     @db.Date // วันหมดอายุแก๊ส (cal gas มี shelf-life)
+  dealerDate      DateTime?     @db.Date // วันที่รับถังจาก Dealer ในไทย (เริ่มนับกำหนดส่งคืน)
+  returnDueDate   DateTime?     @db.Date // วันที่ต้องส่งคืนถัง (เกินแล้วเสียค่าเช่า)
+  returnedDate    DateTime?     @db.Date // วันที่ส่งคืนถังจริง (status=RETURNED)
+  returnedBy      String? // ผู้ส่งคืนถัง
+  location        String? // ที่เก็บ/ไซต์ที่ใช้
   status          CemsGasStatus @default(ACTIVE)
   qrToken         String?       @unique
   notes           String?
@@ -664,9 +736,9 @@ model CemsGasComponent {
   id            Int             @id @default(autoincrement())
   cylinderId    Int
   cylinder      CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
-  gas           String                           // SO2, NO, NO2, CO, CO2, O2, N2, CH4, H2S ...
+  gas           String // SO2, NO, NO2, CO, CO2, O2, N2, CH4, H2S ...
   concentration Float
-  unit          String          @default("ppm")  // ppm / % / mg/m3
+  unit          String          @default("ppm") // ppm / % / mg/m3
 
   @@index([cylinderId])
   @@map("cems_gas_components")
@@ -674,16 +746,16 @@ model CemsGasComponent {
 
 // บันทึกการอ่านความดัน (จาก QR หน้างาน / ในระบบ) → อัปเดต currentPressure + เก็บ log
 model CemsGasReading {
-  id          Int             @id @default(autoincrement())
-  cylinderId  Int
-  cylinder    CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
-  pressure      Float                          // psi ที่อ่านได้
-  readingDate   DateTime      @db.Date
+  id            Int             @id @default(autoincrement())
+  cylinderId    Int
+  cylinder      CemsGasCylinder @relation(fields: [cylinderId], references: [id], onDelete: Cascade)
+  pressure      Float // psi ที่อ่านได้
+  readingDate   DateTime        @db.Date
   reader        String?
-  purpose       String?                        // วัตถุประสงค์การใช้งาน (สอบเทียบ/ตรวจเช็ค...)
-  usageLocation String?                        // สถานที่ใช้งาน
+  purpose       String? // วัตถุประสงค์การใช้งาน (สอบเทียบ/ตรวจเช็ค...)
+  usageLocation String? // สถานที่ใช้งาน
   notes         String?
-  createdAt     DateTime      @default(now())
+  createdAt     DateTime        @default(now())
 
   @@index([cylinderId, readingDate])
   @@map("cems_gas_readings")

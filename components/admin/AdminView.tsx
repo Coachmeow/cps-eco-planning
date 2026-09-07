@@ -1,10 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
-import { Factory, Users, Wrench, Car, Hammer, Ruler, Umbrella, KeyRound, Settings, User, Bell, Tag, Eye, EyeOff, BarChart3, type LucideIcon } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { Factory, Users, Wrench, Car, Hammer, Ruler, Umbrella, KeyRound, Settings, User, Bell, Tag, Eye, EyeOff, BarChart3, MapPin, type LucideIcon } from 'lucide-react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
-import { PROVINCE_NAMES } from '@/lib/thailandGeo'
+import { PROVINCE_NAMES, PROVINCES } from '@/lib/thailandGeo'
+
+// ตัวแก้ Geofence โหลด client-only (leaflet แตะ window)
+const GeofenceEditor = dynamic(() => import('./GeofenceEditor'), { ssr: false })
+
+// จุดกึ่งกลางจังหวัด (ใช้ตั้งค่าเริ่มต้นแผนที่ Geofence) — จับคู่ชื่อไทยแบบหลวม
+function provinceCentroid(province: string | null): { lat: number; lng: number } | null {
+  if (!province) return null
+  const p = PROVINCES.find((x) => x.th === province || province.includes(x.th) || x.th.includes(province))
+  return p ? { lat: p.lat, lng: p.lon } : null
+}
 import { REGIONS, REGION_OF } from '@/lib/provinceRegion'
 import { DeleteConfirmModal, DeletionLogButton } from '@/components/DeleteControls'
 import { useMe } from '@/hooks/useMe'
@@ -153,6 +164,7 @@ function SitesSection({ role }: { role?: UserRole }) {
   const [form, setForm]     = useState({ code: '', name: '', clientName: '', province: '', region: '', color: 'emerald', requiresAccess: '' })
   const [saving, setSaving] = useState(false)
   const [delTarget, setDelTarget] = useState<Site | null>(null)
+  const [geoTarget, setGeoTarget] = useState<Site | null>(null)   // ไซต์ที่กำลังแก้ Geofence
 
   const load = useCallback(async () => {
     const r = await fetch('/api/sites'); setSites(await r.json())
@@ -229,7 +241,12 @@ function SitesSection({ role }: { role?: UserRole }) {
                       : <span className="text-slate-300 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
+                    <div className="flex justify-end gap-1.5">
+                      <Btn small variant="ghost" onClick={() => setGeoTarget(s)}>
+                        <span className="inline-flex items-center gap-1"><MapPin size={13} /> Geofence</span>
+                      </Btn>
+                      <Btn small onClick={() => openEdit(s)}>แก้ไข</Btn>
+                    </div>
                   </td>
                 </tr>
               )
@@ -316,6 +333,19 @@ function SitesSection({ role }: { role?: UserRole }) {
           onDone={() => { setDelTarget(null); load() }}
         />
       )}
+
+      {geoTarget && (() => {
+        const c = provinceCentroid(geoTarget.province)
+        return (
+          <GeofenceEditor
+            siteId={geoTarget.id}
+            siteName={`${geoTarget.code} — ${geoTarget.name}`}
+            initialLat={c?.lat ?? null}
+            initialLng={c?.lng ?? null}
+            onClose={() => setGeoTarget(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
