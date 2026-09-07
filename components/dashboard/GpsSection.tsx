@@ -128,10 +128,10 @@ export default function GpsSection() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* ตารางรายคัน */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          {/* ตารางรายคัน — สูงเท่ากล่องแผนที่ (420px) + scrollbar ซ่อนเมื่อไม่ใช้ */}
+          <div className="scroll-soft overflow-auto rounded-lg border border-slate-200 lg:h-[420px]">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">คัน / คนขับ</th>
                   <th className="px-3 py-2 text-right font-medium">กม.</th>
@@ -156,15 +156,18 @@ export default function GpsSection() {
                       <td className="px-3 py-2">
                         {v.visits.length === 0 ? <span className="text-slate-300">—</span> : (
                           <div className="flex flex-wrap gap-1">
-                            {v.visits.map((vi, i) => vi.siteId ? (
-                              <span key={i} className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700" title={`${vi.siteName} · ${hhmm(vi.arriveAt)}–${hhmm(vi.departAt)} · จอด ${vi.dwellMin}น.`}>
-                                {vi.siteCode}
-                              </span>
-                            ) : (
-                              <span key={i} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400" title={`${vi.rawPlace ?? ''} · ${hhmm(vi.arriveAt)}–${hhmm(vi.departAt)} · จอด ${vi.dwellMin}น.`}>
-                                จุดจอด
-                              </span>
-                            ))}
+                            {v.visits.map((vi, i) => {
+                              const matched = vi.siteId != null
+                              const label = matched ? (vi.siteName || vi.siteCode || 'ไซต์') : (vi.rawPlace || 'จุดจอด')
+                              const head = matched ? [vi.siteCode, vi.siteName].filter(Boolean).join(' · ') : (vi.rawPlace || 'จุดจอด')
+                              const full = `${head} · ${hhmm(vi.arriveAt)}–${hhmm(vi.departAt)} · จอด ${vi.dwellMin} นาที`
+                              return (
+                                <span key={i} title={full}
+                                  className={`inline-block max-w-[130px] truncate rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium ${matched ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {label}
+                                </span>
+                              )
+                            })}
                           </div>
                         )}
                       </td>
