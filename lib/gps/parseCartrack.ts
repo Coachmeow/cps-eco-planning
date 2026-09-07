@@ -25,9 +25,11 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : NaN
 }
 
-// ทะเบียน: ตัดช่องว่างทั้งหมด (กันไฟล์/ระบบเว้นวรรคไม่ตรงกัน)
+// ทะเบียน: เอาเฉพาะ "ส่วนทะเบียน" ก่อนเว้นวรรค — ตัดจังหวัดที่ต่อท้ายในระบบเราออก
+//   Cartrack = "3ขง8314" · ระบบเรา = "3ขง8314 กรุงเทพฯ" → ทั้งคู่ normalize เป็น "3ขง8314"
+// (ใช้ฟังก์ชันเดียวกันทั้งสองฝั่ง จึงจับคู่ตรงกันเสมอ)
 export function normalizePlate(s: unknown): string {
-  return String(s ?? '').replace(/\s+/g, '').trim()
+  return String(s ?? '').trim().split(/\s+/)[0] ?? ''
 }
 
 export function parseCartrack(buf: Buffer): GpsPing[] {
