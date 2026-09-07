@@ -1,7 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Sans_Thai } from 'next/font/google'
 import './globals.css'
-import Sidebar from '@/components/Sidebar'
+import AppShell from '@/components/AppShell'
 import IdleLogout from '@/components/IdleLogout'
 
 // ฟอนต์หลักของทั้งแอป — รองรับไทย+อังกฤษ (คุมหน้าตาให้เหมือนกันทุกเครื่อง)
@@ -17,15 +17,19 @@ export const metadata: Metadata = {
   description: 'ระบบแผนงานและเครื่องมือ — Eco Planning System',
 }
 
+// คุมการแสดงผลบนมือถือให้พอดีจอ (device-width) + สีแถบเบราว์เซอร์เป็นเขียวของแบรนด์
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#059669',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className="h-full">
       <body className={`${plexThai.variable} h-full bg-slate-100`}>
         <IdleLogout />
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-hidden">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   )

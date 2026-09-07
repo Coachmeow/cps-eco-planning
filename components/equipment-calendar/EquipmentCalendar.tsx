@@ -256,8 +256,8 @@ export default function EquipmentCalendar() {
 
   return (
     <div className="flex h-full flex-col bg-slate-50">
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 shadow-sm">
-        <h1 className="flex items-center gap-2 text-lg font-bold text-slate-800"><Wrench className="h-5 w-5 text-slate-500" /> แผนเครื่องมือ</h1>
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 border-b border-slate-200 bg-white px-3 md:px-6 py-2.5 md:py-3 shadow-sm">
+        <h1 className="flex items-center gap-2 text-base md:text-lg font-bold text-slate-800"><Wrench className="h-5 w-5 text-slate-500" /> แผนเครื่องมือ</h1>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
           <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
           <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>

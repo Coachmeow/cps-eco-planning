@@ -65,9 +65,9 @@ export default function DashboardView() {
   const equipAvail = data?.equipmentAvail?.pct ?? 0
 
   return (
-    <div className="h-full overflow-auto bg-slate-50 p-6">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
+    <div className="h-full overflow-auto bg-slate-50 p-4 md:p-6">
+      <div className="mb-4 md:mb-6 flex flex-wrap items-center gap-2 md:gap-3">
+        <h1 className="text-lg md:text-xl font-bold text-slate-800">Dashboard</h1>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5 shadow-sm">
           <button onClick={prevMonth} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
           <span className="min-w-[90px] text-center text-sm font-medium text-slate-700">{thaiMonths[month]} {year+543}</span>

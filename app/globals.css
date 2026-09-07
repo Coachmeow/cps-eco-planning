@@ -20,6 +20,12 @@ body {
   font-family: var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* กันมือถือ (iOS Safari) ซูมอัตโนมัติเวลาแตะช่องกรอก — บังคับ ≥16px เฉพาะจอเล็ก
+   (บนจอใหญ่ยังใช้ text-sm ตามดีไซน์เดิม) */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px; }
+}
+
 /* เส้นทางเดินทาง (แผนที่ Dashboard) — เส้นประวิ่งแบบ flight-path */
 @keyframes dashflow { to { stroke-dashoffset: -24; } }
 .route-flow { animation: dashflow 1.1s linear infinite; }

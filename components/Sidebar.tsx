@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Users, Wrench, Car, Gauge, Settings, Leaf, LogOut, PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Users, Wrench, Car, Gauge, Settings, Leaf, LogOut, PanelLeftClose, PanelLeftOpen, X, type LucideIcon } from 'lucide-react'
 import { ROLE_LABEL, type UserRole } from '@/lib/roles'
 
 interface Me { uid: number; role: UserRole; username: string; name: string; cemsAccess?: boolean }
@@ -84,7 +84,12 @@ function ThaiClock({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean          // สถานะ drawer บนมือถือ (คุมโดย AppShell)
+  onClose?: () => void          // ปิด drawer
+}
+
+export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const path = usePathname()
   const [me, setMe]               = useState<Me | null>(null)
   const [collapsed, setCollapsed] = useState(false)
@@ -92,9 +97,6 @@ export default function Sidebar() {
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {})
   }, [])
-
-  // ไม่แสดง sidebar บนหน้า login / หน้า QR public (/m โลจบุ๊ครถ, /a เครื่อง CEMS)
-  if (path === '/login' || path.startsWith('/m/') || path.startsWith('/a/') || path.startsWith('/p/') || path.startsWith('/g/')) return null
 
   const role = me?.role
   const groups = NAV
@@ -115,9 +117,15 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className={`flex h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-all duration-200 ${collapsed ? 'w-[68px]' : 'w-[232px]'}`}>
+    <>
+      {/* ฉากหลังทึบเมื่อเปิด drawer บนมือถือ — แตะเพื่อปิด */}
+      {mobileOpen && <div onClick={onClose} aria-hidden className="fixed inset-0 z-40 bg-black/30 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white transition-transform duration-200
+        md:static md:z-auto md:translate-x-0 md:transition-all
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${collapsed ? 'md:w-[68px]' : 'md:w-[232px]'}`}>
       {/* Logo */}
-      <div className={`flex h-[60px] items-center gap-2 border-b border-slate-100 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
+      <div className={`flex h-[60px] items-center gap-2 border-b border-slate-100 ${collapsed ? 'md:justify-center md:px-0 px-5' : 'px-5'}`}>
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100"><Leaf className="h-[18px] w-[18px] text-emerald-600" /></span>
         {!collapsed && (
           <div className="leading-tight">
@@ -125,6 +133,10 @@ export default function Sidebar() {
             <p className="text-[10px] text-slate-400">System</p>
           </div>
         )}
+        {/* ปุ่มปิด drawer — เฉพาะมือถือ */}
+        <button onClick={onClose} aria-label="ปิดเมนู" className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 md:hidden">
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Clock */}
@@ -188,15 +200,17 @@ export default function Sidebar() {
           >
             {collapsed ? <LogOut className="h-4 w-4" /> : <><LogOut className="h-3.5 w-3.5" /> ออกจากระบบ</>}
           </button>
+          {/* ปุ่มย่อ/ขยาย — เฉพาะ desktop (มือถือใช้ปิด drawer แทน) */}
           <button
             onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'ขยาย' : 'ย่อ'}
-            className={`flex items-center justify-center rounded-lg border border-slate-200 py-1.5 text-xs text-slate-400 hover:bg-slate-100 transition-colors ${collapsed ? 'w-full' : 'px-2'}`}
+            className={`hidden md:flex items-center justify-center rounded-lg border border-slate-200 py-1.5 text-xs text-slate-400 hover:bg-slate-100 transition-colors ${collapsed ? 'w-full' : 'px-2'}`}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
       </div>
     </aside>
+    </>
   )
 }
