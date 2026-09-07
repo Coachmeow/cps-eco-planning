@@ -12,6 +12,7 @@ import ManDaySankey from '@/components/dashboard/charts/ManDaySankey'
 import PersonUtilBars from '@/components/dashboard/charts/PersonUtilBars'
 import CapacityHeatmap from '@/components/dashboard/charts/CapacityHeatmap'
 import ProvinceMap from '@/components/dashboard/charts/ProvinceMap'
+import GpsSection from '@/components/dashboard/GpsSection'
 import { Wrench, Users, Car, CircleCheck } from 'lucide-react'
 import { utilHex, siteHex } from '@/lib/chartTheme'
 
@@ -218,6 +219,9 @@ export default function DashboardView() {
               </div>
             </Card>
           )}
+
+          {/* GPS รถ (รายวัน) — ระยะทาง + ไซต์ที่ไป + แผนที่เส้นทาง (แยกจากตัวเลือกเดือน) */}
+          <GpsSection />
 
           {/* งานจองรอลูกค้ายืนยันที่ใกล้ถึงวันงาน — ไว้ไล่ตามก่อนถึงวันจริง */}
           {(data.tentativeSoon?.length ?? 0) > 0 && (
