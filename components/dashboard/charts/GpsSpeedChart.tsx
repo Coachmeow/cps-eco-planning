@@ -80,9 +80,12 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
   }
 
   const pts: SpeedPoint[] = series   // narrowed non-null (ใช้ใน closure ที่ TS ไม่ narrow ให้)
-  const H = 420, HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8, MB = 22
+  const H = 420, HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
+  const XLBL = 14, STRIP_GAP = 8, STRIP_H = 12          // ล่าง: ป้ายเวลา + แถบ "ช่วงเกินความเร็ว"
+  const MB = XLBL + STRIP_GAP + STRIP_H + 6
   const plotW = Math.max(10, w - ML - MR)
   const plotH = H - MT - MB
+  const stripY = MT + plotH + XLBL + STRIP_GAP          // ขอบบนของแถบเกินความเร็ว
   const minX = series[0][0], maxX = series[series.length - 1][0]
   const spanX = Math.max(1, maxX - minX)
   const maxRoad = series.reduce((m, p) => Math.max(m, p[2]), 0)
@@ -114,14 +117,15 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
     else { const px = xOf(series[i - 1][0]); limitD += `L ${px} ${y} L ${x} ${y} ` }
   }
 
-  // ช่วงวิ่งเกินกำหนด (speed จริง > จำกัดจริง) → เส้นแดงทับบนเส้นสมูท
-  const overSegs: string[] = []
-  let curSeg = ''
+  // ช่วงวิ่งเกินกำหนด (speed จริง > จำกัดจริง) → เก็บเป็นช่วงเวลา ไว้วาดเป็นแถบด้านล่าง
+  const overRuns: [number, number][] = []
+  let runStart = -1
   for (let i = 0; i < N; i++) {
-    if (road[i] > 0 && spd[i] > road[i]) { curSeg += `${curSeg ? 'L' : 'M'} ${xOf(series[i][0])} ${yOf(sm[i])} ` }
-    else if (curSeg) { overSegs.push(curSeg); curSeg = '' }
+    const o = road[i] > 0 && spd[i] > road[i]
+    if (o) { if (runStart < 0) runStart = series[i][0] }
+    else if (runStart >= 0) { overRuns.push([runStart, series[i - 1][0]]); runStart = -1 }
   }
-  if (curSeg) overSegs.push(curSeg)
+  if (runStart >= 0) overRuns.push([runStart, series[N - 1][0]])
   const overCount = series.reduce((c, p) => c + (p[2] > 0 && p[1] > p[2] ? 1 : 0), 0)
 
   // grid + x ticks
@@ -152,6 +156,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
         <span className="font-semibold text-slate-600">ความเร็ว–เวลา</span>
         <span className="inline-flex items-center gap-1"><i className="h-2 w-3 rounded-sm" style={{ background: SPEED }} /> จริง</span>
         <span className="inline-flex items-center gap-1"><i className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: LIMIT }} /> จำกัดถนน</span>
+        <span className="inline-flex items-center gap-1"><i className="h-2 w-3 rounded-sm" style={{ background: OVER }} /> เกินความเร็ว</span>
         <span className="ml-auto text-slate-500">สูงสุด <b className="font-mono text-slate-700">{maxSpeed}</b> กม./ชม. · เกินกำหนด <b className="font-mono" style={{ color: overspeedPct > 0 ? OVER : '#64748b' }}>{overspeedPct}%</b> ({overCount} จุด)</span>
       </div>
 
@@ -166,7 +171,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
         ))}
         {/* x ticks */}
         {xTicks.map((t) => (
-          <text key={t} x={xOf(t)} y={H - 7} textAnchor="middle" fontSize={9} fill={MUTED}>{hhmm(t)}</text>
+          <text key={t} x={xOf(t)} y={MT + plotH + XLBL - 2} textAnchor="middle" fontSize={9} fill={MUTED}>{hhmm(t)}</text>
         ))}
 
         {/* limit step line (denoised, บาง solid) */}
@@ -174,13 +179,19 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
         {/* area + speed line (smooth) */}
         <path d={areaD} fill={SPEED} fillOpacity={0.08} />
         <path d={lineD} fill="none" stroke={SPEED} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
-        {/* overspeed spans (แดงทับบนเส้น) */}
-        {overSegs.map((d, i) => <path key={i} d={d} fill="none" stroke={OVER} strokeWidth={2.6} strokeLinejoin="round" strokeLinecap="round" />)}
+
+        {/* แถบช่วงเกินความเร็ว (ล่างกราฟ) */}
+        <line x1={ML} y1={stripY + STRIP_H / 2} x2={ML + plotW} y2={stripY + STRIP_H / 2} stroke="#eef2f6" strokeWidth={STRIP_H} />
+        <text x={ML} y={stripY - 3} fontSize={8.5} fill={MUTED}>ช่วงเกินความเร็ว</text>
+        {overRuns.map(([s, e], i) => {
+          const x1 = xOf(s), x2 = xOf(e)
+          return <rect key={i} x={x1} y={stripY} width={Math.max(3, x2 - x1)} height={STRIP_H} rx={2} fill={OVER} />
+        })}
 
         {/* hover guide */}
         {hp && (
           <g>
-            <line x1={xOf(hp[0])} y1={MT} x2={xOf(hp[0])} y2={MT + plotH} stroke="#94a3b8" strokeDasharray="3 3" />
+            <line x1={xOf(hp[0])} y1={MT} x2={xOf(hp[0])} y2={stripY + STRIP_H} stroke="#94a3b8" strokeDasharray="3 3" />
             <circle cx={xOf(hp[0])} cy={yOf(sm[hover!.i])} r={4} fill={over ? OVER : SPEED} stroke="#fff" strokeWidth={1.5} />
           </g>
         )}
