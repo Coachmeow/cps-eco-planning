@@ -8,8 +8,13 @@ export async function POST(req: NextRequest) {
   const secret = process.env.GPS_INGEST_SECRET
   if (!secret) return NextResponse.json({ error: 'ยังไม่ได้ตั้งค่า GPS_INGEST_SECRET' }, { status: 503 })
 
-  const provided = req.headers.get('x-ingest-secret') || req.nextUrl.searchParams.get('secret') || ''
-  if (provided !== secret) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  // trim กันช่องว่าง/บรรทัดใหม่แฝงใน env หรือ header
+  const exp = secret.trim()
+  const provided = (req.headers.get('x-ingest-secret') || req.nextUrl.searchParams.get('secret') || '').trim()
+  if (provided !== exp) {
+    // debug ชั่วคราว: บอกความยาวเพื่อฟันธงว่าต่างตรงไหน (ไม่เปิดเผยค่า)
+    return NextResponse.json({ error: 'unauthorized', expLen: exp.length, gotLen: provided.length }, { status: 401 })
+  }
 
   try {
     let buf: Buffer | null = null
