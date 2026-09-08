@@ -153,7 +153,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
       return { sec: a, isSite, label, dwell: dwFmt(v.dwellMin), title: `${head} · ${hhmm(a)}–${v.departAt ? hhmm(secOf(v.departAt)) : '—'} · จอด ${dwFmt(v.dwellMin)}` }
     })
     .sort((a, b) => a.sec - b.sec)
-  const MINGAP = 66
+  const MINGAP = 118   // ต้อง ≥ ความกว้างชิปสูงสุด (max-w-[104px]) เพื่อกันแท็กทับกัน
   const stopGroups: { x: number; items: Mark[] }[] = []
   for (const m of marks) {
     const x = xOf(m.sec)
@@ -235,12 +235,12 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
       <div className="relative mt-1" style={{ height: 30 }}>
         <span className="absolute left-0 top-2 text-[10px] text-slate-400">จุดหยุดรถ</span>
         {stopGroups.map((g, i) => {
-          const left = Math.min(Math.max(g.x, ML + 20), w - 20)
+          const left = Math.min(Math.max(g.x, ML + 52), w - 52)   // เผื่อครึ่งความกว้างชิปไม่ให้ล้นขอบ
           if (g.items.length === 1) {
             const m = g.items[0]
             return (
               <span key={i} title={m.title}
-                className={`absolute top-1 flex max-w-[160px] -translate-x-1/2 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${m.isSite ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-200 bg-white text-slate-500'}`}
+                className={`absolute top-1 flex max-w-[104px] -translate-x-1/2 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${m.isSite ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-200 bg-white text-slate-500'}`}
                 style={{ left }}>
                 <MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{m.label} · {m.dwell}</span>
               </span>
