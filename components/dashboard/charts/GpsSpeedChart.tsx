@@ -129,7 +129,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
   const overCount = series.reduce((c, p) => c + (p[2] > 0 && p[1] > p[2] ? 1 : 0), 0)
 
   // grid + x ticks
-  const yLines = [30, 50, 80, 100, 120].filter((v) => v <= maxY)
+  const yLines = [30, 50, 80, 100, 120, 140].filter((v) => v <= maxY)
   const stepH = spanX > 6 * 3600 ? 2 * 3600 : 3600
   const xTicks: number[] = []
   for (let t = Math.ceil(minX / stepH) * stepH; t <= maxX; t += stepH) xTicks.push(t)
