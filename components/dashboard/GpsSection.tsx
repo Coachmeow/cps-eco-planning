@@ -4,11 +4,12 @@
 //  ตาราง/กราฟรายคัน (km, ทริป, ไซต์, เทียบไมล์) + แผนที่เส้นทาง+จุดจอด + อัปโหลดไฟล์ (ADMIN/MANAGER)
 import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
-import { Upload, MapPin, Navigation, Clock, TriangleAlert } from 'lucide-react'
+import { Upload, MapPin, Navigation, Clock, TriangleAlert, Map as MapIcon, LineChart } from 'lucide-react'
 import { useMe } from '@/hooks/useMe'
 import type { GpsVehiclePoint, GeofenceRow } from '@/components/dashboard/charts/GpsRouteMap'
 
 const GpsRouteMap = dynamic(() => import('@/components/dashboard/charts/GpsRouteMap'), { ssr: false })
+const GpsSpeedChart = dynamic(() => import('@/components/dashboard/charts/GpsSpeedChart'), { ssr: false })
 
 interface Visit {
   siteId: number | null; siteCode: string | null; siteName: string | null; siteColor: string | null
@@ -21,6 +22,7 @@ interface VehicleRow {
   distanceKm: number; movingMin: number; idleMin: number; tripCount: number; maxSpeed: number
   firstMoveAt: string | null; lastStopAt: string | null; driverName: string | null
   path: [number, number][]; manualKm: number | null; mileageDelta: number | null
+  speed: [number, number, number, string][] | null; overspeedPct: number
   assigned: Assigned | null; visits: Visit[]
 }
 interface GpsData { date: string; availableDates: string[]; vehicles: VehicleRow[]; geofences: GeofenceRow[] }
@@ -36,6 +38,7 @@ export default function GpsSection() {
   const [data, setData] = useState<GpsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [selId, setSelId] = useState<number | null>(null)
+  const [view, setView] = useState<'map' | 'speed'>('map')
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [report, setReport] = useState<string | null>(null)
@@ -228,18 +231,32 @@ export default function GpsSection() {
             </table>
           </div>
 
-          {/* แผนที่ */}
+          {/* แผนที่ / กราฟความเร็ว */}
           <div>
-            {selected && (
-              <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                <span className="font-mono font-semibold text-slate-700">{selected.plate}</span>
-                <span><Navigation className="mr-0.5 inline h-3 w-3 align-[-2px]" />{selected.distanceKm} กม.</span>
-                <span><Clock className="mr-0.5 inline h-3 w-3 align-[-2px]" />วิ่ง {hm(selected.movingMin)} · จอด {hm(selected.idleMin)}</span>
-                <span>สูงสุด {selected.maxSpeed} กม./ชม.</span>
-                <span>{hhmm(selected.firstMoveAt)}–{hhmm(selected.lastStopAt)}</span>
+            <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+              {selected && (
+                <>
+                  <span className="font-mono font-semibold text-slate-700">{selected.plate}</span>
+                  <span><Navigation className="mr-0.5 inline h-3 w-3 align-[-2px]" />{selected.distanceKm} กม.</span>
+                  <span><Clock className="mr-0.5 inline h-3 w-3 align-[-2px]" />วิ่ง {hm(selected.movingMin)} · จอด {hm(selected.idleMin)}</span>
+                  <span>{hhmm(selected.firstMoveAt)}–{hhmm(selected.lastStopAt)}</span>
+                </>
+              )}
+              {/* toggle */}
+              <div className="ml-auto flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+                <button onClick={() => setView('map')}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${view === 'map' ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  <MapIcon className="h-3 w-3" /> แผนที่
+                </button>
+                <button onClick={() => setView('speed')}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${view === 'speed' ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  <LineChart className="h-3 w-3" /> กราฟความเร็ว
+                </button>
               </div>
-            )}
-            <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} />
+            </div>
+            {view === 'map'
+              ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} />
+              : <GpsSpeedChart series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0} />}
           </div>
         </div>
       )}

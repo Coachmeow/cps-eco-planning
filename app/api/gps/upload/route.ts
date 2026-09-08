@@ -61,14 +61,16 @@ export async function POST(req: NextRequest) {
           tripCount: s.tripCount, maxSpeed: s.maxSpeed,
           firstMoveAt: s.firstMoveAt, lastStopAt: s.lastStopAt,
           matchedPlate: plate, driverName: s.driverName,
-          pathJson: s.path, sourceRef: `upload:${file.name}`,
+          pathJson: s.path, speedJson: s.speedSeries, overspeedPct: s.overspeedPct,
+          sourceRef: `upload:${file.name}`,
         },
         update: {
           distanceKm: s.distanceKm, movingMin: s.movingMin, idleMin: s.idleMin,
           tripCount: s.tripCount, maxSpeed: s.maxSpeed,
           firstMoveAt: s.firstMoveAt, lastStopAt: s.lastStopAt,
           matchedPlate: plate, driverName: s.driverName,
-          pathJson: s.path, sourceRef: `upload:${file.name}`,
+          pathJson: s.path, speedJson: s.speedSeries, overspeedPct: s.overspeedPct,
+          sourceRef: `upload:${file.name}`,
         },
       })
 

@@ -10,6 +10,7 @@ export interface GpsPing {
   lat: number
   lng: number
   speed: number        // km/h
+  roadSpeed: number    // km/h — ความเร็วจำกัดของถนน ณ จุดนั้น (0 = ไม่มีข้อมูล)
   eventType: string    // Ignition ON / Ignition OFF / Idle / ...
   driver: string
   place: string        // Position Description (ที่อยู่ไทย)
@@ -61,6 +62,7 @@ export function parseCartrack(buf: Buffer): GpsPing[] {
     pings.push({
       plate, ts, dayKey, lat, lng,
       speed: Math.max(0, num(r[5]) || 0),
+      roadSpeed: Math.max(0, num(r[6]) || 0),
       eventType: String(r[13] ?? '').trim(),
       driver: String(r[12] ?? '').trim(),
       place: String(r[9] ?? '').trim(),

@@ -29,8 +29,14 @@ export interface GpsDaySummary {
   lastStopAt: Date | null
   driverName: string | null
   path: [number, number][]
+  // ความเร็วรายเวลา: [วินาทีนับจากเที่ยงคืน, speed, roadSpeed, place] · place='' = ใช้ค่าก่อนหน้า
+  speedSeries: SpeedPoint[]
+  overspeedPts: number   // จำนวนจุดที่ speed > roadSpeed (roadSpeed>0)
+  overspeedPct: number   // % จากจุดที่มี roadSpeed
   stops: GpsStop[]
 }
+
+export type SpeedPoint = [number, number, number, string]
 
 const r5 = (n: number) => Math.round(n * 1e5) / 1e5
 
@@ -73,6 +79,9 @@ export function processDay(rawPings: GpsPing[], geofences: GeofenceShape[]): Gps
   let tripCount = 0
   let driverName: string | null = null
   const path: [number, number][] = []
+  const speedSeries: SpeedPoint[] = []
+  let lastPlace = ''
+  let overspeedPts = 0, roadPts = 0
   let lastKept = -Infinity
 
   for (let k = 0; k < pings.length; k++) {
@@ -80,10 +89,19 @@ export function processDay(rawPings: GpsPing[], geofences: GeofenceShape[]): Gps
     if (p.speed > maxSpeed) maxSpeed = p.speed
     if (!driverName && p.driver) driverName = p.driver
     if (p.eventType === 'Ignition ON') tripCount++
+    if (p.roadSpeed > 0) { roadPts++; if (p.speed > p.roadSpeed) overspeedPts++ }
 
-    // เส้นทาง downsample (time-based)
+    // เส้นทาง + ความเร็ว downsample (time-based, จุดเดียวกัน)
     const tSec = p.ts.getTime() / 1000
-    if (tSec - lastKept >= PATH_STEP_S) { path.push([r5(p.lat), r5(p.lng)]); lastKept = tSec }
+    if (tSec - lastKept >= PATH_STEP_S) {
+      path.push([r5(p.lat), r5(p.lng)])
+      const secOfDay = Math.round(((p.ts.getTime() / 1000) % 86400 + 86400) % 86400)
+      const placeShort = (p.place || '').split(',').slice(0, 2).join(',').trim()
+      const placeOut = placeShort && placeShort !== lastPlace ? placeShort : ''
+      if (placeOut) lastPlace = placeShort
+      speedSeries.push([secOfDay, Math.round(p.speed), Math.round(p.roadSpeed), placeOut])
+      lastKept = tSec
+    }
 
     if (k > 0) {
       const prev = pings[k - 1]
@@ -111,6 +129,9 @@ export function processDay(rawPings: GpsPing[], geofences: GeofenceShape[]): Gps
     maxSpeed: Math.round(maxSpeed),
     firstMoveAt, lastStopAt, driverName,
     path,
+    speedSeries,
+    overspeedPts,
+    overspeedPct: roadPts > 0 ? Math.round((overspeedPts / roadPts) * 100) : 0,
     stops,
   }
 }

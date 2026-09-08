@@ -83,6 +83,8 @@ export async function GET(req: NextRequest) {
       lastStopAt: d.lastStopAt,
       driverName: d.driverName,
       path: (d.pathJson as [number, number][] | null) ?? [],
+      speed: (d.speedJson as [number, number, number, string][] | null) ?? null,
+      overspeedPct: d.overspeedPct,
       manualKm: manual,
       mileageDelta: manual != null ? Math.round((d.distanceKm - manual) * 10) / 10 : null,
       assigned,
