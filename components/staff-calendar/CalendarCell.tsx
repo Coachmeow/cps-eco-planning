@@ -5,16 +5,6 @@ import type { StaffAssignment, Employee } from '@/lib/types'
 import { teamCellClass, CONFLICT_CROSS_TEAM } from '@/lib/teamColors'
 import { LEAVE_ABBR, LEAVE_LABEL } from '@/lib/leaveTypes'
 
-// Cross-team badge ring color to complement the site color (subtle ring inside cell)
-const TEAM_RING: Record<string, string> = {
-  ST:   'border-blue-400  text-blue-700',
-  AMB:  'border-teal-400  text-teal-700',
-  WP:   'border-purple-400 text-purple-700',
-  CEMS: 'border-orange-400 text-orange-700',
-  WT:   'border-cyan-400  text-cyan-700',
-  LOG:  'border-gray-400  text-gray-600',
-}
-
 function cellStyle(
   assignments: StaffAssignment[], isConflict: boolean, employee: Employee,
 ): string {
@@ -81,18 +71,13 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
     .filter(a => a.status === 'FIELD' && a.siteId != null)
     .sort((a, b) => Number(!!a.isCrossTeam) - Number(!!b.isCrossTeam) || (a.siteId! - b.siteId!))
 
-  const primary   = fieldSorted[0] ?? assignments.find(a => !a.isCrossTeam)
-  const crossTeam = assignments.filter(a => a.isCrossTeam)
-  const displayAssign = primary ?? crossTeam[0]
-
-  // ไซต์สนามอื่นๆ ที่ทีมเดียวกัน (ไม่ใช่ cross-team) และไม่ใช่ตัว primary → โชว์เป็น badge เทา
-  // ทำให้ช่องงานซ้อน (จบงานเก่า+เริ่มงานใหม่วันเดียว) โชว์ครบทุกไซต์แทนที่จะซ่อนไว้หลังจุดแดง
-  const extraFieldSites = fieldSorted
-    .filter(a => !a.isCrossTeam && a.siteId !== primary?.siteId)
+  // ไซต์สนามแบบไม่ซ้ำ เรียงคงที่ → การ์ดหลัก = ตัวแรก, ที่เหลือ = "ไซต์พ่วง" ยุบเป็น +N (กดช่องดูใน popup)
+  const distinctSites = fieldSorted
     .filter((a, i, arr) => arr.findIndex(x => x.siteId === a.siteId) === i)
-  // ช่องแคบ (52–80px) → กันล้น: โชว์ badge ได้สูงสุด 2 อัน เกินนั้นยุบเป็น "+N" (รายชื่อครบอยู่ใน tooltip)
-  const shownExtra = extraFieldSites.length > 2 ? extraFieldSites.slice(0, 1) : extraFieldSites
-  const moreCount  = extraFieldSites.length - shownExtra.length
+
+  const primary = distinctSites[0] ?? assignments.find(a => !a.isCrossTeam) ?? assignments[0]
+  const displayAssign = primary
+  const otherSiteCount = Math.max(0, distinctSites.length - 1)   // จำนวนไซต์พ่วงที่ยุบไว้
   const merged = colSpan > 1
 
   // tooltip: ชื่อเต็มประเภทลา (กันงงตัวย่อ) + หมายเหตุ
@@ -114,9 +99,9 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
   ].join('\n')
   // tooltip = การ์ดแม่ + เหตุผลรอยืนยัน + หมายเหตุ ; ส่วนไอคอน 📝 ยังผูกกับ noteText อย่างเดียวเหมือนเดิม
   const ownerText = isGroupMain ? 'การ์ดแม่ — ถือเครื่องมือ/รถของงานนี้' : ''
-  // งานสนามซ้อนหลายไซต์วันเดียว → รายชื่อไซต์ครบใน tooltip (เผื่อช่องโชว์ไม่หมด/ยุบเป็น +N)
-  const multiSiteText = primary?.status === 'FIELD' && extraFieldSites.length > 0
-    ? `ไซต์วันนี้: ${[primary.site?.code, ...extraFieldSites.map(a => a.site?.code)].filter(Boolean).join(' + ')}`
+  // งานสนามซ้อนหลายไซต์วันเดียว → รายชื่อไซต์ครบใน tooltip (ในช่องยุบเป็น +N — กดดูรายละเอียดใน popup)
+  const multiSiteText = otherSiteCount > 0
+    ? `ไซต์วันนี้: ${distinctSites.map(a => a.site?.code).filter(Boolean).join(' + ')}`
     : ''
   const tipText = [ownerText, multiSiteText, ...tentativeText, noteText].filter(Boolean).join('\n')
 
@@ -150,45 +135,20 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
               {displayAssign.status !== 'FIELD'
                 ? statusAbbr(displayAssign)
                 : (displayAssign.site?.code ?? '—')}
+              {/* งานหลักเป็นของทีมอื่น (cross-team) → tag ทีมเล็กในบรรทัดเดียวกัน ไม่ดันความสูง */}
+              {displayAssign.status === 'FIELD' && displayAssign.isCrossTeam && displayAssign.serviceType?.code && (
+                <span className="ml-0.5 rounded bg-white/50 px-0.5 text-[9px] font-semibold opacity-70">{displayAssign.serviceType.code}</span>
+              )}
               {merged && <span className="ml-1 text-[9px] font-normal opacity-60">({Number(displayAssign.estimatedDays)} วัน)</span>}
             </span>
           )}
 
-          {/* ไซต์สนามที่สอง (ทีมเดียวกัน) — งานซ้อนวันเดียว โชว์ให้ครบ เรียงคงที่ ทุกคนเห็นตรงกัน */}
-          {(shownExtra.length > 0 || moreCount > 0) && (
-            <span className="flex flex-wrap items-center justify-center gap-0.5">
-              {shownExtra.map(a => (
-                <span
-                  key={a.id}
-                  className="inline-flex items-center rounded border border-slate-400/70 bg-white/60 px-1 text-[9px] font-semibold leading-tight text-slate-600"
-                >
-                  {a.site?.code}
-                </span>
-              ))}
-              {moreCount > 0 && (
-                <span className="inline-flex items-center rounded border border-slate-400/70 bg-slate-100 px-1 text-[9px] font-semibold leading-tight text-slate-500">
-                  +{moreCount}
-                </span>
-              )}
+          {/* ไซต์พ่วง (งานซ้อนวันเดียว/ยืมทีม) → ยุบเป็น +N กล่องเล็กกล่องเดียว กดช่องดูรายละเอียดใน popup */}
+          {otherSiteCount > 0 && (
+            <span className="inline-flex items-center rounded border border-slate-400/70 bg-white/60 px-1 text-[9px] font-semibold leading-tight text-slate-600">
+              +{otherSiteCount}
             </span>
           )}
-
-          {/* Cross-team badges */}
-          {crossTeam.map(a => {
-            const teamCode = a.serviceType?.code ?? '?'
-            const ringCls  = TEAM_RING[teamCode] ?? 'border-slate-400 text-slate-500'
-            const showSite = !!primary && a.site?.code !== primary.site?.code
-            return (
-              <span
-                key={a.id}
-                className={`inline-flex items-center gap-0.5 rounded border px-1 text-[9px] font-semibold leading-tight bg-white/60 ${ringCls}`}
-              >
-                <span className="opacity-60">×</span>
-                {showSite && <span>{a.site?.code}</span>}
-                <span>{teamCode}</span>
-              </span>
-            )
-          })}
 
           {/* งานจองรอยืนยัน — กรอบเส้นประครอบช่อง (งานหลายวัน merge แล้วครอบทั้งช่วง) + ⏳ */}
           {isTentative && (
