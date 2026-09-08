@@ -10,6 +10,40 @@ export type SpeedPoint = [number, number, number, string]  // [secOfDay, speed, 
 const SPEED = '#2563eb', LIMIT = '#f59e0b', OVER = '#dc2626'
 const hhmm = (sec: number) => `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
 
+// rolling mean (หน้าต่างกลาง) — ลด jitter เส้นความเร็ว
+function rollMean(a: number[], win: number): number[] {
+  const h = win >> 1, out = new Array<number>(a.length)
+  for (let i = 0; i < a.length; i++) {
+    let s = 0, c = 0
+    for (let j = i - h; j <= i + h; j++) if (j >= 0 && j < a.length) { s += a[j]; c++ }
+    out[i] = c ? s / c : a[i]
+  }
+  return out
+}
+// rolling median — กรอง noise เส้นจำกัดถนน (ไม่ให้กระพริบ)
+function rollMedian(a: number[], win: number): number[] {
+  const h = win >> 1, out = new Array<number>(a.length)
+  for (let i = 0; i < a.length; i++) {
+    const g: number[] = []
+    for (let j = i - h; j <= i + h; j++) if (j >= 0 && j < a.length) g.push(a[j])
+    g.sort((x, y) => x - y)
+    out[i] = g[g.length >> 1]
+  }
+  return out
+}
+// เส้นโค้ง Catmull-Rom → cubic bezier
+function smoothPath(P: [number, number][]): string {
+  if (P.length < 2) return P.length ? `M ${P[0][0]} ${P[0][1]}` : ''
+  let d = `M ${P[0][0]} ${P[0][1]}`
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`
+  }
+  return d
+}
+
 export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
   series: SpeedPoint[] | null
   maxSpeed: number
@@ -52,27 +86,43 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
   const minX = series[0][0], maxX = series[series.length - 1][0]
   const spanX = Math.max(1, maxX - minX)
   const maxRoad = series.reduce((m, p) => Math.max(m, p[2]), 0)
-  const maxY = Math.max(130, maxSpeed, maxRoad)
+  // ยืดหัวแกน Y ให้เส้นไม่ชนขอบ (ปัดขึ้นทีละ 20, ขั้นต่ำ 130)
+  const maxY = Math.max(130, Math.ceil((Math.max(maxSpeed, maxRoad) + 10) / 20) * 20)
 
   const xOf = (sec: number) => ML + ((sec - minX) / spanX) * plotW
   const yOf = (v: number) => MT + plotH - (v / maxY) * plotH
 
-  // เส้นความเร็วจริง (area + line)
-  let areaD = `M ${xOf(minX)} ${MT + plotH}`, lineD = ''
-  series.forEach((p, i) => { const x = xOf(p[0]), y = yOf(p[1]); areaD += ` L ${x} ${y}`; lineD += `${i ? 'L' : 'M'} ${x} ${y} ` })
-  areaD += ` L ${xOf(maxX)} ${MT + plotH} Z`
+  const N = series.length
+  const spd = series.map((p) => p[1])
+  const road = series.map((p) => p[2])
+  // สมูทความเร็ว (rolling mean) ลด jitter · กรอง noise เส้นจำกัดถนน (median)
+  const sm = rollMean(spd, 7)
+  const roadMed = rollMedian(road, 9)
 
-  // เส้นจำกัด (step) — เว้นช่วงที่ roadSpeed=0
+  // เส้นความเร็วจริง — โค้ง smooth (Catmull-Rom) บนค่าที่สมูทแล้ว
+  const linePts: [number, number][] = series.map((p, i) => [xOf(p[0]), yOf(sm[i])])
+  const lineD = smoothPath(linePts)
+  const areaD = linePts.length >= 2 ? `${lineD} L ${xOf(maxX)} ${MT + plotH} L ${xOf(minX)} ${MT + plotH} Z` : ''
+
+  // เส้นจำกัด (step) จากค่า median — เว้นช่วงที่ roadSpeed=0
   let limitD = ''; let penDown = false
-  series.forEach((p, i) => {
-    if (p[2] <= 0) { penDown = false; return }
-    const x = xOf(p[0]), y = yOf(p[2])
+  for (let i = 0; i < N; i++) {
+    const rv = roadMed[i]
+    if (rv <= 0) { penDown = false; continue }
+    const x = xOf(series[i][0]), y = yOf(rv)
     if (!penDown) { limitD += `M ${x} ${y} `; penDown = true }
     else { const px = xOf(series[i - 1][0]); limitD += `L ${px} ${y} L ${x} ${y} ` }
-  })
+  }
 
-  // จุดวิ่งเกินกำหนด
-  const overPts = series.filter((p) => p[2] > 0 && p[1] > p[2])
+  // ช่วงวิ่งเกินกำหนด (speed จริง > จำกัดจริง) → เส้นแดงทับบนเส้นสมูท
+  const overSegs: string[] = []
+  let curSeg = ''
+  for (let i = 0; i < N; i++) {
+    if (road[i] > 0 && spd[i] > road[i]) { curSeg += `${curSeg ? 'L' : 'M'} ${xOf(series[i][0])} ${yOf(sm[i])} ` }
+    else if (curSeg) { overSegs.push(curSeg); curSeg = '' }
+  }
+  if (curSeg) overSegs.push(curSeg)
+  const overCount = series.reduce((c, p) => c + (p[2] > 0 && p[1] > p[2] ? 1 : 0), 0)
 
   // grid + x ticks
   const yLines = [30, 50, 80, 100, 120].filter((v) => v <= maxY)
@@ -102,7 +152,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
         <span className="font-semibold text-slate-600">ความเร็ว–เวลา</span>
         <span className="inline-flex items-center gap-1"><i className="h-2 w-3 rounded-sm" style={{ background: SPEED }} /> จริง</span>
         <span className="inline-flex items-center gap-1"><i className="h-0 w-3 border-t-2 border-dashed" style={{ borderColor: LIMIT }} /> จำกัดถนน</span>
-        <span className="ml-auto text-slate-500">สูงสุด <b className="font-mono text-slate-700">{maxSpeed}</b> กม./ชม. · เกินกำหนด <b className="font-mono" style={{ color: overspeedPct > 0 ? OVER : '#64748b' }}>{overspeedPct}%</b> ({overPts.length} จุด)</span>
+        <span className="ml-auto text-slate-500">สูงสุด <b className="font-mono text-slate-700">{maxSpeed}</b> กม./ชม. · เกินกำหนด <b className="font-mono" style={{ color: overspeedPct > 0 ? OVER : '#64748b' }}>{overspeedPct}%</b> ({overCount} จุด)</span>
       </div>
 
       <svg width="100%" height={H} viewBox={`0 0 ${w} ${H}`} role="img" aria-label="กราฟความเร็ว-เวลา"
@@ -119,19 +169,19 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
           <text key={t} x={xOf(t)} y={H - 7} textAnchor="middle" fontSize={9} fill={MUTED}>{hhmm(t)}</text>
         ))}
 
-        {/* area + speed line */}
-        <path d={areaD} fill={SPEED} fillOpacity={0.1} />
-        <path d={lineD} fill="none" stroke={SPEED} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
-        {/* limit step line */}
-        <path d={limitD} fill="none" stroke={LIMIT} strokeWidth={1.6} strokeDasharray="5 3" strokeLinejoin="round" />
-        {/* overspeed dots */}
-        {overPts.map((p, i) => <circle key={i} cx={xOf(p[0])} cy={yOf(p[1])} r={1.8} fill={OVER} />)}
+        {/* limit step line (denoised, บาง solid) */}
+        <path d={limitD} fill="none" stroke={LIMIT} strokeWidth={1.4} strokeOpacity={0.75} strokeDasharray="6 4" strokeLinejoin="round" />
+        {/* area + speed line (smooth) */}
+        <path d={areaD} fill={SPEED} fillOpacity={0.08} />
+        <path d={lineD} fill="none" stroke={SPEED} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
+        {/* overspeed spans (แดงทับบนเส้น) */}
+        {overSegs.map((d, i) => <path key={i} d={d} fill="none" stroke={OVER} strokeWidth={2.6} strokeLinejoin="round" strokeLinecap="round" />)}
 
         {/* hover guide */}
         {hp && (
           <g>
             <line x1={xOf(hp[0])} y1={MT} x2={xOf(hp[0])} y2={MT + plotH} stroke="#94a3b8" strokeDasharray="3 3" />
-            <circle cx={xOf(hp[0])} cy={yOf(hp[1])} r={4} fill={over ? OVER : SPEED} stroke="#fff" strokeWidth={1.5} />
+            <circle cx={xOf(hp[0])} cy={yOf(sm[hover!.i])} r={4} fill={over ? OVER : SPEED} stroke="#fff" strokeWidth={1.5} />
           </g>
         )}
       </svg>
