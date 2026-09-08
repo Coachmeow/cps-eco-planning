@@ -256,7 +256,7 @@ export default function GpsSection() {
             </div>
             {view === 'map'
               ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} />
-              : <GpsSpeedChart series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0} />}
+              : <GpsSpeedChart series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0} stops={selected?.visits ?? []} />}
           </div>
         </div>
       )}

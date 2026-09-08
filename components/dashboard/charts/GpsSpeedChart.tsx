@@ -3,12 +3,25 @@
 // กราฟความเร็ว-เวลา ของรถคันที่เลือก (SVG มือ) — เส้นความเร็วจริง vs เส้นจำกัดตามกฎหมาย (Road Speed)
 //  hover: เวลา · ความเร็ว · จำกัด · สถานที่ + ป้าย "เกินกำหนด"
 import { useLayoutEffect, useRef, useState, useMemo } from 'react'
+import { MapPin } from 'lucide-react'
 import { MUTED } from '@/lib/chartTheme'
 
 export type SpeedPoint = [number, number, number, string]  // [secOfDay, speed, roadSpeed, place]
+export interface StopMark {
+  arriveAt: string; departAt: string | null; dwellMin: number
+  siteId: number | null; siteCode: string | null; siteName: string | null; rawPlace: string | null
+}
 
 const SPEED = '#2563eb', LIMIT = '#f59e0b', OVER = '#dc2626'
 const hhmm = (sec: number) => `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
+const dwFmt = (m: number) => m >= 60 ? `${Math.floor(m / 60)}ชม.${m % 60 ? ` ${m % 60}น.` : ''}` : `${m}น.`
+// วินาทีในวัน จาก ISO (เก็บ UTC-naive = wall clock ไทย)
+const secOf = (iso: string) => { const d = new Date(iso); return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds() }
+// ย่อ Position Description → "อำเภอ, จังหวัด" (ตัดเลขบ้าน/รหัสไปรษณีย์)
+function placeTag(raw: string | null): string {
+  const parts = (raw || '').split(',').map((s) => s.trim()).filter((s) => s && !/^\d+$/.test(s))
+  return parts.slice(0, 2).join(', ') || 'จุดจอด'
+}
 
 // rolling mean (หน้าต่างกลาง) — ลด jitter เส้นความเร็ว
 function rollMean(a: number[], win: number): number[] {
@@ -44,10 +57,11 @@ function smoothPath(P: [number, number][]): string {
   return d
 }
 
-export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
+export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = [] }: {
   series: SpeedPoint[] | null
   maxSpeed: number
   overspeedPct: number
+  stops?: StopMark[]
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(600)
@@ -128,6 +142,26 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
   if (runStart >= 0) overRuns.push([runStart, series[N - 1][0]])
   const overCount = series.reduce((c, p) => c + (p[2] > 0 && p[1] > p[2] ? 1 : 0), 0)
 
+  // จุดหยุดรถ → แท็กสถานที่ (ยุบจุดใกล้กันเป็นกลุ่มกันแท็กทับ)
+  type Mark = { sec: number; isSite: boolean; label: string; dwell: string; title: string }
+  const marks: Mark[] = stops
+    .map((v): Mark => {
+      const isSite = v.siteId != null
+      const label = isSite ? (v.siteName || v.siteCode || 'ไซต์') : placeTag(v.rawPlace)
+      const head = isSite ? [v.siteCode, v.siteName].filter(Boolean).join(' · ') : (v.rawPlace || placeTag(v.rawPlace))
+      const a = secOf(v.arriveAt)
+      return { sec: a, isSite, label, dwell: dwFmt(v.dwellMin), title: `${head} · ${hhmm(a)}–${v.departAt ? hhmm(secOf(v.departAt)) : '—'} · จอด ${dwFmt(v.dwellMin)}` }
+    })
+    .sort((a, b) => a.sec - b.sec)
+  const MINGAP = 66
+  const stopGroups: { x: number; items: Mark[] }[] = []
+  for (const m of marks) {
+    const x = xOf(m.sec)
+    const g = stopGroups[stopGroups.length - 1]
+    if (g && x - g.x < MINGAP) g.items.push(m)
+    else stopGroups.push({ x, items: [m] })
+  }
+
   // grid + x ticks
   const yLines = [30, 50, 80, 100, 120, 140].filter((v) => v <= maxY)
   const stepH = spanX > 6 * 3600 ? 2 * 3600 : 3600
@@ -196,6 +230,32 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct }: {
           </g>
         )}
       </svg>
+
+      {/* แถบจุดหยุดรถ — แท็กสถานที่ ตามเวลา */}
+      <div className="relative mt-1" style={{ height: 30 }}>
+        <span className="absolute left-0 top-2 text-[10px] text-slate-400">จุดหยุดรถ</span>
+        {stopGroups.map((g, i) => {
+          const left = Math.min(Math.max(g.x, ML + 20), w - 20)
+          if (g.items.length === 1) {
+            const m = g.items[0]
+            return (
+              <span key={i} title={m.title}
+                className={`absolute top-1 flex max-w-[160px] -translate-x-1/2 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${m.isSite ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-200 bg-white text-slate-500'}`}
+                style={{ left }}>
+                <MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{m.label} · {m.dwell}</span>
+              </span>
+            )
+          }
+          const anySite = g.items.some((m) => m.isSite)
+          return (
+            <span key={i} title={g.items.map((m) => `• ${m.title}`).join('\n')}
+              className={`absolute top-1 -translate-x-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${anySite ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-300 bg-white text-slate-500'}`}
+              style={{ left }}>
+              {g.items.length} จุด
+            </span>
+          )
+        })}
+      </div>
 
       {/* tooltip */}
       {hp && hover && (
