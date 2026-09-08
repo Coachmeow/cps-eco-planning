@@ -75,9 +75,24 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
     ? isHoliday ? 'bg-violet-50' : isSun ? 'bg-red-50' : ''   // เสาร์ = วันทำงานปกติ
     : isSun ? 'opacity-90' : ''
 
-  const primary   = assignments.find(a => !a.isCrossTeam)
+  // งานสนามเรียงคงที่ (ทีมหลักก่อน → แล้ว siteId) เพื่อให้ทีมที่ไปด้วยกันเห็นลำดับไซต์ตรงกันทุกคน
+  // (กันปัญหา "บางคนโชว์ไซต์ A บางคนโชว์ B" ที่เกิดจากลำดับการคีย์)
+  const fieldSorted = assignments
+    .filter(a => a.status === 'FIELD' && a.siteId != null)
+    .sort((a, b) => Number(!!a.isCrossTeam) - Number(!!b.isCrossTeam) || (a.siteId! - b.siteId!))
+
+  const primary   = fieldSorted[0] ?? assignments.find(a => !a.isCrossTeam)
   const crossTeam = assignments.filter(a => a.isCrossTeam)
   const displayAssign = primary ?? crossTeam[0]
+
+  // ไซต์สนามอื่นๆ ที่ทีมเดียวกัน (ไม่ใช่ cross-team) และไม่ใช่ตัว primary → โชว์เป็น badge เทา
+  // ทำให้ช่องงานซ้อน (จบงานเก่า+เริ่มงานใหม่วันเดียว) โชว์ครบทุกไซต์แทนที่จะซ่อนไว้หลังจุดแดง
+  const extraFieldSites = fieldSorted
+    .filter(a => !a.isCrossTeam && a.siteId !== primary?.siteId)
+    .filter((a, i, arr) => arr.findIndex(x => x.siteId === a.siteId) === i)
+  // ช่องแคบ (52–80px) → กันล้น: โชว์ badge ได้สูงสุด 2 อัน เกินนั้นยุบเป็น "+N" (รายชื่อครบอยู่ใน tooltip)
+  const shownExtra = extraFieldSites.length > 2 ? extraFieldSites.slice(0, 1) : extraFieldSites
+  const moreCount  = extraFieldSites.length - shownExtra.length
   const merged = colSpan > 1
 
   // tooltip: ชื่อเต็มประเภทลา (กันงงตัวย่อ) + หมายเหตุ
@@ -99,7 +114,11 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
   ].join('\n')
   // tooltip = การ์ดแม่ + เหตุผลรอยืนยัน + หมายเหตุ ; ส่วนไอคอน 📝 ยังผูกกับ noteText อย่างเดียวเหมือนเดิม
   const ownerText = isGroupMain ? 'การ์ดแม่ — ถือเครื่องมือ/รถของงานนี้' : ''
-  const tipText = [ownerText, ...tentativeText, noteText].filter(Boolean).join('\n')
+  // งานสนามซ้อนหลายไซต์วันเดียว → รายชื่อไซต์ครบใน tooltip (เผื่อช่องโชว์ไม่หมด/ยุบเป็น +N)
+  const multiSiteText = primary?.status === 'FIELD' && extraFieldSites.length > 0
+    ? `ไซต์วันนี้: ${[primary.site?.code, ...extraFieldSites.map(a => a.site?.code)].filter(Boolean).join(' + ')}`
+    : ''
+  const tipText = [ownerText, multiSiteText, ...tentativeText, noteText].filter(Boolean).join('\n')
 
   // ไฮไลต์ตอนเลือกช่วงวัน: วันเริ่ม = วงแหวนเข้ม ; ในช่วง preview = วงแหวนอ่อน+ฟ้าจาง
   const rangeCls = isRangeStart ? 'ring-2 ring-inset ring-sky-500 !bg-sky-100'
@@ -132,6 +151,25 @@ export default function CalendarCell({ assignments, isConflict, dayOfWeek, isHol
                 ? statusAbbr(displayAssign)
                 : (displayAssign.site?.code ?? '—')}
               {merged && <span className="ml-1 text-[9px] font-normal opacity-60">({Number(displayAssign.estimatedDays)} วัน)</span>}
+            </span>
+          )}
+
+          {/* ไซต์สนามที่สอง (ทีมเดียวกัน) — งานซ้อนวันเดียว โชว์ให้ครบ เรียงคงที่ ทุกคนเห็นตรงกัน */}
+          {(shownExtra.length > 0 || moreCount > 0) && (
+            <span className="flex flex-wrap items-center justify-center gap-0.5">
+              {shownExtra.map(a => (
+                <span
+                  key={a.id}
+                  className="inline-flex items-center rounded border border-slate-400/70 bg-white/60 px-1 text-[9px] font-semibold leading-tight text-slate-600"
+                >
+                  {a.site?.code}
+                </span>
+              ))}
+              {moreCount > 0 && (
+                <span className="inline-flex items-center rounded border border-slate-400/70 bg-slate-100 px-1 text-[9px] font-semibold leading-tight text-slate-500">
+                  +{moreCount}
+                </span>
+              )}
             </span>
           )}
 
