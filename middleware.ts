@@ -29,6 +29,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/p/') ||         // หน้า QR ขอเบิกอะไหล่ CEMS (ไม่ล็อกอิน)
     pathname.startsWith('/g/') ||         // หน้า QR ถังแก๊สมาตรฐาน CEMS (ไม่ล็อกอิน)
     pathname.startsWith('/api/public') || // public API
+    pathname.startsWith('/api/gps/ingest') || // รับไฟล์ GPS จาก Apps Script (auth ด้วย secret ในตัว route)
     pathname.startsWith('/_next') ||
     pathname.includes('.')           // static files (favicon, images, etc.)
   ) {
