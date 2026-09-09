@@ -13,6 +13,13 @@ export async function GET(req: NextRequest) {
   })
   const availableDates = distinctDays.map((d) => d.forDate.toISOString().slice(0, 10))
 
+  // เวลานำเข้าไฟล์ GPS ล่าสุด (ทั้งระบบ) — โชว์ข้าง ๆ ปุ่มอัปโหลด
+  const latest = await prisma.vehicleGpsDay.findFirst({
+    orderBy: { updatedAt: 'desc' }, select: { updatedAt: true, forDate: true },
+  })
+  const lastImportAt = latest?.updatedAt.toISOString() ?? null
+  const lastImportForDate = latest ? latest.forDate.toISOString().slice(0, 10) : null
+
   const date = dateParam || availableDates[0] || new Date().toISOString().slice(0, 10)
   const forDate = new Date(`${date}T00:00:00.000Z`)
 
@@ -114,5 +121,5 @@ export async function GET(req: NextRequest) {
     points: g.points,
   }))
 
-  return NextResponse.json({ date, availableDates, vehicles, geofences })
+  return NextResponse.json({ date, availableDates, lastImportAt, lastImportForDate, vehicles, geofences })
 }

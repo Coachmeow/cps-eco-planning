@@ -57,11 +57,13 @@ function smoothPath(P: [number, number][]): string {
   return d
 }
 
-export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = [] }: {
+export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = [], height = 420, showStops = true }: {
   series: SpeedPoint[] | null
   maxSpeed: number
   overspeedPct: number
   stops?: StopMark[]
+  height?: number      // ความสูง SVG (ย่อได้เมื่ออยู่ในกล่องการเดินทาง)
+  showStops?: boolean  // ซ่อนแถบจุดหยุด (เมื่อมีไทม์ไลน์แยกด้านล่างแล้ว)
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(600)
@@ -86,7 +88,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
 
   if (!series || series.length < 2) {
     return (
-      <div className="flex h-[420px] w-full flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 text-sm text-slate-400">
+      <div className="flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 text-sm text-slate-400" style={{ height }}>
         ไม่มีข้อมูลความเร็วสำหรับวันนี้
         <span className="text-xs text-slate-300">อัปโหลดไฟล์ของวันนี้ใหม่อีกครั้งเพื่อให้ระบบเก็บข้อมูลความเร็ว</span>
       </div>
@@ -94,7 +96,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
   }
 
   const pts: SpeedPoint[] = series   // narrowed non-null (ใช้ใน closure ที่ TS ไม่ narrow ให้)
-  const H = 420, HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
+  const H = height, HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
   const XLBL = 14, STRIP_GAP = 8, STRIP_H = 12          // ล่าง: ป้ายเวลา + แถบ "ช่วงเกินความเร็ว"
   const MB = XLBL + STRIP_GAP + STRIP_H + 6
   const plotW = Math.max(10, w - ML - MR)
@@ -232,6 +234,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
       </svg>
 
       {/* แถบจุดหยุดรถ — แท็กสถานที่ ตามเวลา */}
+      {showStops && (
       <div className="relative mt-1" style={{ height: 30 }}>
         <span className="absolute left-0 top-2 text-[10px] text-slate-400">จุดหยุดรถ</span>
         {stopGroups.map((g, i) => {
@@ -256,6 +259,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
           )
         })}
       </div>
+      )}
 
       {/* tooltip */}
       {hp && hover && (

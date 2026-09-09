@@ -9,7 +9,7 @@ import { useMe } from '@/hooks/useMe'
 import type { GpsVehiclePoint, GeofenceRow } from '@/components/dashboard/charts/GpsRouteMap'
 
 const GpsRouteMap = dynamic(() => import('@/components/dashboard/charts/GpsRouteMap'), { ssr: false })
-const GpsSpeedChart = dynamic(() => import('@/components/dashboard/charts/GpsSpeedChart'), { ssr: false })
+const GpsJourneyPanel = dynamic(() => import('@/components/dashboard/charts/GpsJourneyPanel'), { ssr: false })
 
 interface Visit {
   siteId: number | null; siteCode: string | null; siteName: string | null; siteColor: string | null
@@ -25,9 +25,11 @@ interface VehicleRow {
   speed: [number, number, number, string][] | null; overspeedPct: number
   assigned: Assigned | null; visits: Visit[]
 }
-interface GpsData { date: string; availableDates: string[]; vehicles: VehicleRow[]; geofences: GeofenceRow[] }
+interface GpsData { date: string; availableDates: string[]; lastImportAt: string | null; lastImportForDate: string | null; vehicles: VehicleRow[]; geofences: GeofenceRow[] }
 
 const fmtDay = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' })
+// เวลานำเข้าไฟล์ = timestamp จริง (server, UTC instant) → แสดงตามเวลาเครื่องผู้ใช้ (ไทย)
+const fmtImport = (iso: string) => new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
 const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }) : '—'
 const hm = (min: number) => min >= 60 ? `${Math.floor(min / 60)}ชม.${min % 60 ? ` ${min % 60}น.` : ''}` : `${min}น.`
 
@@ -56,13 +58,18 @@ export default function GpsSection() {
 
   useEffect(() => { load() }, [load])
 
+  // เลื่อนไปวันที่ "มีข้อมูล" ถัดไป/ก่อนหน้า (ข้ามวันที่ไม่มีข้อมูล · ใช้ได้แม้วันปัจจุบันไม่อยู่ในลิสต์)
   function shiftDay(dir: -1 | 1) {
     if (!data) return
-    const list = data.availableDates
-    const i = list.indexOf(data.date)
-    if (i < 0) return
-    const ni = i - dir   // availableDates เรียงใหม่→เก่า: ‹ = เก่ากว่า (index +1)
-    if (ni >= 0 && ni < list.length) setDate(list[ni])
+    const list = data.availableDates   // เรียงใหม่→เก่า
+    const cur = data.date
+    if (dir === 1) {                   // › = ใหม่กว่า → วันที่ > cur ที่ใกล้สุด
+      const cand = list.filter((d) => d > cur)
+      if (cand.length) setDate(cand[cand.length - 1])
+    } else {                           // ‹ = เก่ากว่า → วันที่ < cur ที่ใกล้สุด
+      const cand = list.filter((d) => d < cur)
+      if (cand.length) setDate(cand[0])
+    }
   }
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,18 +126,36 @@ export default function GpsSection() {
         </h2>
         {data && data.availableDates.length > 0 && (
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-0.5">
-            <button onClick={() => shiftDay(-1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">‹</button>
-            <span className="min-w-[130px] text-center text-sm font-medium text-slate-700">{data.date ? fmtDay(data.date) : '—'}</span>
-            <button onClick={() => shiftDay(1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100">›</button>
+            <button onClick={() => shiftDay(-1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100" title="วันที่มีข้อมูลก่อนหน้า">‹</button>
+            {/* เลือกวันจากปฏิทินได้เลย — ขอบเขต = ช่วงวันที่มีข้อมูล */}
+            <input type="date" value={data.date}
+              min={data.availableDates[data.availableDates.length - 1]}
+              max={data.availableDates[0]}
+              onChange={(e) => { if (e.target.value) setDate(e.target.value) }}
+              className="w-[140px] cursor-pointer rounded bg-transparent px-1 text-center text-sm font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300"
+              title="กดเลือกวันที่จากปฏิทิน" />
+            <button onClick={() => shiftDay(1)} className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100" title="วันที่มีข้อมูลถัดไป">›</button>
           </div>
+        )}
+        {data && data.date && (
+          <span className="text-xs text-slate-400">{fmtDay(data.date)}</span>
         )}
         {data && data.vehicles.length > 0 && (
           <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-500">
             {data.vehicles.length} คัน · รวม {Math.round(totalKm).toLocaleString()} กม.
           </span>
         )}
+
+        {/* เวลานำเข้าไฟล์ GPS ล่าสุด (ทั้งระบบ) */}
+        {data?.lastImportAt && (
+          <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400"
+            title="เวลาที่ระบบนำเข้าไฟล์ GPS ครั้งล่าสุด (จาก Gmail อัตโนมัติ หรืออัปโหลดเอง)">
+            <Clock className="h-3 w-3" /> นำเข้าล่าสุด {fmtImport(data.lastImportAt)}
+            {data.lastImportForDate && <span className="text-slate-300">· ข้อมูลวันที่ {fmtDay(data.lastImportForDate)}</span>}
+          </span>
+        )}
         {canUpload && (
-          <div className="ml-auto">
+          <div className={data?.lastImportAt ? '' : 'ml-auto'}>
             <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple className="hidden" onChange={onUpload} />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
               className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
@@ -250,13 +275,14 @@ export default function GpsSection() {
                 </button>
                 <button onClick={() => setView('speed')}
                   className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${view === 'speed' ? 'bg-sky-100 text-sky-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                  <LineChart className="h-3 w-3" /> กราฟความเร็ว
+                  <LineChart className="h-3 w-3" /> การขับขี่
                 </button>
               </div>
             </div>
             {view === 'map'
               ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} />
-              : <GpsSpeedChart series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0} stops={selected?.visits ?? []} />}
+              : <GpsJourneyPanel series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0}
+                  visits={selected?.visits ?? []} firstMoveAt={selected?.firstMoveAt ?? null} lastStopAt={selected?.lastStopAt ?? null} distanceKm={selected?.distanceKm ?? 0} />}
           </div>
         </div>
       )}

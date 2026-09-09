@@ -460,9 +460,10 @@ model VehicleGpsDay {
   driverName   String?
   pathJson     Json? // เส้นทาง downsample: [[lat,lng], ...]
   speedJson    Json? // ความเร็วรายเวลา: [[secOfDay, speed, roadSpeed, place], ...]
-  overspeedPct Int      @default(0) // % จุดที่วิ่งเกินความเร็วจำกัดถนน
+  overspeedPct Int       @default(0) // % จุดที่วิ่งเกินความเร็วจำกัดถนน
   sourceRef    String? // กันนำเข้าซ้ำ (เช่น Gmail messageId + plate)
   createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt // เวลานำเข้าล่าสุด (bump ทุกครั้งที่ upsert)
 
   visits VehicleGpsVisit[]
 
