@@ -476,17 +476,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </p>
           </div>
 
-          {/* กลาง: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (สลับมาอยู่ติดแผนที่) */}
-          <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
-            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficePanel office={office} loading={!office || office.date !== staffDate} date={staffDate} onDate={setStaffDate} />
-            </div>
-            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== vehDate} date={vehDate} onDate={setVehDate} />
-            </div>
-          </div>
-
-          {/* ขวา: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
+          {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
           <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 h-[400px] lg:h-[600px] lg:flex-1 lg:min-w-0">
             {travelView ? (
               <TravelPanel trips={allTrips} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
@@ -530,6 +520,16 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 </div>
               </div>
             )}
+          </div>
+
+          {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (กว้างเท่ากล่องกลาง · แต่ละกล่องครึ่งความสูง) */}
+          <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficePanel office={office} loading={!office || office.date !== staffDate} date={staffDate} onDate={setStaffDate} />
+            </div>
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== vehDate} date={vehDate} onDate={setVehDate} />
+            </div>
           </div>
         </div>
       )}
