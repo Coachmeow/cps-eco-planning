@@ -1,27 +1,24 @@
 'use client'
 
-// กราฟความเร็ว-เวลา ของรถคันที่เลือก (SVG มือ) — เส้นความเร็วจริง vs เส้นจำกัดตามกฎหมาย (Road Speed)
-//  hover: เวลา · ความเร็ว · จำกัด · สถานที่ + ป้าย "เกินกำหนด"
+// กราฟความเร็ว-เวลา + เลนไทม์ไลน์การเดินทาง/จุดพัก (แกน X เดียวกัน) ของรถคันที่เลือก (SVG มือ)
+//  บน: เส้นความเร็วจริง vs เส้นจำกัดถนน · ล่างแกน X: แถบ "ช่วงเกินความเร็ว" + แท่งไทม์ไลน์ขับ/พัก + หมุดปัก (hover)
 import { useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { MapPin } from 'lucide-react'
 import { MUTED } from '@/lib/chartTheme'
 
 export type SpeedPoint = [number, number, number, string]  // [secOfDay, speed, roadSpeed, place]
-export interface StopMark {
-  arriveAt: string; departAt: string | null; dwellMin: number
-  siteId: number | null; siteCode: string | null; siteName: string | null; rawPlace: string | null
-}
 
-const SPEED = '#2563eb', LIMIT = '#f59e0b', OVER = '#dc2626'
-const hhmm = (sec: number) => `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
-const dwFmt = (m: number) => m >= 60 ? `${Math.floor(m / 60)}ชม.${m % 60 ? ` ${m % 60}น.` : ''}` : `${m}น.`
-// วินาทีในวัน จาก ISO (เก็บ UTC-naive = wall clock ไทย)
-const secOf = (iso: string) => { const d = new Date(iso); return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds() }
-// ย่อ Position Description → "อำเภอ, จังหวัด" (ตัดเลขบ้าน/รหัสไปรษณีย์)
-function placeTag(raw: string | null): string {
-  const parts = (raw || '').split(',').map((s) => s.trim()).filter((s) => s && !/^\d+$/.test(s))
-  return parts.slice(0, 2).join(', ') || 'จุดจอด'
+// ข้อมูลไทม์ไลน์ (คำนวณจาก GpsJourneyPanel ส่งเข้ามา) — ใช้แกนเวลาเดียวกับกราฟ (secOfDay)
+export interface JourneyBlock { type: 'drive' | 'break'; s0: number; s1: number; km: number | null }
+export interface JourneyPin {
+  sec: number; kind: 'start' | 'stop' | 'end'; isSite: boolean
+  title: string; timeTxt: string; place: string; durTxt: string
 }
+export interface JourneyData { blocks: JourneyBlock[]; pins: JourneyPin[] }
+
+const SPEED = '#2563eb', LIMIT = '#f59e0b', OVER = '#dc2626', START = '#16a34a', SITE = '#059669'
+const hhmm = (sec: number) => `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}`
+const hm = (min: number) => { const m = Math.round(min); return m >= 60 ? `${Math.floor(m / 60)} ชม.${m % 60 ? ` ${m % 60} นาที` : ''}` : `${m} นาที` }
 
 // rolling mean (หน้าต่างกลาง) — ลด jitter เส้นความเร็ว
 function rollMean(a: number[], win: number): number[] {
@@ -57,17 +54,17 @@ function smoothPath(P: [number, number][]): string {
   return d
 }
 
-export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = [], height = 420, showStops = true }: {
+export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey, height = 420 }: {
   series: SpeedPoint[] | null
   maxSpeed: number
   overspeedPct: number
-  stops?: StopMark[]
-  height?: number      // ความสูง SVG (ย่อได้เมื่ออยู่ในกล่องการเดินทาง)
-  showStops?: boolean  // ซ่อนแถบจุดหยุด (เมื่อมีไทม์ไลน์แยกด้านล่างแล้ว)
+  journey?: JourneyData
+  height?: number
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(600)
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null)
+  const [pinHover, setPinHover] = useState<number | null>(null)
 
   useLayoutEffect(() => {
     if (!wrapRef.current) return
@@ -96,12 +93,16 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
   }
 
   const pts: SpeedPoint[] = series   // narrowed non-null (ใช้ใน closure ที่ TS ไม่ narrow ให้)
-  const H = height, HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
+  const HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
   const XLBL = 14, STRIP_GAP = 8, STRIP_H = 12          // ล่าง: ป้ายเวลา + แถบ "ช่วงเกินความเร็ว"
-  const MB = XLBL + STRIP_GAP + STRIP_H + 6
+  const hasTL = !!journey && journey.blocks.length > 0
+  const TL_GAP = 10, PIN_H = 20, TL_H = 10              // เลนไทม์ไลน์: ช่องหมุด/ป้าย + แท่ง
+  const H = height
+  const MB = XLBL + STRIP_GAP + STRIP_H + 6 + (hasTL ? TL_GAP + PIN_H + TL_H : 0)
   const plotW = Math.max(10, w - ML - MR)
   const plotH = H - MT - MB
   const stripY = MT + plotH + XLBL + STRIP_GAP          // ขอบบนของแถบเกินความเร็ว
+  const tlBarY = stripY + STRIP_H + TL_GAP + PIN_H      // ขอบบนของแท่งไทม์ไลน์
   const minX = series[0][0], maxX = series[series.length - 1][0]
   const spanX = Math.max(1, maxX - minX)
   const maxRoad = series.reduce((m, p) => Math.max(m, p[2]), 0)
@@ -109,7 +110,9 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
   const maxY = Math.max(130, Math.ceil((Math.max(maxSpeed, maxRoad) + 10) / 20) * 20)
 
   const xOf = (sec: number) => ML + ((sec - minX) / spanX) * plotW
+  const clampX = (sec: number) => xOf(Math.max(minX, Math.min(maxX, sec)))
   const yOf = (v: number) => MT + plotH - (v / maxY) * plotH
+  const yPx = (svgY: number) => HEAD + svgY   // svg อยู่ใต้ legend (สูง HEAD) → offset overlay ให้ตรง
 
   const N = series.length
   const spd = series.map((p) => p[1])
@@ -144,26 +147,6 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
   if (runStart >= 0) overRuns.push([runStart, series[N - 1][0]])
   const overCount = series.reduce((c, p) => c + (p[2] > 0 && p[1] > p[2] ? 1 : 0), 0)
 
-  // จุดหยุดรถ → แท็กสถานที่ (ยุบจุดใกล้กันเป็นกลุ่มกันแท็กทับ)
-  type Mark = { sec: number; isSite: boolean; label: string; dwell: string; title: string }
-  const marks: Mark[] = stops
-    .map((v): Mark => {
-      const isSite = v.siteId != null
-      const label = isSite ? (v.siteName || v.siteCode || 'ไซต์') : placeTag(v.rawPlace)
-      const head = isSite ? [v.siteCode, v.siteName].filter(Boolean).join(' · ') : (v.rawPlace || placeTag(v.rawPlace))
-      const a = secOf(v.arriveAt)
-      return { sec: a, isSite, label, dwell: dwFmt(v.dwellMin), title: `${head} · ${hhmm(a)}–${v.departAt ? hhmm(secOf(v.departAt)) : '—'} · จอด ${dwFmt(v.dwellMin)}` }
-    })
-    .sort((a, b) => a.sec - b.sec)
-  const MINGAP = 118   // ต้อง ≥ ความกว้างชิปสูงสุด (max-w-[104px]) เพื่อกันแท็กทับกัน
-  const stopGroups: { x: number; items: Mark[] }[] = []
-  for (const m of marks) {
-    const x = xOf(m.sec)
-    const g = stopGroups[stopGroups.length - 1]
-    if (g && x - g.x < MINGAP) g.items.push(m)
-    else stopGroups.push({ x, items: [m] })
-  }
-
   // grid + x ticks
   const yLines = [30, 50, 80, 100, 120, 140].filter((v) => v <= maxY)
   const stepH = spanX > 6 * 3600 ? 2 * 3600 : 3600
@@ -184,10 +167,11 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
 
   const hp = hover ? pts[hover.i] : null
   const over = hp ? (hp[2] > 0 && hp[1] > hp[2]) : false
+  const hpin = pinHover != null && journey ? journey.pins[pinHover] : null
 
   return (
     <div ref={wrapRef} className="relative w-full">
-      {/* แถบสรุป */}
+      {/* แถบสรุป (สูง HEAD) */}
       <div className="flex h-[30px] items-center gap-3 text-xs">
         <span className="font-semibold text-slate-600">ความเร็ว–เวลา</span>
         <span className="inline-flex items-center gap-1"><i className="h-2 w-3 rounded-sm" style={{ background: SPEED }} /> จริง</span>
@@ -196,7 +180,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
         <span className="ml-auto text-slate-500">สูงสุด <b className="font-mono text-slate-700">{maxSpeed}</b> กม./ชม. · เกินกำหนด <b className="font-mono" style={{ color: overspeedPct > 0 ? OVER : '#64748b' }}>{overspeedPct}%</b> ({overCount} จุด)</span>
       </div>
 
-      <svg width="100%" height={H} viewBox={`0 0 ${w} ${H}`} role="img" aria-label="กราฟความเร็ว-เวลา"
+      <svg width="100%" height={H} viewBox={`0 0 ${w} ${H}`} role="img" aria-label="กราฟความเร็ว-เวลา และไทม์ไลน์การเดินทาง"
         onMouseMove={onMove} onMouseLeave={() => setHover(null)} className="rounded-lg border border-slate-200">
         {/* y grid */}
         {yLines.map((v) => (
@@ -216,7 +200,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
         <path d={areaD} fill={SPEED} fillOpacity={0.08} />
         <path d={lineD} fill="none" stroke={SPEED} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* แถบช่วงเกินความเร็ว (ล่างกราฟ) */}
+        {/* แถบช่วงเกินความเร็ว */}
         <line x1={ML} y1={stripY + STRIP_H / 2} x2={ML + plotW} y2={stripY + STRIP_H / 2} stroke="#eef2f6" strokeWidth={STRIP_H} />
         <text x={ML} y={stripY - 3} fontSize={8.5} fill={MUTED}>ช่วงเกินความเร็ว</text>
         {overRuns.map(([s, e], i) => {
@@ -224,7 +208,19 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
           return <rect key={i} x={x1} y={stripY} width={Math.max(3, x2 - x1)} height={STRIP_H} rx={2} fill={OVER} />
         })}
 
-        {/* hover guide */}
+        {/* แท่งไทม์ไลน์การเดินทาง (แกน X เดียวกัน) */}
+        {hasTL && (
+          <>
+            <text x={ML} y={tlBarY - PIN_H + 2} fontSize={8.5} fill={MUTED}>การเดินทาง</text>
+            {journey!.blocks.map((b, i) => {
+              const x1 = clampX(b.s0), x2 = clampX(b.s1)
+              return <rect key={i} x={x1} y={tlBarY} width={Math.max(1, x2 - x1)} height={TL_H} rx={3}
+                fill={b.type === 'drive' ? SPEED : LIMIT} />
+            })}
+          </>
+        )}
+
+        {/* hover guide (เส้นความเร็ว) */}
         {hp && (
           <g>
             <line x1={xOf(hp[0])} y1={MT} x2={xOf(hp[0])} y2={stripY + STRIP_H} stroke="#94a3b8" strokeDasharray="3 3" />
@@ -233,35 +229,57 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, stops = 
         )}
       </svg>
 
-      {/* แถบจุดหยุดรถ — แท็กสถานที่ ตามเวลา */}
-      {showStops && (
-      <div className="relative mt-1" style={{ height: 30 }}>
-        <span className="absolute left-0 top-2 text-[10px] text-slate-400">จุดหยุดรถ</span>
-        {stopGroups.map((g, i) => {
-          const left = Math.min(Math.max(g.x, ML + 52), w - 52)   // เผื่อครึ่งความกว้างชิปไม่ให้ล้นขอบ
-          if (g.items.length === 1) {
-            const m = g.items[0]
+      {/* overlay: ป้ายช่วงขับ + หมุดปัก (เหนือแท่งไทม์ไลน์ · แกนเดียวกับ SVG) */}
+      {hasTL && (
+        <div className="pointer-events-none absolute inset-0">
+          {/* ป้ายช่วงขับ (กึ่งกลาง block กว้างพอ) */}
+          {journey!.blocks.map((b, i) => {
+            const x1 = clampX(b.s0), x2 = clampX(b.s1)
+            if (b.type !== 'drive' || x2 - x1 < 54) return null
             return (
-              <span key={i} title={m.title}
-                className={`absolute top-1 flex max-w-[104px] -translate-x-1/2 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${m.isSite ? 'bg-emerald-100 text-emerald-700' : 'border border-slate-200 bg-white text-slate-500'}`}
-                style={{ left }}>
-                <MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{m.label} · {m.dwell}</span>
-              </span>
+              <div key={i} className="absolute -translate-x-1/2 truncate text-center text-[9px] leading-none text-sky-700"
+                style={{ left: (x1 + x2) / 2, top: yPx(tlBarY) - 15, maxWidth: x2 - x1 }}>
+                {hm((b.s1 - b.s0) / 60)}{b.km != null && <span className="text-slate-400"> · {(Math.round(b.km * 10) / 10).toLocaleString()} กม.</span>}
+              </div>
             )
-          }
-          const anySite = g.items.some((m) => m.isSite)
-          return (
-            <span key={i} title={g.items.map((m) => `• ${m.title}`).join('\n')}
-              className={`absolute top-1 -translate-x-1/2 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${anySite ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-300 bg-white text-slate-500'}`}
-              style={{ left }}>
-              {g.items.length} จุด
-            </span>
-          )
-        })}
-      </div>
+          })}
+          {/* หมุดปัก */}
+          {journey!.pins.map((p, i) => {
+            const color = p.kind === 'stop' ? LIMIT : START
+            return (
+              <button key={i} type="button"
+                onMouseEnter={() => setPinHover(i)} onMouseLeave={() => setPinHover((h) => (h === i ? null : h))}
+                onClick={() => setPinHover((h) => (h === i ? null : i))}
+                className="pointer-events-auto absolute -translate-x-1/2 leading-none"
+                style={{ left: clampX(p.sec), top: yPx(tlBarY) - 18 }} aria-label={p.title}>
+                <MapPin className="h-[18px] w-[18px] drop-shadow" style={{ color }} fill={color} fillOpacity={0.25} strokeWidth={2.2} />
+              </button>
+            )
+          })}
+        </div>
       )}
 
-      {/* tooltip */}
+      {/* tooltip: หมุดปัก */}
+      {hpin && (
+        <div className="pointer-events-none absolute z-20 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] shadow-lg"
+          style={{ left: Math.min(Math.max(clampX(hpin.sec), 92), w - 92), top: yPx(tlBarY) - 20 }}>
+          <div className="flex items-center gap-1 font-semibold text-slate-700">
+            <MapPin className="h-3 w-3" style={{ color: hpin.kind === 'stop' ? (hpin.isSite ? SITE : LIMIT) : START }} />
+            <span className={hpin.isSite ? 'text-emerald-700' : ''}>{hpin.title}</span>
+            {hpin.isSite && <span className="rounded bg-emerald-100 px-1 text-[9px] font-medium text-emerald-700">ไซต์งาน</span>}
+          </div>
+          <div className="mt-0.5 font-mono text-slate-500">{hpin.timeTxt}</div>
+          {hpin.place && <div className="mt-0.5 text-slate-500">{hpin.place}</div>}
+          {hpin.durTxt && (
+            <div className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium"
+              style={{ background: hpin.isSite ? '#d1fae5' : '#fef3c7', color: hpin.isSite ? '#047857' : '#92400e' }}>
+              {hpin.durTxt}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* tooltip: เส้นความเร็ว */}
       {hp && hover && (
         <div className="pointer-events-none absolute z-10 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] shadow-lg"
           style={{ left: Math.min(Math.max(hover.x + 12, 4), w - 170), top: Math.max(hover.y - 10, HEAD) }}>
