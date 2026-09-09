@@ -40,10 +40,11 @@ function hhmm(iso: string | null): string {
 }
 
 export default function GpsRouteMap({
-  vehicle, geofences,
+  vehicle, geofences, height = 420,
 }: {
   vehicle: GpsVehiclePoint | null
   geofences: GeofenceRow[]
+  height?: number
 }) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -167,5 +168,5 @@ export default function GpsRouteMap({
     rafRef.current = requestAnimationFrame(step)
   }, [vehicle, geofences])
 
-  return <div ref={divRef} className="h-[420px] w-full rounded-lg border border-slate-200" />
+  return <div ref={divRef} style={{ height }} className="w-full rounded-lg border border-slate-200" />
 }

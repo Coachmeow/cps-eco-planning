@@ -151,7 +151,6 @@ export default function GpsSection() {
           <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400"
             title="เวลาที่ระบบนำเข้าไฟล์ GPS ครั้งล่าสุด (จาก Gmail อัตโนมัติ หรืออัปโหลดเอง)">
             <Clock className="h-3 w-3" /> นำเข้าล่าสุด {fmtImport(data.lastImportAt)}
-            {data.lastImportForDate && <span className="text-slate-300">· ข้อมูลวันที่ {fmtDay(data.lastImportForDate)}</span>}
           </span>
         )}
         {canUpload && (
@@ -180,8 +179,8 @@ export default function GpsSection() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* ตารางรายคัน — สูงเท่ากล่องแผนที่ (420px) + scrollbar ซ่อนเมื่อไม่ใช้ */}
-          <div className="scroll-soft overflow-auto rounded-lg border border-slate-200 lg:h-[420px]">
+          {/* ตารางรายคัน — สูงเท่ากล่องแผนที่/การขับขี่ (คงที่) + scrollbar ซ่อนเมื่อไม่ใช้ */}
+          <div className="scroll-soft overflow-auto rounded-lg border border-slate-200 lg:h-[500px]">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50 text-xs text-slate-500">
                 <tr>
@@ -279,10 +278,13 @@ export default function GpsSection() {
                 </button>
               </div>
             </div>
-            {view === 'map'
-              ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} />
-              : <GpsJourneyPanel series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0}
-                  visits={selected?.visits ?? []} firstMoveAt={selected?.firstMoveAt ?? null} lastStopAt={selected?.lastStopAt ?? null} distanceKm={selected?.distanceKm ?? 0} />}
+            {/* ความสูงคงที่ทั้งสองมุมมอง — สลับ map/การขับขี่ ไม่ถีบเนื้อหาด้านล่าง */}
+            <div className="h-[500px]">
+              {view === 'map'
+                ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} height={500} />
+                : <GpsJourneyPanel series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0}
+                    visits={selected?.visits ?? []} firstMoveAt={selected?.firstMoveAt ?? null} lastStopAt={selected?.lastStopAt ?? null} distanceKm={selected?.distanceKm ?? 0} />}
+            </div>
           </div>
         </div>
       )}
