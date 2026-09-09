@@ -100,6 +100,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
   const wxTabRef = useRef<HTMLButtonElement>(null)
   const locTabRef = useRef<HTMLButtonElement>(null)
   const [pill, setPill] = useState<{ left: number; width: number }>({ left: 0, width: 0 }) // ตำแหน่งไฮไลต์เลื่อน
+  const [pillReady, setPillReady] = useState(false) // เปิด transition หลังวัดตำแหน่งครั้งแรก (กันไฮไลต์สไลด์จากมุม/ตัวหนังสือ Active หายตอนโหลด)
   const [viewMode, setViewMode] = useState<'heat' | 'travel'>('heat')
   const [travelDay, setTravelDay] = useState<'today' | 'tomorrow' | 'date'>('today')
   const [travelPickDate, setTravelPickDate] = useState(todayKey())
@@ -265,6 +266,14 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
     const el = idleView === 'wx' ? wxTabRef.current : locTabRef.current
     if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth })
   }, [idleView, idleShown, wx, locData])
+
+  // เปิดอนิเมชันเลื่อน "หลัง" วางตำแหน่งครั้งแรกเสร็จ (เฟรมถัดไป) — ครั้งแรก snap เข้าที่ทันที ไม่สไลด์จากมุม
+  useEffect(() => {
+    if (pill.width && !pillReady) {
+      const id = requestAnimationFrame(() => setPillReady(true))
+      return () => cancelAnimationFrame(id)
+    }
+  }, [pill.width, pillReady])
 
   function togglePin(name: string) { setPinnedName((cur) => (cur === name ? null : name)) }
 
@@ -467,7 +476,17 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
             </p>
           </div>
 
-          {/* กลาง: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
+          {/* กลาง: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (สลับมาอยู่ติดแผนที่) */}
+          <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficePanel office={office} loading={!office || office.date !== staffDate} date={staffDate} onDate={setStaffDate} />
+            </div>
+            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
+              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== vehDate} date={vehDate} onDate={setVehDate} />
+            </div>
+          </div>
+
+          {/* ขวา: จังหวัด/อากาศ (heatmap) หรือ รถที่กำลังเดินทาง (travel) — สูงเท่าแผนที่ */}
           <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 h-[400px] lg:h-[600px] lg:flex-1 lg:min-w-0">
             {travelView ? (
               <TravelPanel trips={allTrips} dayLabel={travelDayLabel} loading={travelLoading} error={!!travel?.error} hoverRoute={hoverRoute} setHoverRoute={setHoverRoute} />
@@ -480,7 +499,7 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                   <div className="relative inline-flex rounded-md border border-slate-200 bg-white p-0.5">
                     <span
                       aria-hidden
-                      className="absolute bottom-0.5 top-0.5 rounded bg-emerald-600 transition-all duration-300 ease-out"
+                      className={`absolute bottom-0.5 top-0.5 rounded bg-emerald-600 ${pillReady ? 'transition-all duration-300 ease-out' : ''}`}
                       style={{ left: pill.left, width: pill.width, opacity: pill.width ? 1 : 0 }}
                     />
                     {([['wx', 'สภาพอากาศ', CloudSunRain], ['loc', 'ประจำ Location', MapPin]] as const).map(([k, label, Icon]) => (
@@ -511,16 +530,6 @@ export default function ProvinceMap({ year, month }: { year: number; month: numb
                 </div>
               </div>
             )}
-          </div>
-
-          {/* ขวาสุด: พนักงาน + รถ อยู่ออฟฟิศ ซ้อนบน-ล่าง (กว้างเท่ากล่องกลาง · แต่ละกล่องครึ่งความสูง) */}
-          <div className="flex flex-col gap-5 lg:h-[600px] lg:flex-1 lg:min-w-0">
-            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficePanel office={office} loading={!office || office.date !== staffDate} date={staffDate} onDate={setStaffDate} />
-            </div>
-            <div className="scroll-soft overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50 p-4 lg:min-h-0 lg:flex-1">
-              <OfficeVehPanel data={officeVeh} loading={!officeVeh || officeVeh.date !== vehDate} date={vehDate} onDate={setVehDate} />
-            </div>
           </div>
         </div>
       )}
