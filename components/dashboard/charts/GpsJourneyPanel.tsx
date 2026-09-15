@@ -121,7 +121,7 @@ export default function GpsJourneyPanel({ series, maxSpeed, overspeedPct, visits
 
       <div className="scroll-soft flex-1 overflow-y-auto p-3">
         {/* กราฟความเร็ว + เลนไทม์ไลน์ (แกนเวลาเดียวกัน) */}
-        <GpsSpeedChart series={series} maxSpeed={maxSpeed} overspeedPct={overspeedPct} journey={journey} height={260} />
+        <GpsSpeedChart series={series} maxSpeed={maxSpeed} overspeedPct={overspeedPct} journey={journey} height={292} />
 
         {/* สรุปสถิติ */}
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">

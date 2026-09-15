@@ -96,13 +96,14 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey,
   const HEAD = 30, ML = 34, MR = 12, MT = HEAD + 8
   const XLBL = 14, STRIP_GAP = 8, STRIP_H = 12          // ล่าง: ป้ายเวลา + แถบ "ช่วงเกินความเร็ว"
   const hasTL = !!journey && journey.blocks.length > 0
-  const TL_GAP = 10, PIN_H = 20, TL_H = 10              // เลนไทม์ไลน์: ช่องหมุด/ป้าย + แท่ง
+  // เลนไทม์ไลน์ (เว้นช่องไฟไม่ให้ซ้อนกัน): ช่องไฟจากแถบเกินฯ → ป้าย "การเดินทาง" → หมุด → ช่องไฟ → แท่ง
+  const TL_GAP = 22, TL_LBL = 13, PIN_H = 20, PIN_GAP = 4, TL_H = 10
   const H = height
-  const MB = XLBL + STRIP_GAP + STRIP_H + 6 + (hasTL ? TL_GAP + PIN_H + TL_H : 0)
+  const MB = XLBL + STRIP_GAP + STRIP_H + 6 + (hasTL ? TL_GAP + TL_LBL + PIN_H + PIN_GAP + TL_H : 0)
   const plotW = Math.max(10, w - ML - MR)
   const plotH = H - MT - MB
   const stripY = MT + plotH + XLBL + STRIP_GAP          // ขอบบนของแถบเกินความเร็ว
-  const tlBarY = stripY + STRIP_H + TL_GAP + PIN_H      // ขอบบนของแท่งไทม์ไลน์
+  const tlBarY = stripY + STRIP_H + TL_GAP + TL_LBL + PIN_H + PIN_GAP   // ขอบบนของแท่งไทม์ไลน์
   const minX = series[0][0], maxX = series[series.length - 1][0]
   const spanX = Math.max(1, maxX - minX)
   const maxRoad = series.reduce((m, p) => Math.max(m, p[2]), 0)
@@ -211,7 +212,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey,
         {/* แท่งไทม์ไลน์การเดินทาง (แกน X เดียวกัน) */}
         {hasTL && (
           <>
-            <text x={ML} y={tlBarY - PIN_H + 2} fontSize={8.5} fill={MUTED}>การเดินทาง</text>
+            <text x={ML} y={tlBarY - PIN_H - PIN_GAP - 3} fontSize={8.5} fill={MUTED}>การเดินทาง</text>
             {journey!.blocks.map((b, i) => {
               const x1 = clampX(b.s0), x2 = clampX(b.s1)
               return <rect key={i} x={x1} y={tlBarY} width={Math.max(1, x2 - x1)} height={TL_H} rx={3}
@@ -238,7 +239,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey,
             if (b.type !== 'drive' || x2 - x1 < 54) return null
             return (
               <div key={i} className="absolute -translate-x-1/2 truncate text-center text-[9px] leading-none text-sky-700"
-                style={{ left: (x1 + x2) / 2, top: yPx(tlBarY) - 15, maxWidth: x2 - x1 }}>
+                style={{ left: (x1 + x2) / 2, top: yPx(tlBarY) - 15 - PIN_GAP, maxWidth: x2 - x1 }}>
                 {hm((b.s1 - b.s0) / 60)}{b.km != null && <span className="text-slate-400"> · {(Math.round(b.km * 10) / 10).toLocaleString()} กม.</span>}
               </div>
             )
@@ -251,7 +252,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey,
                 onMouseEnter={() => setPinHover(i)} onMouseLeave={() => setPinHover((h) => (h === i ? null : h))}
                 onClick={() => setPinHover((h) => (h === i ? null : i))}
                 className="pointer-events-auto absolute -translate-x-1/2 leading-none"
-                style={{ left: clampX(p.sec), top: yPx(tlBarY) - 18 }} aria-label={p.title}>
+                style={{ left: clampX(p.sec), top: yPx(tlBarY) - 18 - PIN_GAP }} aria-label={p.title}>
                 <MapPin className="h-[18px] w-[18px] drop-shadow" style={{ color }} fill={color} fillOpacity={0.25} strokeWidth={2.2} />
               </button>
             )
@@ -262,7 +263,7 @@ export default function GpsSpeedChart({ series, maxSpeed, overspeedPct, journey,
       {/* tooltip: หมุดปัก */}
       {hpin && (
         <div className="pointer-events-none absolute z-20 w-max max-w-[220px] -translate-x-1/2 -translate-y-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] shadow-lg"
-          style={{ left: Math.min(Math.max(clampX(hpin.sec), 92), w - 92), top: yPx(tlBarY) - 20 }}>
+          style={{ left: Math.min(Math.max(clampX(hpin.sec), 92), w - 92), top: yPx(tlBarY) - 20 - PIN_GAP }}>
           <div className="flex items-center gap-1 font-semibold text-slate-700">
             <MapPin className="h-3 w-3" style={{ color: hpin.kind === 'stop' ? (hpin.isSite ? SITE : LIMIT) : START }} />
             <span className={hpin.isSite ? 'text-emerald-700' : ''}>{hpin.title}</span>
