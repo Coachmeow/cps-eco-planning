@@ -66,7 +66,8 @@ export default function GpsSection() {
   useEffect(() => {
     if (view === dispView && selId === dispSelId) return
     setContentVisible(false)
-    const t = setTimeout(() => { setDispView(view); setDispSelId(selId); setContentVisible(true) }, 200)
+    // timeout > ระยะ transition-opacity (200ms) เล็กน้อย เพื่อให้จางหมดก่อนค่อยสลับ (กันภาพกระโดด)
+    const t = setTimeout(() => { setDispView(view); setDispSelId(selId); setContentVisible(true) }, 220)
     return () => clearTimeout(t)
   }, [view, selId, dispView, dispSelId])
 

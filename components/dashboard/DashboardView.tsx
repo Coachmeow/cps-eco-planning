@@ -54,7 +54,8 @@ export default function DashboardView() {
   useEffect(() => {
     if (vehView === vehDisplay) return
     setVehVisible(false)
-    const t = setTimeout(() => { setVehDisplay(vehView); setVehVisible(true) }, 200)
+    // timeout > ระยะ transition-opacity (200ms) เล็กน้อย เพื่อให้จางหมดก่อนค่อยสลับเนื้อหา (กันภาพกระโดด)
+    const t = setTimeout(() => { setVehDisplay(vehView); setVehVisible(true) }, 220)
     return () => clearTimeout(t)
   }, [vehView, vehDisplay])
 
