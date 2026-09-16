@@ -373,14 +373,19 @@ export async function GET(req: NextRequest) {
   const activeVehicles = await prisma.vehicle.findMany({
     where: { status: { not: 'RETIRED' } }, select: { id: true, licensePlate: true, name: true },
   })
-  const vbGroups = await prisma.vehicleBooking.groupBy({
-    by: ['vehicleId'],
+  // นับ "วันจริงที่ใช้รถ" (distinct assignedDate ต่อคัน) — จองซ้อนหลายงานในวันเดียว = 1 วัน
+  // อ้างอิงวิธีเดียวกับ Per-person Utilization: group ตาม (คัน, วัน) เพื่อยุบวันซ้ำ
+  // (ไม่ใส่ parentId:null เพื่อให้ครบทุกวันของงานหลายวัน)
+  const vbDayRows = await prisma.vehicleBooking.groupBy({
+    by: ['vehicleId', 'assignedDate'],
     where: { assignedDate: { gte: startDate, lte: endDate } },
-    _count: { id: true },
   })
-  const vbMap = new Map(vbGroups.map(g => [g.vehicleId, g._count.id]))
+  const usedDaysByVehicle = new Map<number, number>()
+  for (const r of vbDayRows) {
+    usedDaysByVehicle.set(r.vehicleId, (usedDaysByVehicle.get(r.vehicleId) ?? 0) + 1)
+  }
   const vehicleUtil = activeVehicles.map(v => {
-    const bookedDays = vbMap.get(v.id) ?? 0
+    const bookedDays = usedDaysByVehicle.get(v.id) ?? 0
     return {
       vehicleId: v.id,
       label: v.licensePlate,
