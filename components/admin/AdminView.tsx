@@ -1160,7 +1160,7 @@ interface EqEventRow {
   id: number; equipmentId: number; type: 'REPAIR' | 'CALIBRATION'
   sentDate: string; expectedDate: string | null; returnedDate: string | null
   nextDueDate: string | null; vendor: string | null; cost: number | null; notes: string | null
-  equipment: { internalNo: string | null; serialNo: string | null; type: { code: string } }
+  equipment: { typeId: number; internalNo: string | null; serialNo: string | null; brand: string | null; model: string | null; type: { code: string; name: string } }
 }
 
 function MaintenanceSection({ role }: { role?: UserRole }) {
@@ -1236,11 +1236,30 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
   // กรองประเภทงาน — ช่างดูงานซ่อม / ทีมแผนดูงานแคล แยกกัน
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'REPAIR' | 'CALIBRATION'>('ALL')
   const [showHistory, setShowHistory] = useState(false)   // พับประวัติรับกลับ (กดแสดงค่อยถีบลงมา) — คงสถานะข้ามทุก toggle
+  const [selTypes, setSelTypes] = useState<Set<number>>(new Set())   // checklist กรองประเภทเครื่อง (ว่าง = ทุกประเภท)
   const byType = (e: EqEventRow) => typeFilter === 'ALL' || e.type === typeFilter
-  const open = events.filter(e => !e.returnedDate && byType(e))
-  const history = events.filter(e => e.returnedDate && byType(e))
+  const passType = (e: EqEventRow) => selTypes.size === 0 || selTypes.has(e.equipment.typeId)
+  const open = events.filter(e => !e.returnedDate && byType(e) && passType(e))
+  const history = events.filter(e => e.returnedDate && byType(e) && passType(e))
   const overdue = (e: EqEventRow) => !e.returnedDate && e.expectedDate && e.expectedDate.slice(0, 10) < today
   const canDelete = role === 'ADMIN' || role === 'MANAGER'
+
+  // ประเภทเครื่องที่มีในใบงาน → checklist (เรียงตาม code)
+  const availTypes = Array.from(new Map(events.map(e => [e.equipment.typeId, e.equipment.type])).entries())
+    .map(([id, t]) => ({ id, code: t.code, name: t.name })).sort((a, b) => a.code.localeCompare(b.code))
+  const toggleType = (id: number) => setSelTypes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  // ชื่อเต็มแบบเดียวกับหน้าแผน Cal (ยี่ห้อ รุ่น หมายเลข Serial) — ประเภทเป็นบาร์แบ่งหมวด
+  const eqDisplayName = (e: EqEventRow['equipment']) =>
+    [e.brand, e.model, e.internalNo, e.serialNo].map(s => (s ?? '').trim()).filter(Boolean).join(' ') || '—'
+  // group ใบงานที่กำลังส่ง ตามประเภทเครื่อง (บาร์แบ่งหมวด) — คงลำดับวันภายในกลุ่ม
+  const openGroups = (() => {
+    const m = new Map<number, { code: string; name: string; items: EqEventRow[] }>()
+    for (const ev of open) {
+      if (!m.has(ev.equipment.typeId)) m.set(ev.equipment.typeId, { code: ev.equipment.type.code, name: ev.equipment.type.name, items: [] })
+      m.get(ev.equipment.typeId)!.items.push(ev)
+    }
+    return Array.from(m.values()).sort((a, b) => a.code.localeCompare(b.code))
+  })()
 
   const TypeBadge = ({ t }: { t: string }) => (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${t === 'REPAIR' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
@@ -1265,6 +1284,23 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
         <Btn onClick={() => { setForm({ ...initForm, equipmentId: equipment[0] ? String(equipment[0].id) : '' }); setModal(true) }}>+ เปิดใบงาน</Btn>
       </div>
 
+      {/* checklist กรองประเภทเครื่อง — เลือกได้หลายประเภท */}
+      {availTypes.length > 1 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-400">ประเภทเครื่อง:</span>
+          <button onClick={() => setSelTypes(new Set())}
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${selTypes.size === 0 ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+            ทั้งหมด
+          </button>
+          {availTypes.map(t => (
+            <button key={t.id} onClick={() => toggleType(t.id)} title={t.name}
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${selTypes.has(t.id) ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+              {t.code}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* รายการที่ยังไม่รับกลับ */}
       <div className="mb-5 overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
@@ -1279,9 +1315,12 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
           </tr></thead>
           <tbody>
             {open.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีเครื่องที่กำลังส่งซ่อม/Cal</td></tr>}
-            {open.map(ev => (
+            {openGroups.map(g => (
+              <Fragment key={g.code}>
+                <tr><td colSpan={7} className="border-t border-slate-200 bg-slate-100 px-4 py-1 text-xs font-semibold text-slate-500">{g.code} — {g.name}</td></tr>
+                {g.items.map(ev => (
               <tr key={ev.id} className={`border-t border-slate-100 hover:bg-slate-50 ${overdue(ev) ? 'bg-red-50/40' : ''}`}>
-                <td className="px-4 py-2 font-medium"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</button></td>
+                <td className="px-4 py-2 font-medium"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง">{eqDisplayName(ev.equipment)}</button></td>
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs">{ev.expectedDate ? <span className={overdue(ev) ? 'font-semibold text-red-500' : 'text-slate-500'}>{ev.expectedDate.slice(0, 10)}{overdue(ev) && ' ⚠ เกิน'}</span> : '—'}</td>
@@ -1294,6 +1333,8 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
                   </div>
                 </td>
               </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -1320,7 +1361,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             {history.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีประวัติ</td></tr>}
             {history.slice(0, 50).map(ev => (
               <tr key={ev.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</button></td>
+                <td className="px-4 py-2"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง"><span className="text-slate-400">{ev.equipment.type.code}</span> {eqDisplayName(ev.equipment)}</button></td>
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)} → {ev.returnedDate?.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs">
