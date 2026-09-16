@@ -92,6 +92,11 @@ export default function EquipmentCalendar() {
       if (!map.has(eq.typeId)) map.set(eq.typeId, { type: eq.type, items: [] })
       map.get(eq.typeId)!.items.push(eq)
     }
+    // เรียงแถวในแต่ละกลุ่ม: ยี่ห้อ → รุ่น → หมายเลขภายใน → Serial (รู้ตัวเลข ให้ SP319 < SP1664)
+    const cmp = (a?: string | null, b?: string | null) =>
+      (a ?? '').localeCompare(b ?? '', undefined, { numeric: true, sensitivity: 'base' })
+    for (const g of map.values())
+      g.items.sort((x, y) => cmp(x.brand, y.brand) || cmp(x.model, y.model) || cmp(x.internalNo, y.internalNo) || cmp(x.serialNo, y.serialNo))
     return Array.from(map.values())
   }, [equipment, showRental, statusFilter, chipByEq])
 
@@ -406,13 +411,25 @@ export default function EquipmentCalendar() {
                     return (
                       <tr key={eq.id} className="hover:bg-slate-50/50">
                         <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-slate-700">{eq.internalNo ?? eq.serialNo ?? `#${eq.id}`}</span>
-                            {eq.isRental && <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-600">เช่า</span>}
-                            {chipByEq.get(eq.id) === 'CALIBRATION' && <span className="rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-500">Cal</span>}
-                            {chipByEq.get(eq.id) === 'REPAIR' && <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-medium text-red-600">เสีย</span>}
-                          </div>
-                          {eq.serialNo && eq.internalNo && <div className="text-[10px] text-slate-400">{eq.serialNo}</div>}
+                          {(() => {
+                            // บน (ตัวหนา) = ยี่ห้อ รุ่น ; ล่าง (เทาเล็ก) = หมายเลขภายใน · S/N
+                            // ยังไม่กรอกยี่ห้อ/รุ่น → ยกหมายเลขภายในขึ้นบรรทัดบน (หน้าตาเหมือนเดิม) กันบรรทัดบนว่าง
+                            const brandModel = [eq.brand, eq.model].map(s => (s ?? '').trim()).filter(Boolean).join(' ')
+                            const topName = brandModel || eq.internalNo || eq.serialNo || `#${eq.id}`
+                            const subParts = brandModel ? [eq.internalNo, eq.serialNo] : (eq.internalNo ? [eq.serialNo] : [])
+                            const subLine = subParts.map(s => (s ?? '').trim()).filter(Boolean).join(' · ')
+                            return (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-slate-700">{topName}</span>
+                                  {eq.isRental && <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-600">เช่า</span>}
+                                  {chipByEq.get(eq.id) === 'CALIBRATION' && <span className="rounded bg-purple-100 px-1 py-0.5 text-[10px] text-purple-500">Cal</span>}
+                                  {chipByEq.get(eq.id) === 'REPAIR' && <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-medium text-red-600">เสีย</span>}
+                                </div>
+                                {subLine && <div className="text-[10px] text-slate-400">{subLine}</div>}
+                              </>
+                            )
+                          })()}
                         </td>
                         {renderRowCells(eq)}
                         <td className={`border-b border-b-slate-400 px-2 text-center ${utilColor(util)}`}>{assignedDays > 0 ? `${util}%` : '—'}</td>
