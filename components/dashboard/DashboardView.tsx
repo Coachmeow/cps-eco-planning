@@ -37,7 +37,9 @@ export default function DashboardView() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [data,  setData]  = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [vehView, setVehView] = useState<'util' | 'km'>('util')   // การ์ดรถ: สลับ %การจอง ⇄ GPS ไมล์สะสม
+  const [vehView, setVehView] = useState<'util' | 'km'>('util')       // การ์ดรถ: มุมมองที่เลือก
+  const [vehDisplay, setVehDisplay] = useState<'util' | 'km'>('util') // มุมมองที่โชว์อยู่ (ตามหลังตอน crossfade)
+  const [vehVisible, setVehVisible] = useState(true)                  // opacity สำหรับ crossfade
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -47,6 +49,15 @@ export default function DashboardView() {
   }, [year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // crossfade การ์ดรถตอนสลับมุมมอง (fade out → สลับเนื้อหา → fade in) แบบเดียวกับ ProvinceMap
+  useEffect(() => {
+    if (vehView === vehDisplay) return
+    setVehVisible(false)
+    const t = setTimeout(() => { setVehDisplay(vehView); setVehVisible(true) }, 200)
+    return () => clearTimeout(t)
+  }, [vehView, vehDisplay])
+
   function prevMonth() { if (month === 1) { setYear(y=>y-1); setMonth(12) } else setMonth(m=>m-1) }
   function nextMonth() { if (month === 12) { setYear(y=>y+1); setMonth(1) } else setMonth(m=>m+1) }
 
@@ -215,8 +226,8 @@ export default function DashboardView() {
           {((data.vehicleUtil?.length ?? 0) > 0 || (data.vehicleGpsKm?.length ?? 0) > 0) && (
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-slate-700">
-                  {vehView === 'util' ? 'Utilization รถ (% การจอง)' : 'ระยะทางสะสม GPS รายเดือน'}
+                <h2 className="text-sm font-semibold text-slate-700 transition-opacity duration-200 ease-out" style={{ opacity: vehVisible ? 1 : 0 }}>
+                  {vehDisplay === 'util' ? 'Utilization รถ (% การจอง)' : 'ระยะทางสะสม GPS รายเดือน'}
                 </h2>
                 <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-xs">
                   <button type="button" onClick={() => setVehView('util')}
@@ -229,8 +240,8 @@ export default function DashboardView() {
                   </button>
                 </div>
               </div>
-              <div className="max-h-64 overflow-y-auto pr-1">
-                {vehView === 'util' ? (
+              <div className="max-h-64 overflow-y-auto pr-1 transition-opacity duration-200 ease-out" style={{ opacity: vehVisible ? 1 : 0 }}>
+                {vehDisplay === 'util' ? (
                   <HBarList unit="%" maxDomain={100}
                     items={(data.vehicleUtil ?? []).map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
                 ) : (
