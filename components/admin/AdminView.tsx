@@ -698,6 +698,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const [editing,   setEditing]   = useState<Equipment | null>(null)
   const [filterType, setFilterType] = useState('')
   const [hideRental, setHideRental] = useState(true) // default ซ่อนเครื่องเช่า — กดเพื่อแสดง
+  const [showRetired, setShowRetired] = useState(false) // default พับเครื่องปลดระวาง — กดกางดู
   const [saving,    setSaving]    = useState(false)
   const [viewing,   setViewing]   = useState<Equipment | null>(null)
   // จัดการประเภทเครื่องมือ
@@ -836,6 +837,9 @@ function EquipmentSection({ role }: { role?: UserRole }) {
   const rentalCount = equipment.filter(eq => eq.isRental && (!filterType || String(eq.typeId) === filterType)).length
   const filtered = equipment.filter(eq =>
     (!filterType || String(eq.typeId) === filterType) && (!hideRental || !eq.isRental))
+  // แยกเครื่องปลดระวางลงล่าง + พับซ่อน (กดกางดู)
+  const activeRows  = filtered.filter(eq => eq.status !== 'RETIRED')
+  const retiredRows = filtered.filter(eq => eq.status === 'RETIRED')
   const of = (k: keyof typeof ownedForm) => (v: string) => setOwnedForm(p => ({ ...p, [k]: v }))
   const rf = (k: keyof typeof rentalForm) => (v: string) => setRentalForm(p => ({ ...p, [k]: v }))
 
@@ -857,6 +861,62 @@ function EquipmentSection({ role }: { role?: UserRole }) {
           </div>
         )}
       </div>
+    )
+  }
+
+  // แถวเครื่องมือหนึ่งรายการ (ใช้ทั้งกลุ่ม active และกลุ่มปลดระวางที่พับไว้)
+  const renderEqRow = (eq: Equipment) => {
+    const isExpired = eq.isRental && eq.rentalEndDate && eq.rentalEndDate.slice(0, 10) < today
+    return (
+      <tr key={eq.id} className={`border-t border-slate-100 hover:bg-slate-50 ${eq.status === 'RETIRED' || isExpired ? 'opacity-50' : ''}`}>
+        {/* ย้ายประเภทได้จาก modal แก้ไขเท่านั้น — กันมือลั่นเปลี่ยนแล้วบันทึกทันที */}
+        <td className="px-4 py-2">
+          <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>
+        </td>
+        <td className="px-4 py-2 text-slate-500">{eq.brand || <span className="text-slate-300">—</span>}</td>
+        <td className="px-4 py-2 text-slate-500">{eq.model || <span className="text-slate-300">—</span>}</td>
+        <td className="px-4 py-2">
+          <button onClick={() => setViewing(eq)} className="font-medium text-slate-700 hover:text-emerald-700 hover:underline">{eq.internalNo ?? '—'}</button>
+        </td>
+        <td className="px-4 py-2 text-slate-400">{eq.serialNo ?? '—'}</td>
+        <td className="px-4 py-2">
+          {eq.isRental
+            ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">เช่า{eq.rentalVendor ? ` (${eq.rentalVendor})` : ''}</span>
+            : <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">ซื้อ</span>}
+        </td>
+        <td className="px-4 py-2 text-xs text-slate-400">
+          {eq.isRental && eq.rentalEndDate
+            ? <span className={isExpired ? 'text-red-400 font-medium' : ''}>
+                {eq.rentalStartDate?.slice(0, 10) ?? '?'} → {eq.rentalEndDate.slice(0, 10)}
+                {isExpired && ' ⚠ หมดแล้ว'}
+              </span>
+            : '—'}
+        </td>
+        {/* ซ่อม/แคล มาจากใบงานเท่านั้น — แก้มือได้แค่ ACTIVE ↔ RETIRED */}
+        <td className="px-4 py-2">
+          {eq.status === 'BROKEN' || eq.status === 'CALIBRATING'
+            ? <span title="สถานะมาจากใบงาน — เปลี่ยนโดยรับกลับ/ลบใบงานในเมนู ซ่อม/Cal"
+                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${eq.status === 'BROKEN' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
+                {eq.status === 'BROKEN' ? '🔧 BROKEN' : '📐 CALIBRATING'}
+              </span>
+            : <select value={eq.status} onChange={e => changeStatus(eq, e.target.value)}
+                className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="RETIRED">RETIRED</option>
+              </select>}
+        </td>
+        <td className="px-4 py-2 text-right">
+          {eq.maintCost ? (
+            <button onClick={() => setViewing(eq)} title="ดูประวัติซ่อม/Cal" className="font-mono text-xs font-medium text-slate-600 hover:text-emerald-700 hover:underline">
+              {eq.maintCost.toLocaleString('th-TH')} ฿
+            </button>
+          ) : <span className="text-xs text-slate-300">—</span>}
+        </td>
+        <td className="px-4 py-2 text-right">
+          {/* ปุ่มลบย้ายเข้าไปใน modal แก้ไข (โซนอันตราย) — กันมือลั่นในลิสต์ยาว */}
+          {canManage && <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>}
+        </td>
+      </tr>
     )
   }
 
@@ -904,60 +964,18 @@ function EquipmentSection({ role }: { role?: UserRole }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(eq => {
-              const isExpired = eq.isRental && eq.rentalEndDate && eq.rentalEndDate.slice(0,10) < today
-              return (
-                <tr key={eq.id} className={`border-t border-slate-100 hover:bg-slate-50 ${eq.status === 'RETIRED' || isExpired ? 'opacity-50' : ''}`}>
-                  {/* ย้ายประเภทได้จาก modal แก้ไขเท่านั้น — กันมือลั่นเปลี่ยนแล้วบันทึกทันที */}
-                  <td className="px-4 py-2">
-                    <span className="font-mono text-xs text-slate-500">{eq.type.code}</span>
-                  </td>
-                  <td className="px-4 py-2 text-slate-500">{eq.brand || <span className="text-slate-300">—</span>}</td>
-                  <td className="px-4 py-2 text-slate-500">{eq.model || <span className="text-slate-300">—</span>}</td>
-                  <td className="px-4 py-2">
-                    <button onClick={() => setViewing(eq)} className="font-medium text-slate-700 hover:text-emerald-700 hover:underline">{eq.internalNo ?? '—'}</button>
-                  </td>
-                  <td className="px-4 py-2 text-slate-400">{eq.serialNo ?? '—'}</td>
-                  <td className="px-4 py-2">
-                    {eq.isRental
-                      ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">เช่า{eq.rentalVendor ? ` (${eq.rentalVendor})` : ''}</span>
-                      : <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">ซื้อ</span>}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-slate-400">
-                    {eq.isRental && eq.rentalEndDate
-                      ? <span className={isExpired ? 'text-red-400 font-medium' : ''}>
-                          {eq.rentalStartDate?.slice(0,10) ?? '?'} → {eq.rentalEndDate.slice(0,10)}
-                          {isExpired && ' ⚠ หมดแล้ว'}
-                        </span>
-                      : '—'}
-                  </td>
-                  {/* ซ่อม/แคล มาจากใบงานเท่านั้น — แก้มือได้แค่ ACTIVE ↔ RETIRED */}
-                  <td className="px-4 py-2">
-                    {eq.status === 'BROKEN' || eq.status === 'CALIBRATING'
-                      ? <span title="สถานะมาจากใบงาน — เปลี่ยนโดยรับกลับ/ลบใบงานในเมนู ซ่อม/Cal"
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${eq.status === 'BROKEN' ? 'bg-red-50 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
-                          {eq.status === 'BROKEN' ? '🔧 BROKEN' : '📐 CALIBRATING'}
-                        </span>
-                      : <select value={eq.status} onChange={e => changeStatus(eq, e.target.value)}
-                          className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none">
-                          <option value="ACTIVE">ACTIVE</option>
-                          <option value="RETIRED">RETIRED</option>
-                        </select>}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {eq.maintCost ? (
-                      <button onClick={() => setViewing(eq)} title="ดูประวัติซ่อม/Cal" className="font-mono text-xs font-medium text-slate-600 hover:text-emerald-700 hover:underline">
-                        {eq.maintCost.toLocaleString('th-TH')} ฿
-                      </button>
-                    ) : <span className="text-xs text-slate-300">—</span>}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {/* ปุ่มลบย้ายเข้าไปใน modal แก้ไข (โซนอันตราย) — กันมือลั่นในลิสต์ยาว */}
-                    {canManage && <Btn small onClick={() => openEdit(eq)}>แก้ไข</Btn>}
-                  </td>
-                </tr>
-              )
-            })}
+            {activeRows.map(renderEqRow)}
+            {retiredRows.length > 0 && (
+              <tr>
+                <td colSpan={10} className="border-t border-slate-200 bg-slate-50/70 px-4 py-1.5">
+                  <button onClick={() => setShowRetired(v => !v)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700">
+                    <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showRetired ? 'rotate-90' : ''}`} />
+                    เครื่องปลดระวาง (RETIRED) · {retiredRows.length} เครื่อง
+                  </button>
+                </td>
+              </tr>
+            )}
+            {showRetired && retiredRows.map(renderEqRow)}
           </tbody>
         </table>
       </div>
