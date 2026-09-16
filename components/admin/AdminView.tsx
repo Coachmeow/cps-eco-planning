@@ -1448,7 +1448,15 @@ function CalPlanSection({ role }: { role?: UserRole }) {
   useEffect(() => { load() }, [load])
 
   const todayKey = new Date().toISOString().slice(0, 10)
-  const eqName = (eq: Equipment) => eq.internalNo ?? eq.serialNo ?? `#${eq.id}`
+  // ชื่อเต็ม = ยี่ห้อ · รุ่น · หมายเลขภายใน · Serial (เฉพาะที่มีค่า) — ประเภทโชว์เป็นหัวกลุ่มแล้ว จึงไม่ซ้ำ
+  const eqName = (eq: Equipment) =>
+    [eq.brand, eq.model, eq.internalNo, eq.serialNo].map(s => (s ?? '').trim()).filter(Boolean).join(' ') || `#${eq.id}`
+  // เทียบชื่อแบบรู้ตัวเลข (SP319 < SP419 < SP1664) ไล่ ยี่ห้อ→รุ่น→หมายเลข→Serial
+  const cmpStr = (a?: string | null, b?: string | null) =>
+    (a ?? '').localeCompare(b ?? '', undefined, { numeric: true, sensitivity: 'base' })
+  const byEqName = (x: Row, y: Row) =>
+    cmpStr(x.eq.brand, y.eq.brand) || cmpStr(x.eq.model, y.eq.model) ||
+    cmpStr(x.eq.internalNo, y.eq.internalNo) || cmpStr(x.eq.serialNo, y.eq.serialNo)
 
   const byEq = new Map<number, CalEventRow[]>()
   for (const ev of events) {
@@ -1483,7 +1491,10 @@ function CalPlanSection({ role }: { role?: UserRole }) {
     if (!groups.has(row.eq.typeId)) groups.set(row.eq.typeId, { type: t, items: [] })
     groups.get(row.eq.typeId)!.items.push(row)
   }
+  // เรียงแถวในแต่ละกลุ่ม (ยี่ห้อ→รุ่น→หมายเลข→Serial) + เรียงกลุ่มตามลำดับ eqTypes (เดียวกับ dropdown ตัวกรอง)
+  for (const g of groups.values()) g.items.sort(byEqName)
   const groupArr = Array.from(groups.values())
+    .sort((a, b) => eqTypes.findIndex(t => t.id === a.type.id) - eqTypes.findIndex(t => t.id === b.type.id))
 
   // สรุปต่อเดือน + ชิป
   const monthDue  = Array(12).fill(0) as number[]
