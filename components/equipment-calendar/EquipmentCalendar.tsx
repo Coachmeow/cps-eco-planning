@@ -31,6 +31,12 @@ const thaiDays   = ['อา','จ','อ','พ','พฤ','ศ','ส']
 function fmtThaiDay(dateKey: string): string {
   return new Date(dateKey + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
 }
+// กำหนดเสร็จ → "10 ตุลาคม" (เดือนเต็ม) สำหรับโชว์บนแถบส่งซ่อม/Cal
+function fmtExpected(iso: string | null): string | null {
+  return iso ? new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : null
+}
+// ข้อมูลช่วงส่งซ่อม/Cal ต่อวัน
+interface MaintInfo { kind: 'REPAIR' | 'CALIBRATION'; notes: string | null; expected: string | null }
 
 export default function EquipmentCalendar() {
   const today = new Date()
@@ -55,11 +61,11 @@ export default function EquipmentCalendar() {
   const workdays = countWorkdays(year, month, holidaySet)
 
   // ── ช่วงส่งซ่อม/Cal (event) — ใช้ทั้งชิป/แถบ/filter ──
-  const [maintEvents, setMaintEvents] = useState<{ equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }[]>([])
+  const [maintEvents, setMaintEvents] = useState<{ equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null; notes: string | null }[]>([])
   useEffect(() => {
     fetch('/api/equipment-events?status=all')
       .then(r => (r.ok ? r.json() : []))
-      .then(rows => setMaintEvents(Array.isArray(rows) ? rows.map((e: { equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null }) => ({ equipmentId: e.equipmentId, type: e.type, sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate })) : []))
+      .then(rows => setMaintEvents(Array.isArray(rows) ? rows.map((e: { equipmentId: number; type: 'REPAIR' | 'CALIBRATION'; sentDate: string; expectedDate: string | null; returnedDate: string | null; notes: string | null }) => ({ equipmentId: e.equipmentId, type: e.type, sentDate: e.sentDate, expectedDate: e.expectedDate, returnedDate: e.returnedDate, notes: e.notes })) : []))
       .catch(() => setMaintEvents([]))
   }, [year, month])
 
@@ -100,8 +106,9 @@ export default function EquipmentCalendar() {
     return Array.from(map.values())
   }, [equipment, showRental, statusFilter, chipByEq])
 
+  // ต่อวัน → ข้อมูลช่วงส่งซ่อม/Cal (ชนิด + อาการ/หมายเหตุ + กำหนดเสร็จ) เพื่อโชว์บนแถบ
   const maintDayMap = useMemo(() => {
-    const map = new Map<number, Map<string, 'REPAIR' | 'CALIBRATION'>>()
+    const map = new Map<number, Map<string, MaintInfo>>()
     if (days.length === 0) return map
     const mStart = toDateKey(days[0]), mEnd = toDateKey(days[days.length - 1])
     for (const ev of maintEvents) {
@@ -114,7 +121,7 @@ export default function EquipmentCalendar() {
       const m = map.get(ev.equipmentId)!
       for (const d of days) {
         const k = toDateKey(d)
-        if (k >= s && k <= e && !m.has(k)) m.set(k, ev.type)
+        if (k >= s && k <= e && !m.has(k)) m.set(k, { kind: ev.type, notes: ev.notes, expected: ev.expectedDate })
       }
     }
     return map
@@ -168,9 +175,16 @@ export default function EquipmentCalendar() {
     setExporting(true)
     try {
       const { exportEquipmentPdf } = await import('@/lib/pdf/equipmentPdf')
+      // PDF รับ map แบบ kind อย่างเดียว → แปลงจาก MaintInfo
+      const maintKindMap = new Map<number, Map<string, 'REPAIR' | 'CALIBRATION'>>()
+      for (const [eqId, dm] of maintDayMap) {
+        const km = new Map<string, 'REPAIR' | 'CALIBRATION'>()
+        for (const [k, info] of dm) km.set(k, info.kind)
+        maintKindMap.set(eqId, km)
+      }
       exportEquipmentPdf({
         year, month, equipment: grouped.flatMap(g => g.items), calendarData, days,
-        holidayMap, conflicts: conflicts.equipmentConflicts, maintDayMap,
+        holidayMap, conflicts: conflicts.equipmentConflicts, maintDayMap: maintKindMap,
       })
     } catch (e) { alert('สร้าง PDF ไม่สำเร็จ: ' + (e instanceof Error ? e.message : String(e))) }
     finally { setExporting(false) }
@@ -203,19 +217,21 @@ export default function EquipmentCalendar() {
 
       // ช่องว่างที่อยู่ในช่วงส่งซ่อม/Cal → แถบ maint (merge วันติดกันชนิดเดียวกัน)
       if (dayAssign.length === 0) {
-        const mk = maintDayMap.get(eq.id)?.get(dateKey)
-        if (mk) {
+        const mInfo = maintDayMap.get(eq.id)?.get(dateKey)
+        if (mInfo) {
+          const mk = mInfo.kind
           let mspan = 1
           while (i + mspan < days.length) {
             const nk = toDateKey(days[i + mspan])
             if ((dayMap?.get(nk)?.length ?? 0) > 0) break
-            if (maintDayMap.get(eq.id)?.get(nk) !== mk) break
+            if (maintDayMap.get(eq.id)?.get(nk)?.kind !== mk) break
             mspan++
           }
           cells.push(
             <EquipmentCell key={dateKey} assignments={[]} isConflict={false}
               dayOfWeek={day.getDay()} isHoliday={holidaySet.has(dateKey)} colSpan={mspan}
               team={eq.type.primaryTeam?.code ?? 'ST'} maint={mk}
+              maintNote={mInfo.notes} maintExpectedText={fmtExpected(mInfo.expected)}
               onClick={() => { setRangeStart(null); setRangeHover(null); setPopup({ equipment: eq, dateKey }) }}
             />
           )

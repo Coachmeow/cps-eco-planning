@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import dynamic from 'next/dynamic'
-import { Factory, Users, Wrench, Car, Hammer, Ruler, Umbrella, KeyRound, Settings, User, Bell, Tag, Eye, EyeOff, BarChart3, MapPin, type LucideIcon } from 'lucide-react'
+import { Factory, Users, Wrench, Car, Hammer, Ruler, Umbrella, KeyRound, Settings, User, Bell, Tag, Eye, EyeOff, BarChart3, MapPin, ChevronRight, type LucideIcon } from 'lucide-react'
 import { SITE_COLOR_OPTIONS } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
 import { PROVINCE_NAMES, PROVINCES } from '@/lib/thailandGeo'
@@ -1207,6 +1207,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
 
   // กรองประเภทงาน — ช่างดูงานซ่อม / ทีมแผนดูงานแคล แยกกัน
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'REPAIR' | 'CALIBRATION'>('ALL')
+  const [showHistory, setShowHistory] = useState(false)   // พับประวัติรับกลับ (กดแสดงค่อยถีบลงมา) — คงสถานะข้ามทุก toggle
   const byType = (e: EqEventRow) => typeFilter === 'ALL' || e.type === typeFilter
   const open = events.filter(e => !e.returnedDate && byType(e))
   const history = events.filter(e => e.returnedDate && byType(e))
@@ -1245,10 +1246,11 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             <th className="px-4 py-2 text-left font-medium">วันส่ง</th>
             <th className="px-4 py-2 text-left font-medium">กำหนดกลับ</th>
             <th className="px-4 py-2 text-left font-medium">Vendor</th>
+            <th className="px-4 py-2 text-left font-medium">หมายเหตุ / อาการ</th>
             <th className="px-4 py-2" />
           </tr></thead>
           <tbody>
-            {open.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีเครื่องที่กำลังส่งซ่อม/Cal</td></tr>}
+            {open.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีเครื่องที่กำลังส่งซ่อม/Cal</td></tr>}
             {open.map(ev => (
               <tr key={ev.id} className={`border-t border-slate-100 hover:bg-slate-50 ${overdue(ev) ? 'bg-red-50/40' : ''}`}>
                 <td className="px-4 py-2 font-medium text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
@@ -1256,6 +1258,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs">{ev.expectedDate ? <span className={overdue(ev) ? 'font-semibold text-red-500' : 'text-slate-500'}>{ev.expectedDate.slice(0, 10)}{overdue(ev) && ' ⚠ เกิน'}</span> : '—'}</td>
                 <td className="px-4 py-2 text-xs text-slate-400">{ev.vendor ?? '—'}</td>
+                <td className="px-4 py-2 text-xs text-slate-600 max-w-[260px]"><span className="line-clamp-2" title={ev.notes ?? undefined}>{ev.notes || <span className="text-slate-300">—</span>}</span></td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex justify-end gap-1.5">
                     <Btn small onClick={() => openReturn(ev)}>รับกลับ</Btn>
@@ -1268,8 +1271,13 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
         </table>
       </div>
 
-      {/* ประวัติ */}
-      <p className="mb-2 text-xs font-semibold text-slate-500">ประวัติ (รับกลับแล้ว)</p>
+      {/* ประวัติ (รับกลับแล้ว) — พับไว้ กดแล้วค่อยถีบโชว์ลงมา */}
+      <button onClick={() => setShowHistory(v => !v)}
+        className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
+        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showHistory ? 'rotate-90' : ''}`} />
+        ประวัติ (รับกลับแล้ว){history.length > 0 && <span className="font-normal text-slate-400">· {history.length} รายการ</span>}
+      </button>
+      {showHistory && (
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500"><tr>
@@ -1306,6 +1314,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Modal เปิดใบงาน */}
       {modal && (

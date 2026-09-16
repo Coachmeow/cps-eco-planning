@@ -26,13 +26,15 @@ interface Props {
   colSpan?:    number
   team:        string
   maint?:      MaintKind | null   // ช่วงส่งซ่อม/Cal (ช่องว่างที่ครอบช่วงเครื่องไม่อยู่)
+  maintNote?:  string | null      // อาการ/หมายเหตุจากใบงาน → ต่อท้าย "ส่งซ่อม/แคล"
+  maintExpectedText?: string | null // กำหนดแล้วเสร็จ (เดือนไทย) จากใบงาน
   isRangeStart?: boolean
   inRange?:      boolean
   onClick:     () => void
   onMouseEnter?: () => void
 }
 
-export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, team, maint, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
+export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHoliday, colSpan = 1, team, maint, maintNote, maintExpectedText, isRangeStart, inRange, onClick, onMouseEnter }: Props) {
   const base  = cellStyle(assignments, isConflict, team, maint)
   const isSun = dayOfWeek === 0
   const extra = assignments.length === 0 && !maint
@@ -88,9 +90,12 @@ export default function EquipmentCell({ assignments, isConflict, dayOfWeek, isHo
           {assignments.some(a => a.isLocked) && <Lock className={`absolute top-0.5 h-2.5 w-2.5 text-slate-400 ${isTentative ? 'right-3' : 'right-0.5'}`} />}
           {noteText && <StickyNote className="absolute bottom-0 right-0.5 h-2.5 w-2.5 text-slate-400" />}
         </div>
-      ) : maint ? (
-        <span className="truncate text-[10px] font-medium leading-tight">{MAINT_META[maint].label}</span>
-      ) : null}
+      ) : maint ? (() => {
+        // "🔧 ส่งซ่อม : {อาการ} - กำหนดแล้วเสร็จ {วันเดือน}"
+        const note = (maintNote ?? '').trim()
+        const txt = `${MAINT_META[maint].label}${note ? ` : ${note}` : ''}${maintExpectedText ? ` - กำหนดแล้วเสร็จ ${maintExpectedText}` : ''}`
+        return <span className="block truncate px-1 text-[10px] font-medium leading-tight" title={txt}>{txt}</span>
+      })() : null}
     </td>
   )
 }
