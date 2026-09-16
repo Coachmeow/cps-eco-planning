@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Wrench, Ruler, CheckCircle2, Circle, StickyNote } from 'lucide-react'
 import { calcDuration, fmtThaiDate } from '@/lib/employeeProfile'
 
@@ -49,7 +49,28 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
     return () => document.removeEventListener('mousedown', h)
   }, [onClose])
 
+  // สรุปประวัติซ่อม/Cal — คำนวณจาก events ที่โหลดมา
+  const summary = useMemo(() => {
+    const evs = eq?.events ?? []
+    if (evs.length === 0) return null
+    const DAY = 86400000
+    const repair = evs.filter(e => e.type === 'REPAIR')
+    const cal    = evs.filter(e => e.type === 'CALIBRATION')
+    const totalCost = evs.reduce((s, e) => s + (e.cost ?? 0), 0)
+    // ระยะเวลาส่งซ่อมรวม (วัน) — ใบที่ยังไม่รับกลับนับถึงวันนี้
+    const repairDays = repair.reduce((s, e) => {
+      const end = e.returnedDate ? new Date(e.returnedDate).getTime() : Date.now()
+      return s + Math.max(0, Math.round((end - new Date(e.sentDate).getTime()) / DAY))
+    }, 0)
+    const lastSent  = evs.reduce<string | null>((m, e) => (!m || e.sentDate > m ? e.sentDate : m), null)
+    const firstSent = evs.reduce<string | null>((m, e) => (!m || e.sentDate < m ? e.sentDate : m), null)
+    const years = firstSent ? Math.max(1, (Date.now() - new Date(firstSent).getTime()) / (365 * DAY)) : 1
+    const avgPerYear = totalCost > 0 ? Math.round(totalCost / years) : 0
+    return { repairCount: repair.length, calCount: cal.length, totalCost, repairDays, lastSent, avgPerYear }
+  }, [eq])
+
   const baht = (n: number) => n.toLocaleString('th-TH')
+  const fmtDays = (n: number) => n >= 30 ? `${Math.floor(n / 30)} เดือน${n % 30 ? ` ${n % 30} วัน` : ''}` : `${n} วัน`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -100,6 +121,31 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
               {eq.events.length === 0 ? (
                 <p className="py-2 text-center text-xs text-slate-300">ยังไม่มีประวัติ</p>
               ) : (
+                <>
+                {summary && (
+                  <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-sm font-bold text-slate-800">{summary.repairCount}<span className="text-slate-300"> / </span>{summary.calCount}</p>
+                      <p className="text-[10px] text-slate-500">ครั้ง ซ่อม / Cal</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-sm font-bold text-red-600">{fmtDays(summary.repairDays)}</p>
+                      <p className="text-[10px] text-slate-500">ส่งซ่อมรวม</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-sm font-bold text-slate-800">{summary.lastSent ? fmtThaiDate(summary.lastSent) : '—'}</p>
+                      <p className="text-[10px] text-slate-500">ส่งครั้งล่าสุด</p>
+                    </div>
+                    <div className="col-span-2 rounded-lg bg-amber-50 px-2 py-1.5">
+                      <p className="text-sm font-bold text-amber-700">{summary.totalCost > 0 ? `${baht(summary.totalCost)} บาท` : '—'}</p>
+                      <p className="text-[10px] text-slate-500">รวมค่าใช้จ่าย (ซ่อม + Cal)</p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 px-2 py-1.5">
+                      <p className="text-sm font-bold text-amber-700">{summary.avgPerYear > 0 ? baht(summary.avgPerYear) : '—'}</p>
+                      <p className="text-[10px] text-slate-500">เฉลี่ย/ปี (บาท)</p>
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   {eq.events.map(ev => (
                     <div key={ev.id} className="rounded-lg border border-slate-100 px-3 py-2 text-xs">
@@ -123,6 +169,7 @@ export default function EquipmentCard({ equipmentId, onClose }: { equipmentId: n
                     </div>
                   ))}
                 </div>
+                </>
               )}
             </div>
           </>

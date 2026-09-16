@@ -5,6 +5,7 @@ import { Wrench, Lock, StickyNote } from 'lucide-react'
 import type { Equipment, EquipmentType, Site, EquipmentAssignment } from '@/lib/types'
 import { siteDotClass } from '@/lib/siteColors'
 import SearchableSelect from '@/components/SearchableSelect'
+import EquipmentCard from '@/components/EquipmentCard'
 import { TentativeField, TentativeRow } from '@/components/TentativeControls'
 import { busyTitle, groupBusyByEquipment, type BusyRow } from '@/lib/equipmentBusy'
 
@@ -84,14 +85,16 @@ export default function EquipmentPopup({
     new Set([equipment.typeId])   // expand own type by default
   )
   const [saving, setSaving] = useState(false)
+  const [showCard, setShowCard] = useState(false)   // การ์ดประวัติเครื่อง (ซ้อนบน popup)
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
+      if (showCard) return   // เปิดการ์ดประวัติอยู่ → ไม่ปิด popup จากคลิกนอกกล่อง
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
-  }, [onClose])
+  }, [onClose, showCard])
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('th-TH', {
     weekday: 'short', day: 'numeric', month: 'short',
@@ -225,9 +228,12 @@ export default function EquipmentPopup({
               )}
             </div>
             <p className="text-xs text-slate-400">{equipment.type.code} · {equipment.type.name} · {dateLabel}</p>
+            <button onClick={() => setShowCard(true)} className="mt-0.5 text-[11px] font-medium text-emerald-600 hover:underline">ดูประวัติเครื่อง →</button>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
         </div>
+
+        {showCard && <EquipmentCard equipmentId={equipment.id} onClose={() => setShowCard(false)} />}
 
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto">

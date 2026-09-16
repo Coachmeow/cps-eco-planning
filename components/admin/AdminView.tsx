@@ -1149,6 +1149,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
   const [form, setForm] = useState(initForm)
   const [retForm, setRetForm] = useState({ returnedDate: today, nextDueDate: '', cost: '' })
   const [editForm, setEditForm] = useState({ returnedDate: today, nextDueDate: '', cost: '' })
+  const [viewEqId, setViewEqId] = useState<number | null>(null)   // เปิดการ์ดประวัติเครื่อง
 
   const load = useCallback(async () => {
     const [evRes, eqRes] = await Promise.all([
@@ -1253,7 +1254,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             {open.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-300">ไม่มีเครื่องที่กำลังส่งซ่อม/Cal</td></tr>}
             {open.map(ev => (
               <tr key={ev.id} className={`border-t border-slate-100 hover:bg-slate-50 ${overdue(ev) ? 'bg-red-50/40' : ''}`}>
-                <td className="px-4 py-2 font-medium text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
+                <td className="px-4 py-2 font-medium"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</button></td>
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs">{ev.expectedDate ? <span className={overdue(ev) ? 'font-semibold text-red-500' : 'text-slate-500'}>{ev.expectedDate.slice(0, 10)}{overdue(ev) && ' ⚠ เกิน'}</span> : '—'}</td>
@@ -1292,7 +1293,7 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
             {history.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-300">ยังไม่มีประวัติ</td></tr>}
             {history.slice(0, 50).map(ev => (
               <tr key={ev.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2 text-slate-700">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</td>
+                <td className="px-4 py-2"><button onClick={() => setViewEqId(ev.equipmentId)} className="text-slate-700 hover:text-emerald-700 hover:underline" title="ดูประวัติเครื่อง">{ev.equipment.type.code} {ev.equipment.internalNo ?? ev.equipment.serialNo}</button></td>
                 <td className="px-4 py-2"><TypeBadge t={ev.type} /></td>
                 <td className="px-4 py-2 text-xs text-slate-500">{ev.sentDate.slice(0, 10)} → {ev.returnedDate?.slice(0, 10)}</td>
                 <td className="px-4 py-2 text-xs">
@@ -1392,6 +1393,8 @@ function MaintenanceSection({ role }: { role?: UserRole }) {
           </div>
         </Modal>
       )}
+
+      {viewEqId != null && <EquipmentCard equipmentId={viewEqId} onClose={() => setViewEqId(null)} />}
     </div>
   )
 }
