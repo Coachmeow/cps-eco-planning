@@ -230,13 +230,15 @@ export default function DashboardView() {
                   </button>
                 </div>
               </div>
-              {/* กราฟทั้งสองซ้อนกัน crossfade opacity (ไม่สลับ data กลางคัน = ไม่กระตุก) · สูงคงที่กันการ์ดขยับ */}
+              {/* กราฟทั้งสองซ้อนกัน (mount ค้าง ไม่สลับ data = ไม่กระตุก) · สูงคงที่กันการ์ดขยับ
+                  fade แบบเรียงลำดับเหมือน ProvinceMap: ตัวเก่าจางออก (no delay) → ตัวใหม่ค่อยจางเข้า (delay-200)
+                  จึงไม่เห็นกราฟสองสีซ้อนโปร่งพร้อมกันช่วงกลาง */}
               <div className="relative h-64">
-                <div className={`absolute inset-0 overflow-y-auto pr-1 transition-opacity duration-300 ease-out ${vehView === 'util' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                <div className={`absolute inset-0 overflow-y-auto pr-1 transition-opacity duration-200 ease-out ${vehView === 'util' ? 'opacity-100 delay-200' : 'pointer-events-none opacity-0'}`}>
                   <HBarList unit="%" maxDomain={100}
                     items={(data.vehicleUtil ?? []).map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
                 </div>
-                <div className={`absolute inset-0 overflow-y-auto pr-1 transition-opacity duration-300 ease-out ${vehView === 'km' ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                <div className={`absolute inset-0 overflow-y-auto pr-1 transition-opacity duration-200 ease-out ${vehView === 'km' ? 'opacity-100 delay-200' : 'pointer-events-none opacity-0'}`}>
                   <HBarList unit=" กม." valueFmt={(v) => `${v.toLocaleString()} กม.`}
                     items={(data.vehicleGpsKm ?? []).map(v => ({ label: v.label, value: v.km, hex: '#0f766e' }))} />
                 </div>
