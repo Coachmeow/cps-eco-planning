@@ -41,6 +41,10 @@ export default function GpsSection() {
   const [loading, setLoading] = useState(true)
   const [selId, setSelId] = useState<number | null>(null)
   const [view, setView] = useState<'map' | 'speed'>('map')
+  // crossfade: มุมมอง/คันที่ "โชว์อยู่" ตามหลังของที่เลือก เพื่อ fade สลับตอนเปลี่ยน view หรือเปลี่ยนคัน
+  const [dispView, setDispView] = useState<'map' | 'speed'>('map')
+  const [dispSelId, setDispSelId] = useState<number | null>(null)
+  const [contentVisible, setContentVisible] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [report, setReport] = useState<string | null>(null)
@@ -57,6 +61,14 @@ export default function GpsSection() {
   }, [date])
 
   useEffect(() => { load() }, [load])
+
+  // crossfade กล่องแผนที่/การขับขี่ตอนสลับ view หรือเลือกคันใหม่ (fade out → สลับ → fade in)
+  useEffect(() => {
+    if (view === dispView && selId === dispSelId) return
+    setContentVisible(false)
+    const t = setTimeout(() => { setDispView(view); setDispSelId(selId); setContentVisible(true) }, 200)
+    return () => clearTimeout(t)
+  }, [view, selId, dispView, dispSelId])
 
   // เลื่อนไปวันที่ "มีข้อมูล" ถัดไป/ก่อนหน้า (ข้ามวันที่ไม่มีข้อมูล · ใช้ได้แม้วันปัจจุบันไม่อยู่ในลิสต์)
   function shiftDay(dir: -1 | 1) {
@@ -111,9 +123,10 @@ export default function GpsSection() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const selected = data?.vehicles.find(v => v.vehicleId === selId) ?? null
-  const mapVehicle: GpsVehiclePoint | null = selected
-    ? { vehicleId: selected.vehicleId, plate: selected.plate, path: selected.path, visits: selected.visits }
+  // เนื้อหาที่โชว์อยู่ = คันที่ "ตามหลัง" (dispSelId) เพื่อให้ fade พร้อมกัน; row/ปุ่มยังชี้ selId/view สด
+  const dispSelected = data?.vehicles.find(v => v.vehicleId === dispSelId) ?? null
+  const dispMapVehicle: GpsVehiclePoint | null = dispSelected
+    ? { vehicleId: dispSelected.vehicleId, plate: dispSelected.plate, path: dispSelected.path, visits: dispSelected.visits }
     : null
   const totalKm = data?.vehicles.reduce((s, v) => s + v.distanceKm, 0) ?? 0
 
@@ -258,13 +271,13 @@ export default function GpsSection() {
           {/* แผนที่ / กราฟความเร็ว */}
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              {selected && (
-                <>
-                  <span className="font-mono font-semibold text-slate-700">{selected.plate}</span>
-                  <span><Navigation className="mr-0.5 inline h-3 w-3 align-[-2px]" />{selected.distanceKm} กม.</span>
-                  <span><Clock className="mr-0.5 inline h-3 w-3 align-[-2px]" />วิ่ง {hm(selected.movingMin)} · จอด {hm(selected.idleMin)}</span>
-                  <span>{hhmm(selected.firstMoveAt)}–{hhmm(selected.lastStopAt)}</span>
-                </>
+              {dispSelected && (
+                <div className="flex flex-wrap items-center gap-3 transition-opacity duration-200 ease-out" style={{ opacity: contentVisible ? 1 : 0 }}>
+                  <span className="font-mono font-semibold text-slate-700">{dispSelected.plate}</span>
+                  <span><Navigation className="mr-0.5 inline h-3 w-3 align-[-2px]" />{dispSelected.distanceKm} กม.</span>
+                  <span><Clock className="mr-0.5 inline h-3 w-3 align-[-2px]" />วิ่ง {hm(dispSelected.movingMin)} · จอด {hm(dispSelected.idleMin)}</span>
+                  <span>{hhmm(dispSelected.firstMoveAt)}–{hhmm(dispSelected.lastStopAt)}</span>
+                </div>
               )}
               {/* toggle */}
               <div className="ml-auto flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
@@ -278,12 +291,12 @@ export default function GpsSection() {
                 </button>
               </div>
             </div>
-            {/* ความสูงคงที่ทั้งสองมุมมอง — สลับ map/การขับขี่ ไม่ถีบเนื้อหาด้านล่าง */}
-            <div className="h-[500px]">
-              {view === 'map'
-                ? <GpsRouteMap vehicle={mapVehicle} geofences={data.geofences} height={500} />
-                : <GpsJourneyPanel series={selected?.speed ?? null} maxSpeed={selected?.maxSpeed ?? 0} overspeedPct={selected?.overspeedPct ?? 0}
-                    visits={selected?.visits ?? []} firstMoveAt={selected?.firstMoveAt ?? null} lastStopAt={selected?.lastStopAt ?? null} distanceKm={selected?.distanceKm ?? 0} />}
+            {/* ความสูงคงที่ทั้งสองมุมมอง — สลับ map/การขับขี่ ไม่ถีบเนื้อหาด้านล่าง · crossfade ตอนเปลี่ยน view/คัน */}
+            <div className="h-[500px] transition-opacity duration-200 ease-out" style={{ opacity: contentVisible ? 1 : 0 }}>
+              {dispView === 'map'
+                ? <GpsRouteMap vehicle={dispMapVehicle} geofences={data.geofences} height={500} />
+                : <GpsJourneyPanel series={dispSelected?.speed ?? null} maxSpeed={dispSelected?.maxSpeed ?? 0} overspeedPct={dispSelected?.overspeedPct ?? 0}
+                    visits={dispSelected?.visits ?? []} firstMoveAt={dispSelected?.firstMoveAt ?? null} lastStopAt={dispSelected?.lastStopAt ?? null} distanceKm={dispSelected?.distanceKm ?? 0} />}
             </div>
           </div>
         </div>
