@@ -39,8 +39,16 @@ export async function GET(req: NextRequest) {
     return started === 'REPAIR' ? 'BROKEN' : started === 'CALIBRATION' ? 'CALIBRATING' : 'ACTIVE'
   }
 
+  // ค่าใช้จ่ายซ่อม/Cal สะสมต่อเครื่อง (รวมทุกใบงาน)
+  const costAgg = await prisma.equipmentEvent.groupBy({
+    by: ['equipmentId'],
+    where: { equipmentId: { in: equipment.map(e => e.id) } },
+    _sum: { cost: true },
+  })
+  const costByEq = new Map(costAgg.map(g => [g.equipmentId, g._sum.cost ?? 0]))
+
   // strip base64 photoUrl ออกจาก list (โหลดผ่าน /photo) ส่งแค่ hasPhoto
-  const out = equipment.map(({ photoUrl, ...e }) => ({ ...e, status: effectiveStatus(e), hasPhoto: !!photoUrl }))
+  const out = equipment.map(({ photoUrl, ...e }) => ({ ...e, status: effectiveStatus(e), hasPhoto: !!photoUrl, maintCost: costByEq.get(e.id) ?? 0 }))
   return NextResponse.json(out)
 }
 

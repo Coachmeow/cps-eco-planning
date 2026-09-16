@@ -60,6 +60,7 @@ interface Equipment {
   brand?: string | null; model?: string | null; vendor?: string | null
   purchaseDate?: string | null; purchasePrice?: number | null; lifespanYears?: number | null; calDueDate?: string | null
   hasPhoto?: boolean
+  maintCost?: number | null   // ค่าซ่อม/Cal สะสม (รวมทุกใบงาน)
 }
 
 const TEAM_COLOR: Record<string, string> = {
@@ -898,6 +899,7 @@ function EquipmentSection({ role }: { role?: UserRole }) {
               <th className="px-4 py-2 text-left font-medium">ประเภท</th>
               <th className="px-4 py-2 text-left font-medium">ระยะเช่า</th>
               <th className="px-4 py-2 text-left font-medium">สถานะ</th>
+              <th className="px-4 py-2 text-right font-medium">ค่าซ่อม/Cal สะสม</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
@@ -941,6 +943,13 @@ function EquipmentSection({ role }: { role?: UserRole }) {
                           <option value="ACTIVE">ACTIVE</option>
                           <option value="RETIRED">RETIRED</option>
                         </select>}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {eq.maintCost ? (
+                      <button onClick={() => setViewing(eq)} title="ดูประวัติซ่อม/Cal" className="font-mono text-xs font-medium text-slate-600 hover:text-emerald-700 hover:underline">
+                        {eq.maintCost.toLocaleString('th-TH')} ฿
+                      </button>
+                    ) : <span className="text-xs text-slate-300">—</span>}
                   </td>
                   <td className="px-4 py-2 text-right">
                     {/* ปุ่มลบย้ายเข้าไปใน modal แก้ไข (โซนอันตราย) — กันมือลั่นในลิสต์ยาว */}
