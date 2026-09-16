@@ -318,6 +318,14 @@ export interface VehicleUtilRow {
   util: number
 }
 
+// ระยะทางสะสมจาก GPS ต่อคัน (เดือนที่เลือก)
+export interface VehicleGpsKmRow {
+  vehicleId: number
+  label: string
+  km: number
+  days: number   // จำนวนวันที่มีข้อมูล GPS ในเดือนนั้น
+}
+
 export interface DashboardData {
   equipmentUtil: EquipmentUtilRow[]
   teamWorkload: TeamWorkloadRow[]
@@ -333,6 +341,7 @@ export interface DashboardData {
   }
   trend: TrendPoint[]
   vehicleUtil?: VehicleUtilRow[]
+  vehicleGpsKm?: VehicleGpsKmRow[]
   alerts?: DashboardAlerts
   equipmentAvail?: { available: number; total: number; pct: number }
   // งานจองรอลูกค้ายืนยัน — ยอดวัน-คนเดือนนี้ + รายการที่ใกล้ถึงวันงาน (7 วัน)

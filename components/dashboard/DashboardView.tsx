@@ -37,6 +37,7 @@ export default function DashboardView() {
   const [month, setMonth] = useState(today.getMonth() + 1)
   const [data,  setData]  = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [vehView, setVehView] = useState<'util' | 'km'>('util')   // การ์ดรถ: สลับ %การจอง ⇄ GPS ไมล์สะสม
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -210,14 +211,34 @@ export default function DashboardView() {
             </div>
           </Card>
 
-          {/* Utilization รถ */}
-          {data.vehicleUtil && data.vehicleUtil.length > 0 && (
-            <Card title="Utilization รถ (% การจอง)">
-              <div className="max-h-64 overflow-y-auto pr-1">
-                <HBarList unit="%" maxDomain={100}
-                  items={data.vehicleUtil.map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
+          {/* การ์ดรถ — สลับดู Utilization (%การจอง) ⇄ ระยะทางสะสมจาก GPS */}
+          {((data.vehicleUtil?.length ?? 0) > 0 || (data.vehicleGpsKm?.length ?? 0) > 0) && (
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-slate-700">
+                  {vehView === 'util' ? 'Utilization รถ (% การจอง)' : 'ระยะทางสะสม GPS รายเดือน'}
+                </h2>
+                <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-xs">
+                  <button type="button" onClick={() => setVehView('util')}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors ${vehView === 'util' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-700'}`}>
+                    % การจอง
+                  </button>
+                  <button type="button" onClick={() => setVehView('km')}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors ${vehView === 'km' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-700'}`}>
+                    GPS ไมล์สะสม
+                  </button>
+                </div>
               </div>
-            </Card>
+              <div className="max-h-64 overflow-y-auto pr-1">
+                {vehView === 'util' ? (
+                  <HBarList unit="%" maxDomain={100}
+                    items={(data.vehicleUtil ?? []).map(v => ({ label: v.label, value: v.util, hex: utilHex(v.util) }))} />
+                ) : (
+                  <HBarList unit=" กม." valueFmt={(v) => `${v.toLocaleString()} กม.`}
+                    items={(data.vehicleGpsKm ?? []).map(v => ({ label: v.label, value: v.km, hex: '#0f766e' }))} />
+                )}
+              </div>
+            </div>
           )}
 
           {/* GPS รถ (รายวัน) — ระยะทาง + ไซต์ที่ไป + แผนที่เส้นทาง (แยกจากตัวเลือกเดือน) */}

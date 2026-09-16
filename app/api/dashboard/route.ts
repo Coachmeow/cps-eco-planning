@@ -394,5 +394,24 @@ export async function GET(req: NextRequest) {
     }
   }).sort((a, b) => b.util - a.util)
 
-  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, capacityHeat, trend, vehicleUtil, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, sankeyRows, workdays, year, month })
+  // ── Monthly GPS Mileage (กม.สะสมจาก GPS ต่อคัน) ──────────────
+  // รวม distanceKm รายวันของเดือนที่เลือก ต่อคัน + นับจำนวนวันที่มีข้อมูล เรียงมาก→น้อย
+  const gpsKmGroups = await prisma.vehicleGpsDay.groupBy({
+    by: ['vehicleId'],
+    where: { forDate: { gte: startDate, lte: endDate } },
+    _sum: { distanceKm: true },
+    _count: { id: true },
+  })
+  const vehLabel = new Map(activeVehicles.map(v => [v.id, v.licensePlate]))
+  const vehicleGpsKm = gpsKmGroups
+    .map(g => ({
+      vehicleId: g.vehicleId,
+      label: vehLabel.get(g.vehicleId) ?? `#${g.vehicleId}`,
+      km: Math.round((g._sum.distanceKm ?? 0) * 10) / 10,
+      days: g._count.id,
+    }))
+    .filter(r => r.km > 0)
+    .sort((a, b) => b.km - a.km)
+
+  return NextResponse.json({ equipmentUtil, teamWorkload, crossContrib, personUtil, siteMandays, teamCapacity, capacityHeat, trend, vehicleUtil, vehicleGpsKm, alerts, equipmentAvail, tentativeDays, tentativeSoon, calDueSoonList, sankeyRows, workdays, year, month })
 }
