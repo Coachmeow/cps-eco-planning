@@ -224,7 +224,9 @@ export default function EquipmentCalendar() {
           while (i + mspan < days.length) {
             const nk = toDateKey(days[i + mspan])
             if ((dayMap?.get(nk)?.length ?? 0) > 0) break
-            if (maintDayMap.get(eq.id)?.get(nk)?.kind !== mk) break
+            // เบรกเมื่อเป็นคนละใบงาน (ชนิด/อาการ/กำหนดเสร็จต่างกัน) — กันแท่งเดียวโชว์ข้อมูลของใบแรกทับใบหลัง
+            const nInfo = maintDayMap.get(eq.id)?.get(nk)
+            if (!nInfo || nInfo.kind !== mk || nInfo.notes !== mInfo.notes || nInfo.expected !== mInfo.expected) break
             mspan++
           }
           cells.push(

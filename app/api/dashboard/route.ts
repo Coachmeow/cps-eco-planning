@@ -402,7 +402,9 @@ export async function GET(req: NextRequest) {
     _sum: { distanceKm: true },
     _count: { id: true },
   })
-  const vehLabel = new Map(activeVehicles.map(v => [v.id, v.licensePlate]))
+  // label จากรถ "ทุกคัน" (รวมที่ปลดระวาง) เผื่อรถมี GPS ในเดือนนั้นแล้วเพิ่งปลดระวาง
+  const allVehLabels = await prisma.vehicle.findMany({ select: { id: true, licensePlate: true } })
+  const vehLabel = new Map(allVehLabels.map(v => [v.id, v.licensePlate]))
   const vehicleGpsKm = gpsKmGroups
     .map(g => ({
       vehicleId: g.vehicleId,

@@ -37,11 +37,13 @@ export function normalizePlate(s: unknown): string {
 
 const norm = (s: unknown) => String(s ?? '').trim().toLowerCase()
 
-// หาแถวหัวตาราง = แถวที่มีทั้ง "longitude" และ "latitude" (รองรับทุก layout ของ Cartrack)
+// หาแถวหัวตาราง = แถวที่มีคอลัมน์พิกัด lat+lng (รับ alias ชุดเดียวกับตัวอ่านคอลัมน์ด้านล่าง)
+const LAT_HDRS = ['latitude', 'lat']
+const LNG_HDRS = ['longitude', 'lng', 'long', 'lon']
 function findHeader(rows: unknown[][]): number {
   for (let i = 0; i < Math.min(rows.length, 40); i++) {
     const cells = (rows[i] ?? []).map(norm)
-    if (cells.includes('longitude') && cells.includes('latitude')) return i
+    if (cells.some(c => LAT_HDRS.includes(c)) && cells.some(c => LNG_HDRS.includes(c))) return i
   }
   return -1
 }
@@ -73,8 +75,8 @@ export function parseCartrack(buf: Buffer): GpsPing[] {
   if (plateI < 0 && idx.has('username')) plateI = idx.get('username')! + 1
 
   const eventI = col('event', 'event time', 'date time', 'date/time', 'timestamp', 'datetime')
-  const lngI = col('longitude', 'lng', 'long', 'lon')
-  const latI = col('latitude', 'lat')
+  const lngI = col(...LNG_HDRS)
+  const latI = col(...LAT_HDRS)
   const speedI = col('speed', 'speed (km/h)')
   const roadI = col('road speed', 'speed limit', 'road speed limit')
   const placeI = col('position description', 'position', 'location', 'address')
