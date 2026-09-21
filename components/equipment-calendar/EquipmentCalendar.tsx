@@ -428,12 +428,12 @@ export default function EquipmentCalendar() {
                       <tr key={eq.id} className="hover:bg-slate-50/50">
                         <td className="sticky left-0 z-10 border-b border-b-slate-400 border-r border-r-slate-200 bg-white px-3 py-1.5">
                           {(() => {
-                            // บน (ตัวหนา) = ยี่ห้อ รุ่น ; ล่าง (เทาเล็ก) = หมายเลขภายใน · S/N
-                            // ยังไม่กรอกยี่ห้อ/รุ่น → ยกหมายเลขภายในขึ้นบรรทัดบน (หน้าตาเหมือนเดิม) กันบรรทัดบนว่าง
+                            // บน (ตัวหนา) = หมายเลขภายใน ; ล่าง (เทาเล็ก) = ยี่ห้อ รุ่น · S/N
+                            // ไม่มีหมายเลขภายใน → ยก S/N ขึ้นบรรทัดบน (แล้วไม่โชว์ S/N ซ้ำล่าง)
                             const brandModel = [eq.brand, eq.model].map(s => (s ?? '').trim()).filter(Boolean).join(' ')
-                            const topName = brandModel || eq.internalNo || eq.serialNo || `#${eq.id}`
-                            const subParts = brandModel ? [eq.internalNo, eq.serialNo] : (eq.internalNo ? [eq.serialNo] : [])
-                            const subLine = subParts.map(s => (s ?? '').trim()).filter(Boolean).join(' · ')
+                            const topName = eq.internalNo || eq.serialNo || `#${eq.id}`
+                            const serialForSub = eq.internalNo ? eq.serialNo : null
+                            const subLine = [brandModel, serialForSub].map(s => (s ?? '').trim()).filter(Boolean).join(' · ')
                             return (
                               <>
                                 <div className="flex items-center gap-1.5">
