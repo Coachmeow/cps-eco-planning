@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "audit:gates": "node scripts/audit-route-gates.mjs",
     "migrate": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/run-migration.ts",
     "seed:users": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/seed-users.ts",
     "create:admin": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/create-admin.ts"
